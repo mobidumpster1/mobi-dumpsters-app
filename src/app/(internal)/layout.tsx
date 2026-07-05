@@ -15,9 +15,9 @@ export default async function InternalLayout({
   const pendingCount = await db.booking.count({ where: { status: "pending" } });
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full flex-col md:flex-row">
       <Sidebar logoExists={logoExists} pendingCount={pendingCount} />
-      <main className="w-full flex-1 px-8 py-10">
+      <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-10">
         <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
     </div>

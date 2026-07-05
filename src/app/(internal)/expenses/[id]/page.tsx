@@ -32,7 +32,7 @@ export default async function ExpenseDetailPage({
 
   return (
     <div className="max-w-xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             {expense.vendor}

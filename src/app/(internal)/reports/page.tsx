@@ -212,7 +212,7 @@ export default async function ReportsPage() {
         <h2 className="text-xl font-semibold text-ink">
           Monthly Breakdown
         </h2>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
@@ -261,7 +261,7 @@ export default async function ReportsPage() {
         <h2 className="text-xl font-semibold text-ink">
           Revenue by Customer
         </h2>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
@@ -295,7 +295,7 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold text-ink">
             Cost by Equipment
           </h2>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-zinc-50 text-zinc-500">
                 <tr>

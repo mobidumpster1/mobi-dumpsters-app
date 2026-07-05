@@ -45,7 +45,7 @@ export default async function NewInvoicePage({
         {booking.items.map((i) => i.equipmentItem.label).join(", ")}
       </p>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

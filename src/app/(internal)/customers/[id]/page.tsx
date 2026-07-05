@@ -55,7 +55,7 @@ export default async function CustomerDetailPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             {customer.name}
@@ -131,7 +131,7 @@ export default async function CustomerDetailPage({
       <h2 className="mt-8 text-xl font-semibold text-ink">
         Job History
       </h2>
-      <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -191,7 +191,7 @@ export default async function CustomerDetailPage({
             Not tied to a booking in this app (e.g. imported historical
             records).
           </p>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-zinc-50 text-zinc-500">
                 <tr>
@@ -314,7 +314,7 @@ export default async function CustomerDetailPage({
           <h2 className="mt-8 text-xl font-semibold text-ink">
             Signed Agreements
           </h2>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-zinc-50 text-zinc-500">
                 <tr>

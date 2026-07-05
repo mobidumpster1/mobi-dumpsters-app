@@ -98,7 +98,7 @@ export default async function CalendarPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink">Calendar</h1>
           <p className="mt-1 text-zinc-500">
@@ -130,7 +130,8 @@ export default async function CalendarPage({
 
       <h2 className="mt-6 text-xl font-semibold text-ink">{monthLabel}</h2>
 
-      <div className="mt-3 grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-200 shadow-sm">
+      <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 shadow-sm">
+      <div className="grid min-w-[700px] grid-cols-7 gap-px bg-zinc-200">
         {WEEKDAY_LABELS.map((label) => (
           <div
             key={label}
@@ -181,6 +182,7 @@ export default async function CalendarPage({
             </div>
           );
         })}
+      </div>
       </div>
 
       <div className="mt-4 flex gap-4 text-sm text-zinc-500">

@@ -12,7 +12,7 @@ export default async function CategoriesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             Equipment Categories
@@ -39,7 +39,7 @@ export default async function CategoriesPage() {
               href={`/equipment/categories/${category.id}/edit`}
               className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:border-zinc-300"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-medium text-zinc-900">{category.name}</h2>
                 <span className="text-sm text-zinc-500">
                   {category.items.length} item

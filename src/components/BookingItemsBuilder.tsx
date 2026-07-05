@@ -75,10 +75,10 @@ export function BookingItemsBuilder({
       {rows.map((row, index) => (
         <div
           key={index}
-          className="grid grid-cols-12 gap-2 rounded-xl border border-zinc-200 p-3"
+          className="grid grid-cols-1 gap-2 rounded-xl border border-zinc-200 p-3 sm:grid-cols-12"
         >
           <select
-            className={`${inputClass} col-span-4`}
+            className={`${inputClass} sm:col-span-4`}
             value={row.equipmentItemId}
             onChange={(e) =>
               updateRow(index, { equipmentItemId: e.target.value })
@@ -93,14 +93,14 @@ export function BookingItemsBuilder({
           </select>
           <input
             type="date"
-            className={`${inputClass} col-span-3`}
+            className={`${inputClass} sm:col-span-3`}
             value={row.startDate}
             onChange={(e) => updateRow(index, { startDate: e.target.value })}
             required
           />
           <input
             type="date"
-            className={`${inputClass} col-span-3`}
+            className={`${inputClass} sm:col-span-3`}
             value={row.expectedReturnDate}
             onChange={(e) =>
               updateRow(index, { expectedReturnDate: e.target.value })
@@ -111,14 +111,14 @@ export function BookingItemsBuilder({
             type="number"
             step="0.01"
             placeholder="Price"
-            className={`${inputClass} col-span-1`}
+            className={`${inputClass} sm:col-span-1`}
             value={row.price}
             onChange={(e) => updateRow(index, { price: e.target.value })}
           />
           <button
             type="button"
             onClick={() => removeRow(index)}
-            className="col-span-1 text-sm text-red-600 hover:underline"
+            className="rounded-xl py-2 text-sm font-medium text-red-600 hover:underline sm:col-span-1 sm:py-0"
           >
             Remove
           </button>

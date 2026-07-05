@@ -52,7 +52,7 @@ function DispatchCard({
 }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-semibold text-zinc-900">{date}</span>
         <span className={`text-xs ${urgencyClassName}`}>{urgencyText}</span>
       </div>
