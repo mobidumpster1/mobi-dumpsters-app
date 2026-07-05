@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
+import { quickSetEquipmentStatus } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,11 @@ export default async function EquipmentPage({
                   </td>
                   <td className="px-5 py-4 text-zinc-600">{item.category.name}</td>
                   <td className="px-5 py-4">
-                    <StatusBadge status={item.status} />
+                    <StatusQuickSelect
+                      itemId={item.id}
+                      currentStatus={item.status}
+                      action={quickSetEquipmentStatus}
+                    />
                   </td>
                   <td className="px-5 py-4 text-zinc-600">
                     {item.currentCustomer

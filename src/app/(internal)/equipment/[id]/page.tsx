@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { formatAttributeValue, parseAttributes, parseFieldDefinitions } from "@/lib/categoryFields";
 import { uploadEquipmentPhoto, deleteEquipmentPhoto } from "../photoActions";
+import { quickSetEquipmentStatus } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { GalleryImage } from "@/components/GalleryImage";
 
@@ -83,7 +84,11 @@ export default async function EquipmentDetailPage({
         <div>
           <dt className="text-zinc-500">Status</dt>
           <dd className="mt-1">
-            <StatusBadge status={item.status} />
+            <StatusQuickSelect
+              itemId={item.id}
+              currentStatus={item.status}
+              action={quickSetEquipmentStatus}
+            />
           </dd>
         </div>
         <div>

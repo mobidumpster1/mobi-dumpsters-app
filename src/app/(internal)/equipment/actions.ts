@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import {
@@ -66,4 +67,27 @@ export async function updateEquipmentItem(
   });
 
   redirect(`/equipment/${itemId}`);
+}
+
+// A fast one-click way to fix/change status without opening the full Edit
+// form — e.g. clearing a stuck "Reserved" after a booking was cancelled.
+// Switching to "available" also clears any leftover customer/location so
+// the item doesn't look tied to a job it's no longer on.
+export async function quickSetEquipmentStatus(
+  itemId: string,
+  formData: FormData
+) {
+  const status = str(formData, "status");
+  if (!status) throw new Error("Status is required");
+
+  await db.equipmentItem.update({
+    where: { id: itemId },
+    data:
+      status === "available"
+        ? { status, currentCustomerId: null, currentLocation: "Yard" }
+        : { status },
+  });
+
+  revalidatePath("/equipment");
+  revalidatePath(`/equipment/${itemId}`);
 }
