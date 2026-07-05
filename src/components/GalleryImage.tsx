@@ -69,7 +69,7 @@ export function GalleryImage({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setOpenIndex((openIndex - 1 + images.length) % images.length);
+                  setOpenIndex((openIndex! - 1 + images.length) % images.length);
                 }}
                 className="absolute left-4 text-4xl font-bold text-white hover:opacity-70"
                 aria-label="Previous photo"
@@ -80,7 +80,7 @@ export function GalleryImage({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setOpenIndex((openIndex + 1) % images.length);
+                  setOpenIndex((openIndex! + 1) % images.length);
                 }}
                 className="absolute right-4 text-4xl font-bold text-white hover:opacity-70"
                 aria-label="Next photo"
@@ -100,7 +100,7 @@ export function GalleryImage({
 
           {images.length > 1 && (
             <div className="absolute bottom-4 text-sm text-white/70">
-              {openIndex + 1} / {images.length}
+              {openIndex! + 1} / {images.length}
             </div>
           )}
         </div>
