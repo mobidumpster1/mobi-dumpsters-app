@@ -1,0 +1,349 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A customer of the business. Kept simple for v1: one address per
+// customer. Per-booking delivery addresses can differ from this.
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  companyName String?
+  phone       String?
+  email       String?
+  address     String?
+  // Geocoded from address for the all-customers map view. Null until
+  // geocoding succeeds (e.g. no address on file, or no Maps API key yet).
+  latitude    Float?
+  longitude   Float?
+  notes       String?
+  // Comma-separated labels (e.g. "Residential,Repeat") shown as pills in the UI.
+  tags        String   @default("")
+  // Set once this customer exists in QuickBooks (created here, imported
+  // from QuickBooks, or matched during a sync), so we don't create dupes.
+  quickbooksCustomerId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings        Booking[]
+  equipmentOnHand EquipmentItem[]
+  communications  CustomerNote[]
+  locationEvents  EquipmentLocationEvent[]
+  invoices        Invoice[]
+  photos          CustomerPhoto[]
+  signedAgreements SignedAgreement[]
+}
+
+// A single entry in a customer's communication timeline (a note, or a
+// logged call/text), newest first.
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  type       String   @default("note") // note | call | text | email
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPhoto {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  type       String   @default("other") // property | id | contract | other
+  caption    String?
+  filePath   String
+  createdAt  DateTime @default(now())
+}
+
+// Defines a type of rentable thing (Roll-Off Dumpster, Excavator, Tiller...).
+// fieldDefinitions holds a JSON array describing the extra fields that
+// items in this category track, e.g.:
+// [{"key":"sizeYards","label":"Size (yd)","type":"number","required":true}]
+// New equipment types are added by creating a new category here, not by
+// changing this schema.
+model EquipmentCategory {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?
+  fieldDefinitions String   @default("[]")
+  // How many days an item of this category can sit at one site before it's
+  // flagged as "sitting too long" on the equipment dashboard.
+  agingThresholdDays Int    @default(14)
+
+  // Pricing rules used to auto-generate invoice line items. All optional —
+  // a category only needs the rules relevant to it (e.g. an excavator may
+  // skip tonnage, a dumpster may skip mileage).
+  basePrice          Float?
+  includedDays       Int?
+  overageDayRate     Float?
+  includedTonnage    Float?
+  overageTonnageRate Float?
+  includedMileage    Float?
+  overageMileageRate Float?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items EquipmentItem[]
+}
+
+// A single physical unit you own (e.g. "Dumpster #1"). `attributes` holds
+// a JSON object with values for whatever fields its category defines
+// (e.g. {"sizeYards": 20, "maxWeightTons": 3} for a dumpster, or
+// {"hourMeter": 812.5, "attachments": ["bucket","breaker"]} for an excavator).
+model EquipmentItem {
+  id         String            @id @default(cuid())
+  categoryId String
+  category   EquipmentCategory @relation(fields: [categoryId], references: [id])
+
+  label      String
+  assetTag   String?
+  // available | reserved | out_on_job | in_transit | needs_repair | retired
+  status     String  @default("available")
+  attributes String  @default("{}")
+
+  currentLocation   String?
+  currentCustomerId String?
+  currentCustomer   Customer? @relation(fields: [currentCustomerId], references: [id])
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookingItems    BookingItem[]
+  expenses        Expense[]
+  locationEvents  EquipmentLocationEvent[]
+  photos          EquipmentPhoto[]
+}
+
+// A log of where a piece of equipment has been over time. A null endedAt
+// means it's currently there — duration-at-current-site and the "sitting
+// too long" flag are both computed from this.
+model EquipmentLocationEvent {
+  id              String        @id @default(cuid())
+  equipmentItemId String
+  equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+  location        String
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
+  createdAt       DateTime      @default(now())
+}
+
+// A permanent condition photo for a piece of equipment (damage, wear,
+// repair documentation) — independent of any specific job, unlike the
+// booking-scoped Photo model below.
+model EquipmentPhoto {
+  id              String        @id @default(cuid())
+  equipmentItemId String
+  equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+  type            String        @default("condition") // condition | damage | repair | other
+  caption         String?
+  filePath        String
+  createdAt       DateTime      @default(now())
+}
+
+// A rental transaction for one customer. May include multiple pieces of
+// equipment, each tracked independently via BookingItem.
+model Booking {
+  id              String   @id @default(cuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  status          String   @default("confirmed") // quoted | confirmed | in_progress | completed | cancelled
+  deliveryAddress String
+  // Geocoded from deliveryAddress so it can be pinned on the dispatch map.
+  // Null until geocoding succeeds (e.g. before a Maps API key is configured).
+  latitude        Float?
+  longitude       Float?
+  notes           String?
+  // Set once a Google Calendar event has been created for this booking, so
+  // we don't create duplicates if the push is ever retried.
+  googleCalendarEventId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items    BookingItem[]
+  invoices Invoice[]
+  expenses Expense[]
+  photos   Photo[]
+  signedAgreements SignedAgreement[]
+}
+
+// A photo attached to a booking (delivery/pickup condition, damage, etc.),
+// stored on local disk under /uploads and referenced by relative path.
+model Photo {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  type      String   @default("other") // delivery | pickup | damage | other
+  caption   String?
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
+// One piece of equipment within a booking. Dates and price live here
+// (not on Booking) so items in the same booking can have independent
+// schedules, e.g. a dumpster dropped today and a trailer dropped next week.
+model BookingItem {
+  id              String        @id @default(cuid())
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  equipmentItemId String
+  equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+
+  startDate          DateTime
+  expectedReturnDate DateTime
+  actualReturnDate   DateTime?
+  deliveredAt        DateTime?
+  pickedUpAt         DateTime?
+
+  // Entered by staff when closing out the job; compared against the
+  // category's included limits to compute overage line items.
+  actualTonnage Float?
+  actualMileage Float?
+
+  price     Float   @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// A simple invoice generated from a booking. bookingId/booking are optional
+// so standalone historical invoices (e.g. imported from old records that
+// predate this app) can exist with just a customer, no full booking.
+model Invoice {
+  id            String    @id @default(cuid())
+  bookingId     String?
+  booking       Booking?  @relation(fields: [bookingId], references: [id])
+  // Used when there's no booking — set on every invoice for convenience,
+  // but especially load-bearing when bookingId is null.
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  invoiceNumber String    @unique
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime?
+  amount        Float
+  status        String    @default("unpaid") // unpaid | paid | partial
+  paidDate      DateTime?
+  paymentMethod String?
+  notes         String?
+  // Set once pushed to QuickBooks (on marking paid), so retries don't
+  // create duplicate records there.
+  quickbooksInvoiceId String?
+  quickbooksPaymentId String?
+  createdAt     DateTime  @default(now())
+
+  lineItems InvoiceLineItem[]
+}
+
+// One line on an invoice — base rental, an overage charge, or an add-on.
+// Invoice.amount is kept as the sum of these for quick display.
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  description String
+  amount      Float
+  // base | overage_days | overage_tonnage | overage_mileage | addon | other
+  type        String   @default("other")
+  createdAt   DateTime @default(now())
+}
+
+// Money going out: fuel, dump fees, subcontractors, equipment purchases,
+// maintenance, etc. Optionally tied to the job or piece of equipment it
+// was incurred for, so profit can be broken down by booking or equipment.
+model Expense {
+  id       String   @id @default(cuid())
+  vendor   String
+  category String
+  amount   Float
+  date     DateTime
+  dueDate  DateTime?
+  status   String    @default("unpaid") // unpaid | paid
+  paidDate DateTime?
+  notes    String?
+
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  equipmentItemId String?
+  equipmentItem   EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
+
+  // Set once pushed to QuickBooks (on marking paid).
+  quickbooksPurchaseId String?
+
+  receipts ExpenseReceipt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExpenseReceipt {
+  id        String   @id @default(cuid())
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id])
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
+// A single row holding the connection to the business's QuickBooks Online
+// company, including which account/item new transactions should post to.
+// Only exists once a "Connect to QuickBooks" flow has completed.
+model QuickBooksConnection {
+  id                        String   @id @default(cuid())
+  realmId                   String
+  accessToken               String
+  refreshToken              String
+  accessTokenExpiresAt      DateTime
+  environment               String   @default("sandbox") // sandbox | production
+  defaultDepositAccountId   String?
+  defaultDepositAccountName String?
+  defaultIncomeAccountId    String?
+  defaultIncomeAccountName  String?
+  defaultExpenseAccountId   String?
+  defaultExpenseAccountName String?
+  defaultItemId             String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+// A single row holding the current service agreement text. Edited from
+// Settings. Signing snapshots this text so historical signatures stay
+// accurate even if the wording changes later.
+model ServiceAgreementSettings {
+  id        String   @id @default(cuid())
+  title     String   @default("Service & Rental Agreement")
+  content   String   @default("[Placeholder — replace this with your real service agreement text in Settings before sharing with customers. Consider having a lawyer review it.]")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// A record of one customer agreeing to the service agreement — either as a
+// required step of the online booking flow, or via a standalone link sent
+// manually. Stores a snapshot of the exact text agreed to.
+model SignedAgreement {
+  id             String   @id @default(cuid())
+  agreementTitle String
+  agreementText  String
+  signerName     String
+  signerEmail    String?
+  signerPhone    String?
+  signerAddress  String?
+  ipAddress      String?
+  agreedAt       DateTime @default(now())
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,77 @@
+import { google } from "googleapis";
+import fs from "fs";
+import path from "path";
+
+const KEY_PATH =
+  process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ??
+  path.join(process.cwd(), "google-service-account.json");
+const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID;
+
+function isConfigured() {
+  return Boolean(CALENDAR_ID) && fs.existsSync(KEY_PATH);
+}
+
+async function getCalendarClient() {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: KEY_PATH,
+    scopes: ["https://www.googleapis.com/auth/calendar.events"],
+  });
+  return google.calendar({ version: "v3", auth });
+}
+
+export type CalendarBookingInput = {
+  customerName: string;
+  deliveryAddress: string;
+  notes: string | null;
+  items: {
+    label: string;
+    startDate: Date;
+    expectedReturnDate: Date;
+    price: number;
+  }[];
+};
+
+// Creates one all-day Google Calendar event spanning a booking's earliest
+// delivery to latest return date. Returns the event ID, or null if
+// Calendar isn't configured yet or the push fails — a booking should
+// still save even if the calendar push doesn't work.
+export async function pushBookingToCalendar(
+  booking: CalendarBookingInput
+): Promise<string | null> {
+  if (!isConfigured() || booking.items.length === 0) return null;
+
+  try {
+    const calendar = await getCalendarClient();
+
+    const starts = booking.items.map((i) => i.startDate.getTime());
+    const returns = booking.items.map((i) => i.expectedReturnDate.getTime());
+    const earliestStart = new Date(Math.min(...starts));
+    const latestReturn = new Date(Math.max(...returns));
+    // Google all-day events use an exclusive end date.
+    const endExclusive = new Date(latestReturn);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+
+    const itemLines = booking.items
+      .map(
+        (i) =>
+          `${i.label}: ${i.startDate.toISOString().slice(0, 10)} to ${i.expectedReturnDate.toISOString().slice(0, 10)} ($${i.price.toFixed(2)})`
+      )
+      .join("\n");
+
+    const response = await calendar.events.insert({
+      calendarId: CALENDAR_ID,
+      requestBody: {
+        summary: `${booking.customerName} — ${booking.items.map((i) => i.label).join(", ")}`,
+        location: booking.deliveryAddress,
+        description: [itemLines, booking.notes].filter(Boolean).join("\n\n"),
+        start: { date: earliestStart.toISOString().slice(0, 10) },
+        end: { date: endExclusive.toISOString().slice(0, 10) },
+      },
+    });
+
+    return response.data.id ?? null;
+  } catch (error) {
+    console.error("Failed to push booking to Google Calendar:", error);
+    return null;
+  }
+}

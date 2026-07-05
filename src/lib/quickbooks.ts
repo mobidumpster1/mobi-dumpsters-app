@@ -1,0 +1,371 @@
+import { db } from "@/lib/db";
+
+const CLIENT_ID = process.env.QUICKBOOKS_CLIENT_ID;
+const CLIENT_SECRET = process.env.QUICKBOOKS_CLIENT_SECRET;
+const REDIRECT_URI = process.env.QUICKBOOKS_REDIRECT_URI;
+const CONFIGURED_ENVIRONMENT =
+  process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "production" : "sandbox";
+
+const AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
+const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+
+type QuickBooksConnection = {
+  id: string;
+  realmId: string;
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: Date;
+  environment: string;
+  defaultDepositAccountId: string | null;
+  defaultDepositAccountName: string | null;
+  defaultIncomeAccountId: string | null;
+  defaultIncomeAccountName: string | null;
+  defaultExpenseAccountId: string | null;
+  defaultExpenseAccountName: string | null;
+  defaultItemId: string | null;
+};
+
+export function isQuickBooksConfigured() {
+  return Boolean(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);
+}
+
+export function getAuthorizationUrl(state: string) {
+  if (!CLIENT_ID || !REDIRECT_URI) {
+    throw new Error("QuickBooks is not configured (missing client ID or redirect URI)");
+  }
+  const url = new URL(AUTHORIZE_URL);
+  url.searchParams.set("client_id", CLIENT_ID);
+  url.searchParams.set("redirect_uri", REDIRECT_URI);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set(
+    "scope",
+    "com.intuit.quickbooks.accounting com.intuit.quickbooks.payment"
+  );
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+function basicAuthHeader() {
+  return "Basic " + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
+}
+
+export async function exchangeCodeForTokens(code: string, realmId: string) {
+  const response = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuthHeader(),
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: REDIRECT_URI ?? "",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`QuickBooks token exchange failed: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+
+  // Only one QuickBooks company is supported at a time; replace any
+  // existing connection with the new one.
+  await db.quickBooksConnection.deleteMany();
+
+  return db.quickBooksConnection.create({
+    data: {
+      realmId,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      accessTokenExpiresAt: new Date(Date.now() + data.expires_in * 1000),
+      environment: CONFIGURED_ENVIRONMENT,
+    },
+  });
+}
+
+async function refreshAccessToken(connection: QuickBooksConnection) {
+  const response = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuthHeader(),
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: connection.refreshToken,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`QuickBooks token refresh failed: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+
+  return db.quickBooksConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      accessTokenExpiresAt: new Date(Date.now() + data.expires_in * 1000),
+    },
+  });
+}
+
+// Returns the current connection with a valid (non-expired) access token,
+// refreshing it first if needed. Returns null if QuickBooks isn't connected
+// yet — callers should treat that as "skip the sync", not an error.
+export async function getValidConnection(): Promise<QuickBooksConnection | null> {
+  const connection = await db.quickBooksConnection.findFirst();
+  if (!connection) return null;
+
+  const expiresInMs = connection.accessTokenExpiresAt.getTime() - Date.now();
+  if (expiresInMs > 60_000) return connection;
+
+  return refreshAccessToken(connection);
+}
+
+function apiBase(environment: string) {
+  return environment === "production"
+    ? "https://quickbooks.api.intuit.com"
+    : "https://sandbox-quickbooks.api.intuit.com";
+}
+
+async function qboFetch(
+  connection: QuickBooksConnection,
+  path: string,
+  options: RequestInit = {}
+) {
+  const url = `${apiBase(connection.environment)}/v3/company/${connection.realmId}${path}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${connection.accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`QuickBooks API error (${response.status}): ${await response.text()}`);
+  }
+
+  return response.json();
+}
+
+export type QboAccount = { Id: string; Name: string; AccountType: string };
+
+export async function listAccounts(
+  connection: QuickBooksConnection
+): Promise<QboAccount[]> {
+  const query = "SELECT Id, Name, AccountType FROM Account WHERE Active = true MAXRESULTS 1000";
+  const data = await qboFetch(connection, `/query?query=${encodeURIComponent(query)}`);
+  return data.QueryResponse?.Account ?? [];
+}
+
+export type QboCustomer = {
+  Id: string;
+  DisplayName: string;
+  PrimaryEmailAddr?: { Address: string };
+  PrimaryPhone?: { FreeFormNumber: string };
+  BillAddr?: { Line1?: string; City?: string; CountrySubDivisionCode?: string; PostalCode?: string };
+};
+
+export async function listCustomers(
+  connection: QuickBooksConnection
+): Promise<QboCustomer[]> {
+  const query = "SELECT Id, DisplayName, PrimaryEmailAddr, PrimaryPhone, BillAddr FROM Customer WHERE Active = true MAXRESULTS 1000";
+  const data = await qboFetch(connection, `/query?query=${encodeURIComponent(query)}`);
+  return data.QueryResponse?.Customer ?? [];
+}
+
+async function findOrCreateQboCustomer(
+  connection: QuickBooksConnection,
+  customer: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    quickbooksCustomerId: string | null;
+  }
+): Promise<string> {
+  if (customer.quickbooksCustomerId) return customer.quickbooksCustomerId;
+
+  const escapedName = customer.name.replace(/'/g, "\\'");
+  const searchData = await qboFetch(
+    connection,
+    `/query?query=${encodeURIComponent(`SELECT Id FROM Customer WHERE DisplayName = '${escapedName}'`)}`
+  );
+  const existing = searchData.QueryResponse?.Customer?.[0];
+  if (existing) {
+    await db.customer.update({
+      where: { id: customer.id },
+      data: { quickbooksCustomerId: existing.Id },
+    });
+    return existing.Id as string;
+  }
+
+  const created = await qboFetch(connection, "/customer", {
+    method: "POST",
+    body: JSON.stringify({
+      DisplayName: customer.name,
+      PrimaryEmailAddr: customer.email ? { Address: customer.email } : undefined,
+      PrimaryPhone: customer.phone ? { FreeFormNumber: customer.phone } : undefined,
+    }),
+  });
+
+  const qboId = created.Customer.Id as string;
+  await db.customer.update({
+    where: { id: customer.id },
+    data: { quickbooksCustomerId: qboId },
+  });
+  return qboId;
+}
+
+async function ensureDefaultItem(connection: QuickBooksConnection): Promise<string> {
+  if (connection.defaultItemId) return connection.defaultItemId;
+
+  const searchData = await qboFetch(
+    connection,
+    `/query?query=${encodeURIComponent("SELECT Id FROM Item WHERE Name = 'Rental Services'")}`
+  );
+  const existing = searchData.QueryResponse?.Item?.[0];
+  if (existing) {
+    await db.quickBooksConnection.update({
+      where: { id: connection.id },
+      data: { defaultItemId: existing.Id },
+    });
+    return existing.Id as string;
+  }
+
+  if (!connection.defaultIncomeAccountId) {
+    throw new Error(
+      "Pick a default income account in Settings before pushing invoices to QuickBooks."
+    );
+  }
+
+  const created = await qboFetch(connection, "/item", {
+    method: "POST",
+    body: JSON.stringify({
+      Name: "Rental Services",
+      Type: "Service",
+      IncomeAccountRef: { value: connection.defaultIncomeAccountId },
+    }),
+  });
+
+  const itemId = created.Item.Id as string;
+  await db.quickBooksConnection.update({
+    where: { id: connection.id },
+    data: { defaultItemId: itemId },
+  });
+  return itemId;
+}
+
+// Pushes a paid local invoice to QuickBooks as an Invoice + a linked Payment
+// marking it paid in full. Returns the QBO IDs, or null if QuickBooks isn't
+// connected (a booking/invoice should still work fine without this).
+export async function pushInvoicePayment(input: {
+  customer: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    quickbooksCustomerId: string | null;
+  };
+  invoiceNumber: string;
+  amount: number;
+  issueDate: Date;
+  description: string;
+}): Promise<{ invoiceId: string; paymentId: string } | null> {
+  const connection = await getValidConnection();
+  if (!connection) return null;
+  if (!connection.defaultDepositAccountId) {
+    throw new Error(
+      "Pick a default deposit account in Settings before pushing payments to QuickBooks."
+    );
+  }
+
+  const [qboCustomerId, itemId] = await Promise.all([
+    findOrCreateQboCustomer(connection, input.customer),
+    ensureDefaultItem(connection),
+  ]);
+
+  const invoiceResponse = await qboFetch(connection, "/invoice", {
+    method: "POST",
+    body: JSON.stringify({
+      DocNumber: input.invoiceNumber,
+      TxnDate: input.issueDate.toISOString().slice(0, 10),
+      CustomerRef: { value: qboCustomerId },
+      Line: [
+        {
+          Amount: input.amount,
+          DetailType: "SalesItemLineDetail",
+          Description: input.description,
+          SalesItemLineDetail: { ItemRef: { value: itemId } },
+        },
+      ],
+    }),
+  });
+  const qboInvoiceId = invoiceResponse.Invoice.Id as string;
+
+  const paymentResponse = await qboFetch(connection, "/payment", {
+    method: "POST",
+    body: JSON.stringify({
+      CustomerRef: { value: qboCustomerId },
+      TotalAmt: input.amount,
+      DepositToAccountRef: { value: connection.defaultDepositAccountId },
+      Line: [
+        {
+          Amount: input.amount,
+          LinkedTxn: [{ TxnId: qboInvoiceId, TxnType: "Invoice" }],
+        },
+      ],
+    }),
+  });
+  const qboPaymentId = paymentResponse.Payment.Id as string;
+
+  return { invoiceId: qboInvoiceId, paymentId: qboPaymentId };
+}
+
+// Pushes a paid expense to QuickBooks as a Purchase (money already spent).
+// Returns the QBO purchase ID, or null if QuickBooks isn't connected.
+export async function pushExpensePurchase(input: {
+  vendor: string;
+  category: string;
+  amount: number;
+  date: Date;
+}): Promise<string | null> {
+  const connection = await getValidConnection();
+  if (!connection) return null;
+  if (!connection.defaultDepositAccountId || !connection.defaultExpenseAccountId) {
+    throw new Error(
+      "Pick default deposit and expense accounts in Settings before pushing expenses to QuickBooks."
+    );
+  }
+
+  const response = await qboFetch(connection, "/purchase", {
+    method: "POST",
+    body: JSON.stringify({
+      TxnDate: input.date.toISOString().slice(0, 10),
+      AccountRef: { value: connection.defaultDepositAccountId },
+      PaymentType: "Cash",
+      EntityRef: undefined,
+      Line: [
+        {
+          Amount: input.amount,
+          DetailType: "AccountBasedExpenseLineDetail",
+          Description: `${input.vendor} — ${input.category}`,
+          AccountBasedExpenseLineDetail: {
+            AccountRef: { value: connection.defaultExpenseAccountId },
+          },
+        },
+      ],
+    }),
+  });
+
+  return response.Purchase.Id as string;
+}
