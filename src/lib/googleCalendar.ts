@@ -7,13 +7,26 @@ const KEY_PATH =
   path.join(process.cwd(), "google-service-account.json");
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID;
 
+// On Vercel there's no local key file (it's git-ignored on purpose), so the
+// credentials are passed as a JSON string in an environment variable
+// instead. Locally, the key file still works for convenience.
+function getCredentials() {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  }
+  if (fs.existsSync(KEY_PATH)) {
+    return JSON.parse(fs.readFileSync(KEY_PATH, "utf-8"));
+  }
+  return null;
+}
+
 function isConfigured() {
-  return Boolean(CALENDAR_ID) && fs.existsSync(KEY_PATH);
+  return Boolean(CALENDAR_ID) && Boolean(getCredentials());
 }
 
 async function getCalendarClient() {
   const auth = new google.auth.GoogleAuth({
-    keyFile: KEY_PATH,
+    credentials: getCredentials(),
     scopes: ["https://www.googleapis.com/auth/calendar.events"],
   });
   return google.calendar({ version: "v3", auth });
