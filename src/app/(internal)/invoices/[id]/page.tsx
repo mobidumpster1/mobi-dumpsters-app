@@ -4,9 +4,10 @@ import { existsSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
-import { markPaid, markUnpaid } from "../actions";
+import { markPaid, markUnpaid, deleteInvoice } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { PrintButton } from "@/components/PrintButton";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { branding } from "@/lib/branding";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
 
@@ -29,6 +30,7 @@ export default async function InvoiceDetailPage({
 
   const markPaidWithId = markPaid.bind(null, invoice.id);
   const markUnpaidWithId = markUnpaid.bind(null, invoice.id);
+  const deleteInvoiceWithId = deleteInvoice.bind(null, invoice.id);
   const displayStatus = computeDisplayStatus(invoice.status, invoice.dueDate);
   const customer = invoice.booking?.customer ?? invoice.customer;
   const logoExists = existsSync(
@@ -177,7 +179,7 @@ export default async function InvoiceDetailPage({
         </table>
       </div>
 
-      <div className="mt-6 print:hidden">
+      <div className="mt-6 flex items-end justify-between gap-3 print:hidden">
         {invoice.status === "paid" ? (
           <form action={markUnpaidWithId}>
             <button
@@ -205,6 +207,15 @@ export default async function InvoiceDetailPage({
             </button>
           </form>
         )}
+
+        <form action={deleteInvoiceWithId}>
+          <ConfirmButton
+            message={`Delete invoice ${invoice.invoiceNumber}? This can't be undone.`}
+            className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+          >
+            Delete Invoice
+          </ConfirmButton>
+        </form>
       </div>
     </div>
   );

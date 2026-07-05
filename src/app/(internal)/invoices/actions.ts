@@ -103,3 +103,10 @@ export async function markUnpaid(invoiceId: string) {
   });
   revalidatePath(`/invoices/${invoiceId}`);
 }
+
+export async function deleteInvoice(invoiceId: string) {
+  await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
+  await db.invoice.delete({ where: { id: invoiceId } });
+  revalidatePath("/invoices");
+  redirect("/invoices");
+}
