@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { branding } from "@/lib/branding";
+import { ThemeToggle } from "./ThemeToggle";
 
 const links = [
   { href: "/", label: "Dispatch" },
@@ -93,27 +94,30 @@ export function Sidebar({
             {branding.businessName}
           </span>
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6"
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Open menu"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10"
           >
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-6 w-6"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Mobile slide-in drawer */}
@@ -134,26 +138,29 @@ export function Sidebar({
                   {branding.businessName}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close menu"
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
+              <div className="flex items-center gap-1">
+                <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10" />
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close menu"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10"
                 >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <NavLinks
               pathname={pathname}
@@ -176,6 +183,10 @@ export function Sidebar({
           </span>
         </Link>
         <NavLinks pathname={pathname} pendingCount={pendingCount} />
+        <div className="mt-auto flex items-center justify-between rounded-xl px-5 py-3 text-sm font-medium text-white/90">
+          Theme
+          <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10" />
+        </div>
       </aside>
     </>
   );
