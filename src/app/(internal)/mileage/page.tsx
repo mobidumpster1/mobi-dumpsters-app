@@ -7,6 +7,7 @@ import { MileageEntryForm } from "@/components/MileageEntryForm";
 import {
   addMileageEntry,
   deleteMileageEntry,
+  endMileageTrip,
   addVehicle,
   toggleVehicleActive,
 } from "./actions";
@@ -60,18 +61,19 @@ export default async function MileagePage() {
 
   const monthStart = startOfMonth();
   const yearStart = startOfYear();
-  const totalAllTime = entries.reduce((sum, e) => sum + e.miles, 0);
+  const totalAllTime = entries.reduce((sum, e) => sum + (e.miles ?? 0), 0);
   const totalThisMonth = entries
     .filter((e) => e.date >= monthStart)
-    .reduce((sum, e) => sum + e.miles, 0);
+    .reduce((sum, e) => sum + (e.miles ?? 0), 0);
   const totalThisYear = entries
     .filter((e) => e.date >= yearStart)
-    .reduce((sum, e) => sum + e.miles, 0);
+    .reduce((sum, e) => sum + (e.miles ?? 0), 0);
 
   // Both the truck and whatever it was hauling accrue the same trip
   // distance, so each gets its own line in the breakdown.
   const byLabel = new Map<string, number>();
   for (const e of entries) {
+    if (e.miles == null) continue;
     if (e.vehicle) byLabel.set(e.vehicle.label, (byLabel.get(e.vehicle.label) ?? 0) + e.miles);
     if (e.equipmentItem) {
       byLabel.set(e.equipmentItem.label, (byLabel.get(e.equipmentItem.label) ?? 0) + e.miles);
@@ -182,9 +184,15 @@ export default async function MileagePage() {
               <span className="font-medium text-zinc-900">
                 {entry.vehicle?.label ?? "—"}
               </span>
-              <span className="flex-shrink-0 text-sm font-medium text-zinc-900">
-                {fmt(entry.miles)} mi
-              </span>
+              {entry.miles != null ? (
+                <span className="flex-shrink-0 text-sm font-medium text-zinc-900">
+                  {fmt(entry.miles)} mi
+                </span>
+              ) : (
+                <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  In Progress
+                </span>
+              )}
             </div>
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               <div className="flex justify-between gap-2">
@@ -197,11 +205,12 @@ export default async function MileagePage() {
                   <dd className="truncate text-zinc-700">{entry.equipmentItem.label}</dd>
                 </div>
               )}
-              {entry.odometerStart != null && entry.odometerEnd != null && (
+              {entry.odometerStart != null && (
                 <div className="flex justify-between gap-2">
                   <dt className="text-zinc-500">Odometer</dt>
                   <dd className="text-zinc-700">
-                    {fmt(entry.odometerStart)} → {fmt(entry.odometerEnd)}
+                    {fmt(entry.odometerStart)}
+                    {entry.odometerEnd != null ? ` → ${fmt(entry.odometerEnd)}` : ""}
                   </dd>
                 </div>
               )}
@@ -226,14 +235,43 @@ export default async function MileagePage() {
                 </div>
               )}
             </dl>
-            <form action={deleteMileageEntry.bind(null, entry.id)} className="mt-2">
-              <ConfirmButton
-                message="Delete this mileage entry?"
-                className="text-xs text-red-600 hover:underline"
+            {entry.odometerEnd == null && (
+              <form
+                action={endMileageTrip.bind(null, entry.id)}
+                className="mt-2 flex gap-2 border-t border-zinc-100 pt-2"
               >
-                Delete
-              </ConfirmButton>
-            </form>
+                <input
+                  type="number"
+                  step="0.1"
+                  name="odometerEnd"
+                  placeholder="Ending mileage"
+                  required
+                  className={`${inputClass} flex-1 px-2.5 py-1.5 text-xs`}
+                />
+                <button
+                  type="submit"
+                  className="flex-shrink-0 text-sm font-semibold text-brand hover:underline"
+                >
+                  End Trip
+                </button>
+              </form>
+            )}
+            <div className="mt-2 flex gap-3">
+              <Link
+                href={`/mileage/${entry.id}/edit`}
+                className="text-xs font-semibold text-zinc-600 hover:underline"
+              >
+                Edit
+              </Link>
+              <form action={deleteMileageEntry.bind(null, entry.id)}>
+                <ConfirmButton
+                  message="Delete this mileage entry?"
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Delete
+                </ConfirmButton>
+              </form>
+            </div>
           </div>
         ))}
         {entries.length === 0 && (
@@ -270,11 +308,32 @@ export default async function MileagePage() {
                   {entry.equipmentItem?.label ?? "—"}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
-                  {entry.odometerStart != null && entry.odometerEnd != null
-                    ? `${fmt(entry.odometerStart)} → ${fmt(entry.odometerEnd)}`
+                  {entry.odometerStart != null
+                    ? `${fmt(entry.odometerStart)}${entry.odometerEnd != null ? ` → ${fmt(entry.odometerEnd)}` : ""}`
                     : "—"}
                 </td>
-                <td className="px-5 py-4 text-zinc-600">{fmt(entry.miles)}</td>
+                <td className="px-5 py-4 text-zinc-600">
+                  {entry.miles != null ? (
+                    fmt(entry.miles)
+                  ) : (
+                    <form action={endMileageTrip.bind(null, entry.id)} className="flex gap-1.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        name="odometerEnd"
+                        placeholder="Ending mileage"
+                        required
+                        className={`${inputClass} w-28 px-2 py-1 text-xs`}
+                      />
+                      <button
+                        type="submit"
+                        className="whitespace-nowrap text-xs font-semibold text-brand hover:underline"
+                      >
+                        End Trip
+                      </button>
+                    </form>
+                  )}
+                </td>
                 <td className="px-5 py-4 text-zinc-600">{entry.purpose}</td>
                 <td className="px-5 py-4 text-zinc-600">
                   {entry.booking ? (
@@ -287,14 +346,22 @@ export default async function MileagePage() {
                 </td>
                 <td className="px-5 py-4 text-zinc-600">{entry.notes ?? "—"}</td>
                 <td className="px-5 py-4">
-                  <form action={deleteMileageEntry.bind(null, entry.id)}>
-                    <ConfirmButton
-                      message="Delete this mileage entry?"
-                      className="text-xs text-red-600 hover:underline"
+                  <div className="flex gap-3">
+                    <Link
+                      href={`/mileage/${entry.id}/edit`}
+                      className="text-xs font-semibold text-zinc-600 hover:underline"
                     >
-                      Delete
-                    </ConfirmButton>
-                  </form>
+                      Edit
+                    </Link>
+                    <form action={deleteMileageEntry.bind(null, entry.id)}>
+                      <ConfirmButton
+                        message="Delete this mileage entry?"
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Delete
+                      </ConfirmButton>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

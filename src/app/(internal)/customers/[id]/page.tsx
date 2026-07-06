@@ -4,9 +4,17 @@ import { db } from "@/lib/db";
 import { parseTags } from "@/lib/tags";
 import { addCustomerNote } from "../actions";
 import { uploadCustomerPhoto, deleteCustomerPhoto } from "../photoActions";
+import {
+  addDumpLogEntry,
+  deleteDumpLogEntry,
+  addCreditEntry,
+  deleteCreditEntry,
+} from "../dumpActions";
 import { Field, inputClass } from "@/components/Field";
 import { AddressLink } from "@/components/AddressLink";
 import { GalleryImage } from "@/components/GalleryImage";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { formatDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +38,8 @@ export default async function CustomerDetailPage({
       invoices: { orderBy: { issueDate: "desc" } },
       photos: { orderBy: { createdAt: "desc" } },
       signedAgreements: { orderBy: { agreedAt: "desc" } },
+      dumpLogEntries: { orderBy: { date: "desc" }, include: { booking: true } },
+      creditEntries: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -49,9 +59,12 @@ export default async function CustomerDetailPage({
     .filter((i) => i.status !== "paid")
     .reduce((sum, i) => sum + i.amount, 0);
   const tags = parseTags(customer.tags);
+  const creditBalance = customer.creditEntries.reduce((sum, e) => sum + e.amount, 0);
 
   const addNoteWithId = addCustomerNote.bind(null, customer.id);
   const uploadPhotoWithId = uploadCustomerPhoto.bind(null, customer.id);
+  const addDumpEntryWithId = addDumpLogEntry.bind(null, customer.id);
+  const addCreditWithId = addCreditEntry.bind(null, customer.id);
 
   return (
     <div>
@@ -120,6 +133,14 @@ export default async function CustomerDetailPage({
             ${outstanding.toFixed(2)}
           </dd>
         </div>
+        <div>
+          <dt className="text-zinc-500">Credit Balance</dt>
+          <dd
+            className={`font-medium ${creditBalance > 0 ? "text-green-700" : "text-zinc-900"}`}
+          >
+            ${creditBalance.toFixed(2)}
+          </dd>
+        </div>
         {customer.notes && (
           <div className="col-span-full">
             <dt className="text-zinc-500">Notes</dt>
@@ -180,6 +201,181 @@ export default async function CustomerDetailPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      <h2 className="mt-8 text-xl font-semibold text-ink">Dump Log</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Weight and fee for each dump, since a rental can involve more than one.
+      </p>
+      <form
+        action={addDumpEntryWithId}
+        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Date" htmlFor="date">
+            <input
+              id="date"
+              name="date"
+              type="date"
+              required
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Job (optional)" htmlFor="bookingId">
+            <select id="bookingId" name="bookingId" defaultValue="" className={inputClass}>
+              <option value="">— Not tied to a job —</option>
+              {customer.bookings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {new Date(b.createdAt).toLocaleDateString()} —{" "}
+                  {b.items.map((i) => i.equipmentItem.label).join(", ")}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Weight (tons)" htmlFor="weightTons">
+            <input
+              id="weightTons"
+              name="weightTons"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Fee ($)" htmlFor="fee">
+            <input
+              id="fee"
+              name="fee"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <Field label="Notes (optional)" htmlFor="notes">
+          <input id="notes" name="notes" className={inputClass} />
+        </Field>
+        <div>
+          <button
+            type="submit"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            Add Dump
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-3 flex flex-col gap-2">
+        {customer.dumpLogEntries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm text-sm"
+          >
+            <div>
+              <p className="text-zinc-900">
+                {formatDate(entry.date)} — {entry.weightTons.toFixed(2)} tons — $
+                {entry.fee.toFixed(2)}
+              </p>
+              {entry.booking && (
+                <Link
+                  href={`/bookings/${entry.booking.id}`}
+                  className="text-xs text-zinc-500 hover:underline"
+                >
+                  View job
+                </Link>
+              )}
+              {entry.notes && <p className="mt-1 text-xs text-zinc-500">{entry.notes}</p>}
+            </div>
+            <form action={deleteDumpLogEntry.bind(null, customer.id, entry.id)}>
+              <ConfirmButton
+                message="Delete this dump log entry?"
+                className="flex-shrink-0 text-xs text-red-600 hover:underline"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
+          </div>
+        ))}
+        {customer.dumpLogEntries.length === 0 && (
+          <p className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-center text-zinc-400">
+            No dumps logged yet.
+          </p>
+        )}
+      </div>
+
+      <h2 className="mt-8 text-xl font-semibold text-ink">Credit Balance</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Current balance:{" "}
+        <span className={creditBalance > 0 ? "font-semibold text-green-700" : "font-semibold text-zinc-700"}>
+          ${creditBalance.toFixed(2)}
+        </span>{" "}
+        — applies toward this customer&apos;s next rental.
+      </p>
+      <form
+        action={addCreditWithId}
+        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Amount ($, negative to use credit)" htmlFor="amount">
+            <input id="amount" name="amount" type="number" step="0.01" required className={inputClass} />
+          </Field>
+          <Field label="Reason" htmlFor="reason">
+            <input
+              id="reason"
+              name="reason"
+              placeholder="e.g. Overpayment on invoice #123"
+              required
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <div>
+          <button
+            type="submit"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            Add Adjustment
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-3 flex flex-col gap-2">
+        {customer.creditEntries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-start justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm text-sm"
+          >
+            <div>
+              <p className={entry.amount >= 0 ? "text-green-700" : "text-red-600"}>
+                {entry.amount >= 0 ? "+" : ""}
+                {entry.amount.toFixed(2)}
+              </p>
+              <p className="text-zinc-700">{entry.reason}</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                {entry.createdAt.toLocaleString()}
+              </p>
+            </div>
+            <form action={deleteCreditEntry.bind(null, customer.id, entry.id)}>
+              <ConfirmButton
+                message="Delete this credit adjustment?"
+                className="flex-shrink-0 text-xs text-red-600 hover:underline"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
+          </div>
+        ))}
+        {customer.creditEntries.length === 0 && (
+          <p className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-center text-zinc-400">
+            No credit adjustments yet.
+          </p>
+        )}
       </div>
 
       {standaloneInvoices.length > 0 && (

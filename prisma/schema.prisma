@@ -40,6 +40,36 @@ model Customer {
   invoices        Invoice[]
   photos          CustomerPhoto[]
   signedAgreements SignedAgreement[]
+  dumpLogEntries  DumpLogEntry[]
+  creditEntries   CustomerCreditEntry[]
+}
+
+// One dump event for a customer's rental — a customer can request more
+// than one dump during a single booking, each with its own weight and fee.
+model DumpLogEntry {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  bookingId  String?
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  date       DateTime
+  weightTons Float
+  fee        Float
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+// A running credit balance per customer (e.g. from an overpayment or a
+// goodwill adjustment), applied toward a future rental. The balance is the
+// sum of these entries rather than a stored counter, so it's always
+// auditable — positive amounts add credit, negative amounts use it up.
+model CustomerCreditEntry {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  amount     Float
+  reason     String
+  createdAt  DateTime @default(now())
 }
 
 // A single entry in a customer's communication timeline (a note, or a
@@ -167,9 +197,10 @@ model Vehicle {
 
 // A single trip's mileage — which truck drove it, and (optionally) which
 // piece of rental equipment it was hauling. `miles` is the stored/derived
-// total, computed from odometerStart/odometerEnd when those are entered.
-// `source` exists so a future Samsara GPS sync can insert entries the same
-// way without a schema change.
+// total, computed from odometerStart/odometerEnd. Null miles/odometerEnd
+// means the trip was started but hasn't been closed out yet. `source`
+// exists so a future Samsara GPS sync can insert entries the same way
+// without a schema change.
 model MileageLogEntry {
   id              String         @id @default(cuid())
   vehicleId       String?
@@ -179,7 +210,7 @@ model MileageLogEntry {
   date            DateTime
   odometerStart   Float?
   odometerEnd     Float?
-  miles           Float
+  miles           Float?
   purpose         String
   bookingId       String?
   booking         Booking?       @relation(fields: [bookingId], references: [id])
@@ -245,6 +276,7 @@ model Booking {
   photos   Photo[]
   signedAgreements SignedAgreement[]
   mileageLogEntries MileageLogEntry[]
+  dumpLogEntries DumpLogEntry[]
 }
 
 // A photo attached to a booking (delivery/pickup condition, damage, etc.),

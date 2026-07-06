@@ -93,14 +93,13 @@ export function MileageEntryForm({
             className={inputClass}
           />
         </Field>
-        <Field label="Ending Mileage" htmlFor="odometerEnd">
+        <Field label="Ending Mileage (leave blank if still driving)" htmlFor="odometerEnd">
           <input
             id="odometerEnd"
             name="odometerEnd"
             type="number"
             step="0.1"
             min="0"
-            required
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             className={inputClass}
