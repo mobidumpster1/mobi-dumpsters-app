@@ -11,6 +11,7 @@ const links = [
   { href: "/calendar", label: "Calendar" },
   { href: "/customers", label: "Customers" },
   { href: "/equipment", label: "Equipment" },
+  { href: "/mileage", label: "Mileage" },
   { href: "/bookings", label: "Bookings" },
   { href: "/invoices", label: "Invoices" },
   { href: "/agreements", label: "Agreements" },

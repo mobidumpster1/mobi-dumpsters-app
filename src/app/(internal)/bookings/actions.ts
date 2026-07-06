@@ -316,6 +316,21 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
     data: { equipmentItemId: bookingItem.equipmentItemId, location: "Yard" },
   });
 
+  // Feed the mileage log from the same field used for overage billing, so
+  // staff aren't entering the same trip mileage twice.
+  if (bookingItem.actualMileage) {
+    await db.mileageLogEntry.create({
+      data: {
+        equipmentItemId: bookingItem.equipmentItemId,
+        bookingId: bookingItem.bookingId,
+        date: new Date(),
+        miles: bookingItem.actualMileage,
+        purpose: "Job round trip",
+        source: "manual",
+      },
+    });
+  }
+
   // If every item on this booking is now back, the job is complete —
   // auto-generate a draft invoice (skipped if one already exists).
   const remaining = await db.bookingItem.count({

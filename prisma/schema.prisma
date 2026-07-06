@@ -143,10 +143,29 @@ model EquipmentItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookingItems    BookingItem[]
-  expenses        Expense[]
-  locationEvents  EquipmentLocationEvent[]
-  photos          EquipmentPhoto[]
+  bookingItems      BookingItem[]
+  expenses          Expense[]
+  locationEvents    EquipmentLocationEvent[]
+  photos            EquipmentPhoto[]
+  mileageLogEntries MileageLogEntry[]
+}
+
+// A single trip's mileage for a piece of equipment — a delivery/pickup, a
+// yard-to-yard move, a maintenance run, etc. Entered manually today; `source`
+// exists so a future Samsara GPS sync can insert entries the same way
+// without a schema change.
+model MileageLogEntry {
+  id              String        @id @default(cuid())
+  equipmentItemId String
+  equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+  date            DateTime
+  miles           Float
+  purpose         String
+  bookingId       String?
+  booking         Booking?      @relation(fields: [bookingId], references: [id])
+  notes           String?
+  source          String        @default("manual") // manual | samsara
+  createdAt       DateTime      @default(now())
 }
 
 // A log of where a piece of equipment has been over time. A null endedAt
@@ -201,6 +220,7 @@ model Booking {
   expenses Expense[]
   photos   Photo[]
   signedAgreements SignedAgreement[]
+  mileageLogEntries MileageLogEntry[]
 }
 
 // A photo attached to a booking (delivery/pickup condition, damage, etc.),
