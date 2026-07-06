@@ -92,7 +92,24 @@ model EquipmentCategory {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  items EquipmentItem[]
+  items        EquipmentItem[]
+  pricingTiers PricingTier[]
+}
+
+// A duration option shown on the public booking form, e.g. "24 Hour" / $199,
+// "7 Day" / $329. Lets rental pricing match a real published rate card
+// instead of one flat base price. A category with no tiers falls back to
+// basePrice + freeform dates (used for custom-quote services).
+model PricingTier {
+  id         String            @id @default(cuid())
+  categoryId String
+  category   EquipmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  label      String // e.g. "24 Hour", "7 Day"
+  days       Int // rental length used to compute the pickup date
+  // Null means "Call for pricing" — shown but not selectable online.
+  price      Float?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 // A single physical unit you own (e.g. "Dumpster #1"). `attributes` holds

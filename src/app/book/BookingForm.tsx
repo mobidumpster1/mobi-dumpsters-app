@@ -4,15 +4,24 @@ import { useState, useTransition } from "react";
 import { checkAvailability, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
 
+type PricingTier = { id: string; label: string; days: number; price: number | null };
+
 type CategoryOption = {
   id: string;
   name: string;
   description: string | null;
   basePrice: number | null;
+  pricingTiers: PricingTier[];
 };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysToDateStr(dateStr: string, days: number) {
+  const date = new Date(`${dateStr}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export function BookingForm({
@@ -26,8 +35,13 @@ export function BookingForm({
 }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const selectedCategory = categories.find((c) => c.id === categoryId);
+  const hasTiers = (selectedCategory?.pricingTiers.length ?? 0) > 0;
+
   const [startDate, setStartDate] = useState(today());
   const [endDate, setEndDate] = useState("");
+  const [tierId, setTierId] = useState(selectedCategory?.pricingTiers[0]?.id ?? "");
+  const selectedTier = selectedCategory?.pricingTiers.find((t) => t.id === tierId);
+
   const [availability, setAvailability] = useState<{
     checked: boolean;
     count: number;
@@ -45,6 +59,39 @@ export function BookingForm({
     });
   }
 
+  function onCategoryChange(nextCategoryId: string) {
+    setCategoryId(nextCategoryId);
+    const nextCategory = categories.find((c) => c.id === nextCategoryId);
+    const firstTier = nextCategory?.pricingTiers[0];
+    setTierId(firstTier?.id ?? "");
+    if (firstTier) {
+      runCheck(nextCategoryId, startDate, addDaysToDateStr(startDate, firstTier.days));
+    } else {
+      runCheck(nextCategoryId, startDate, endDate);
+    }
+  }
+
+  function onStartDateChange(nextStart: string) {
+    setStartDate(nextStart);
+    if (selectedTier) {
+      runCheck(categoryId, nextStart, addDaysToDateStr(nextStart, selectedTier.days));
+    } else {
+      runCheck(categoryId, nextStart, endDate);
+    }
+  }
+
+  function onTierChange(nextTierId: string) {
+    setTierId(nextTierId);
+    const tier = selectedCategory?.pricingTiers.find((t) => t.id === nextTierId);
+    if (tier?.price != null) {
+      runCheck(categoryId, startDate, addDaysToDateStr(startDate, tier.days));
+    } else {
+      setAvailability({ checked: false, count: 0 });
+    }
+  }
+
+  const bookable = hasTiers ? selectedTier?.price != null : true;
+
   return (
     <form action={submitBookingRequest} className="flex flex-col gap-4">
       <Field label="What do you need?" htmlFor="categoryId">
@@ -54,10 +101,7 @@ export function BookingForm({
           required
           className={inputClass}
           value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            runCheck(e.target.value, startDate, endDate);
-          }}
+          onChange={(e) => onCategoryChange(e.target.value)}
         >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -67,7 +111,11 @@ export function BookingForm({
         </select>
       </Field>
 
-      {selectedCategory?.basePrice != null && (
+      {hasTiers && selectedCategory?.description && (
+        <p className="text-sm text-zinc-500">{selectedCategory.description}</p>
+      )}
+
+      {!hasTiers && selectedCategory?.basePrice != null && (
         <div className="rounded-xl bg-brand-light p-3 text-sm text-zinc-700">
           <span className="font-semibold text-ink">
             ${selectedCategory.basePrice.toFixed(2)}
@@ -76,7 +124,32 @@ export function BookingForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      {hasTiers && (
+        <Field label="How long do you need it?" htmlFor="tierId">
+          <select
+            id="tierId"
+            name="tierId"
+            required
+            className={inputClass}
+            value={tierId}
+            onChange={(e) => onTierChange(e.target.value)}
+          >
+            {selectedCategory?.pricingTiers.map((tier) => (
+              <option key={tier.id} value={tier.id}>
+                {tier.label} — {tier.price != null ? `$${tier.price.toFixed(2)}` : "Call for pricing"}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+
+      {hasTiers && selectedTier?.price == null && (
+        <p className="text-sm font-medium text-red-600">
+          That duration isn&apos;t bookable online — please call us for pricing.
+        </p>
+      )}
+
+      <div className={hasTiers ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
         <Field label="Delivery Date" htmlFor="startDate">
           <input
             id="startDate"
@@ -86,27 +159,26 @@ export function BookingForm({
             min={today()}
             className={inputClass}
             value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              runCheck(categoryId, e.target.value, endDate);
-            }}
+            onChange={(e) => onStartDateChange(e.target.value)}
           />
         </Field>
-        <Field label="Pickup Date" htmlFor="endDate">
-          <input
-            id="endDate"
-            name="endDate"
-            type="date"
-            required
-            min={startDate}
-            className={inputClass}
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              runCheck(categoryId, startDate, e.target.value);
-            }}
-          />
-        </Field>
+        {!hasTiers && (
+          <Field label="Pickup Date" htmlFor="endDate">
+            <input
+              id="endDate"
+              name="endDate"
+              type="date"
+              required
+              min={startDate}
+              className={inputClass}
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                runCheck(categoryId, startDate, e.target.value);
+              }}
+            />
+          </Field>
+        )}
       </div>
 
       {isPending && (
@@ -185,7 +257,7 @@ export function BookingForm({
 
       <button
         type="submit"
-        disabled={availability.checked && availability.count === 0}
+        disabled={!bookable || (availability.checked && availability.count === 0)}
         className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
         Request Booking

@@ -31,6 +31,12 @@ export default async function PublicBookingPage() {
                 name: c.name,
                 description: c.description,
                 basePrice: c.basePrice,
+                pricingTiers: c.pricingTiers.map((t) => ({
+                  id: t.id,
+                  label: t.label,
+                  days: t.days,
+                  price: t.price,
+                })),
               }))}
               agreementTitle={agreement.title}
               agreementContent={agreement.content}

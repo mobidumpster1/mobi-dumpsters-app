@@ -24,6 +24,25 @@ function pricingFields(formData: FormData) {
   };
 }
 
+function pricingTiers(formData: FormData) {
+  const json = formData.get("pricingTiersJson");
+  if (typeof json !== "string") return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((t) => t && typeof t.label === "string" && t.label.trim())
+      .map((t, i) => ({
+        label: t.label,
+        days: Number(t.days) || 1,
+        price: t.price === null || t.price === "" ? null : Number(t.price),
+        sortOrder: i,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function createCategory(formData: FormData) {
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
@@ -38,6 +57,7 @@ export async function createCategory(formData: FormData) {
       description: str(formData, "description"),
       fieldDefinitions,
       ...pricingFields(formData),
+      pricingTiers: { create: pricingTiers(formData) },
     },
   });
 
@@ -52,6 +72,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
   const fieldDefinitions =
     typeof fieldDefinitionsJson === "string" ? fieldDefinitionsJson : "[]";
 
+  await db.pricingTier.deleteMany({ where: { categoryId } });
   await db.equipmentCategory.update({
     where: { id: categoryId },
     data: {
@@ -59,6 +80,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
       description: str(formData, "description"),
       fieldDefinitions,
       ...pricingFields(formData),
+      pricingTiers: { create: pricingTiers(formData) },
     },
   });
 

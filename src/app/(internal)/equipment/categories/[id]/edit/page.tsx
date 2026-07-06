@@ -5,6 +5,7 @@ import { updateCategory } from "../../actions";
 import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
+import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 
 export default async function EditCategoryPage({
@@ -13,7 +14,10 @@ export default async function EditCategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const category = await db.equipmentCategory.findUnique({ where: { id } });
+  const category = await db.equipmentCategory.findUnique({
+    where: { id },
+    include: { pricingTiers: { orderBy: { sortOrder: "asc" } } },
+  });
   if (!category) notFound();
 
   const updateWithId = updateCategory.bind(null, category.id);
@@ -52,6 +56,13 @@ export default async function EditCategoryPage({
             includedMileage: category.includedMileage,
             overageMileageRate: category.overageMileageRate,
           }}
+        />
+        <PricingTierBuilder
+          initialTiers={category.pricingTiers.map((t) => ({
+            label: t.label,
+            days: t.days,
+            price: t.price,
+          }))}
         />
         <div className="flex gap-3">
           <button

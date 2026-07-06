@@ -3,6 +3,7 @@ import { createCategory } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
+import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 
 export default function NewCategoryPage() {
   return (
@@ -28,6 +29,7 @@ export default function NewCategoryPage() {
         </Field>
         <CategoryFieldBuilder />
         <CategoryPricingFields />
+        <PricingTierBuilder />
         <div className="flex gap-3">
           <button
             type="submit"

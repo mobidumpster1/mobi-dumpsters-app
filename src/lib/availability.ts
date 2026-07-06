@@ -6,7 +6,10 @@ const UNBOOKABLE_STATUSES = ["retired", "needs_repair"];
 // the ones worth showing on the public booking page.
 export async function listBookableCategories() {
   const categories = await db.equipmentCategory.findMany({
-    include: { items: { where: { status: { notIn: UNBOOKABLE_STATUSES } } } },
+    include: {
+      items: { where: { status: { notIn: UNBOOKABLE_STATUSES } } },
+      pricingTiers: { orderBy: { sortOrder: "asc" } },
+    },
     orderBy: { name: "asc" },
   });
   return categories.filter((category) => category.items.length > 0);

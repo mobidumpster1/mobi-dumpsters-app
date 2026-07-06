@@ -26,8 +26,8 @@ export async function checkAvailability(
 
 export async function submitBookingRequest(formData: FormData) {
   const categoryId = str(formData, "categoryId");
+  const tierId = str(formData, "tierId");
   const startDateStr = str(formData, "startDate");
-  const endDateStr = str(formData, "endDate");
   const name = str(formData, "name");
   const phone = str(formData, "phone");
   const email = str(formData, "email");
@@ -35,15 +35,34 @@ export async function submitBookingRequest(formData: FormData) {
   const agreed = formData.get("agreed") === "on";
 
   if (!categoryId) throw new Error("Please choose what you'd like to rent");
-  if (!startDateStr || !endDateStr) throw new Error("Please choose your dates");
+  if (!startDateStr) throw new Error("Please choose a date");
   if (!name) throw new Error("Name is required");
   if (!phone) throw new Error("Phone is required");
   if (!email) throw new Error("Email is required");
   if (!address) throw new Error("Delivery address is required");
   if (!agreed) throw new Error("You must agree to the service agreement to book");
 
+  const category = await db.equipmentCategory.findUniqueOrThrow({
+    where: { id: categoryId },
+    include: { pricingTiers: true },
+  });
+
+  const tier = tierId
+    ? category.pricingTiers.find((t) => t.id === tierId)
+    : undefined;
+  if (tierId && !tier) throw new Error("Please choose a valid rental duration");
+  if (tier && tier.price === null) {
+    throw new Error("That duration requires a call for pricing — please call us instead.");
+  }
+
   const startDate = new Date(startDateStr);
-  const endDate = new Date(endDateStr);
+  const endDate = tier
+    ? new Date(startDate.getTime() + tier.days * 86_400_000)
+    : (() => {
+        const endDateStr = str(formData, "endDate");
+        if (!endDateStr) throw new Error("Please choose your dates");
+        return new Date(endDateStr);
+      })();
 
   const available = await findAvailableItems(categoryId, startDate, endDate);
   if (available.length === 0) {
@@ -52,9 +71,7 @@ export async function submitBookingRequest(formData: FormData) {
     );
   }
   const item = available[0];
-  const category = await db.equipmentCategory.findUniqueOrThrow({
-    where: { id: categoryId },
-  });
+  const price = tier ? (tier.price ?? 0) : (category.basePrice ?? 0);
 
   let customer = await db.customer.findFirst({ where: { email } });
   if (!customer) {
@@ -79,7 +96,7 @@ export async function submitBookingRequest(formData: FormData) {
           equipmentItemId: item.id,
           startDate,
           expectedReturnDate: endDate,
-          price: category.basePrice ?? 0,
+          price,
         },
       },
     },
@@ -129,7 +146,7 @@ export async function submitBookingRequest(formData: FormData) {
   await sendNotificationEmail(
     `New booking request from ${name}`,
     [
-      `${name} requested a ${category.name} from ${startDateStr} to ${endDateStr}.`,
+      `${name} requested a ${category.name}${tier ? ` (${tier.label})` : ""} from ${startDateStr} to ${endDate.toISOString().slice(0, 10)}.`,
       "",
       `Address: ${address}`,
       `Phone: ${phone ?? "—"}`,
