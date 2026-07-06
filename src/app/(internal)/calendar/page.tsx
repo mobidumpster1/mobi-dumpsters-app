@@ -130,7 +130,67 @@ export default async function CalendarPage({
 
       <h2 className="mt-6 text-xl font-semibold text-ink">{monthLabel}</h2>
 
-      <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 shadow-sm">
+      {/* Mobile: agenda list */}
+      <div className="mt-3 flex flex-col gap-3 md:hidden">
+        {days
+          .filter((day) => day.getUTCMonth() === month && (entriesByDay.get(dateKey(day))?.length ?? 0) > 0)
+          .map((day) => {
+            const key = dateKey(day);
+            const entries = entriesByDay.get(key) ?? [];
+            const isToday = key === todayKey;
+            return (
+              <div
+                key={key}
+                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                      isToday ? "bg-brand text-white" : "bg-zinc-100 text-zinc-700"
+                    }`}
+                  >
+                    {day.getUTCDate()}
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-700">
+                    {day.toLocaleDateString(undefined, {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      timeZone: "UTC",
+                    })}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {entries.map((entry, i) => (
+                    <Link
+                      key={`${entry.bookingId}-${entry.kind}-${i}`}
+                      href={`/bookings/${entry.bookingId}`}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+                        entry.kind === "delivery"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName} — {entry.equipmentLabel}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        {days.every(
+          (day) => day.getUTCMonth() !== month || (entriesByDay.get(dateKey(day))?.length ?? 0) === 0
+        ) && (
+          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+            No deliveries or returns scheduled this month.
+          </p>
+        )}
+      </div>
+
+      {/* Tablet/desktop: month grid */}
+      <div className="mt-3 hidden overflow-x-auto rounded-2xl border border-zinc-200 shadow-sm md:block">
       <div className="grid min-w-[700px] grid-cols-7 gap-px bg-zinc-200">
         {WEEKDAY_LABELS.map((label) => (
           <div
