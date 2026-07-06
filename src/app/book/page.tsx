@@ -30,6 +30,7 @@ export default async function PublicBookingPage() {
                 id: c.id,
                 name: c.name,
                 description: c.description,
+                basePrice: c.basePrice,
               }))}
               agreementTitle={agreement.title}
               agreementContent={agreement.content}

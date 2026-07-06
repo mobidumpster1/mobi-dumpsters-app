@@ -8,6 +8,7 @@ import { findAvailableItems } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
 import { sendNotificationEmail } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
+import { savePhotoFile } from "@/lib/uploads";
 
 export async function checkAvailability(
   categoryId: string,
@@ -78,11 +79,21 @@ export async function submitBookingRequest(formData: FormData) {
           equipmentItemId: item.id,
           startDate,
           expectedReturnDate: endDate,
-          price: 0,
+          price: category.basePrice ?? 0,
         },
       },
     },
   });
+
+  const photoFiles = formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  for (const file of photoFiles) {
+    const filePath = await savePhotoFile(booking.id, file);
+    await db.photo.create({
+      data: { bookingId: booking.id, filePath, type: "other" },
+    });
+  }
 
   const agreement = await getAgreementSettings();
   const headerList = await headers();

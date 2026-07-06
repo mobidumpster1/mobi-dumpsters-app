@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { checkAvailability, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
 
-type CategoryOption = { id: string; name: string; description: string | null };
+type CategoryOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  basePrice: number | null;
+};
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -20,6 +25,7 @@ export function BookingForm({
   agreementContent: string;
 }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const selectedCategory = categories.find((c) => c.id === categoryId);
   const [startDate, setStartDate] = useState(today());
   const [endDate, setEndDate] = useState("");
   const [availability, setAvailability] = useState<{
@@ -60,6 +66,15 @@ export function BookingForm({
           ))}
         </select>
       </Field>
+
+      {selectedCategory?.basePrice != null && (
+        <div className="rounded-xl bg-brand-light p-3 text-sm text-zinc-700">
+          <span className="font-semibold text-ink">
+            ${selectedCategory.basePrice.toFixed(2)}
+          </span>{" "}
+          {selectedCategory.description || "Starting price."}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Delivery Date" htmlFor="startDate">
@@ -135,6 +150,20 @@ export function BookingForm({
       </Field>
       <Field label="Anything else we should know? (optional)" htmlFor="notes">
         <textarea id="notes" name="notes" rows={3} className={inputClass} />
+      </Field>
+
+      <Field
+        label="Photos of the site, junk, or demo area (optional, but helps us quote accurately)"
+        htmlFor="photos"
+      >
+        <input
+          id="photos"
+          name="photos"
+          type="file"
+          accept="image/*"
+          multiple
+          className={inputClass}
+        />
       </Field>
 
       <div>
