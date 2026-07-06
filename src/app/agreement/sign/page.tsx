@@ -9,7 +9,7 @@ export default async function SignAgreementPage() {
   const agreement = await getAgreementSettings();
 
   return (
-    <div className="min-h-screen bg-brand-light px-4 py-10">
+    <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
       <div className="mx-auto max-w-xl">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-ink">

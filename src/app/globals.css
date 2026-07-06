@@ -73,6 +73,26 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Customer-facing pages (booking form, agreement signing, staff login)
+   always render in light mode, regardless of the visitor's system theme
+   or a staff member's dark mode choice elsewhere in the app — they have
+   no theme toggle of their own and weren't designed with a dark palette. */
+.theme-light {
+  color-scheme: light;
+  --background: #f7f8f6;
+  --foreground: #1a1a1a;
+  --rt-white: #ffffff;
+  --rt-zinc-50: #fafafa;
+  --rt-zinc-100: #f4f4f5;
+  --rt-zinc-200: #e4e4e7;
+  --rt-zinc-300: #d4d4d8;
+  --rt-zinc-400: #a1a1aa;
+  --rt-zinc-500: #71717a;
+  --rt-zinc-600: #52525b;
+  --rt-zinc-700: #3f3f46;
+  --rt-zinc-900: #18181b;
+}
+
 @media print {
   aside {
     display: none;
