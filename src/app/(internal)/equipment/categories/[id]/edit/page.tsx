@@ -6,6 +6,7 @@ import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
+import { BundleFields } from "@/components/BundleFields";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 
 export default async function EditCategoryPage({
@@ -14,10 +15,17 @@ export default async function EditCategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const category = await db.equipmentCategory.findUnique({
-    where: { id },
-    include: { pricingTiers: { orderBy: { sortOrder: "asc" } } },
-  });
+  const [category, categoryOptions] = await Promise.all([
+    db.equipmentCategory.findUnique({
+      where: { id },
+      include: { pricingTiers: { orderBy: { sortOrder: "asc" } } },
+    }),
+    db.equipmentCategory.findMany({
+      where: { id: { not: id } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
   if (!category) notFound();
 
   const updateWithId = updateCategory.bind(null, category.id);
@@ -63,6 +71,13 @@ export default async function EditCategoryPage({
             days: t.days,
             price: t.price,
           }))}
+        />
+        <BundleFields
+          categoryOptions={categoryOptions}
+          initial={{
+            bundleOfCategoryId: category.bundleOfCategoryId,
+            bundleQuantity: category.bundleQuantity,
+          }}
         />
         <div className="flex gap-3">
           <button

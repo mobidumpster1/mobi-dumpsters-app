@@ -44,18 +44,18 @@ export function BookingForm({
 
   const [availability, setAvailability] = useState<{
     checked: boolean;
-    count: number;
-  }>({ checked: false, count: 0 });
+    isAvailable: boolean;
+  }>({ checked: false, isAvailable: false });
   const [isPending, startTransition] = useTransition();
 
   function runCheck(nextCategoryId: string, nextStart: string, nextEnd: string) {
     if (!nextCategoryId || !nextStart || !nextEnd) {
-      setAvailability({ checked: false, count: 0 });
+      setAvailability({ checked: false, isAvailable: false });
       return;
     }
     startTransition(async () => {
       const result = await checkAvailability(nextCategoryId, nextStart, nextEnd);
-      setAvailability({ checked: true, count: result.availableCount });
+      setAvailability({ checked: true, isAvailable: result.isAvailable });
     });
   }
 
@@ -64,8 +64,12 @@ export function BookingForm({
     const nextCategory = categories.find((c) => c.id === nextCategoryId);
     const firstTier = nextCategory?.pricingTiers[0];
     setTierId(firstTier?.id ?? "");
-    if (firstTier) {
-      runCheck(nextCategoryId, startDate, addDaysToDateStr(startDate, firstTier.days));
+    if (nextCategory && nextCategory.pricingTiers.length > 0) {
+      if (firstTier?.price != null) {
+        runCheck(nextCategoryId, startDate, addDaysToDateStr(startDate, firstTier.days));
+      } else {
+        setAvailability({ checked: false, isAvailable: false });
+      }
     } else {
       runCheck(nextCategoryId, startDate, endDate);
     }
@@ -86,7 +90,7 @@ export function BookingForm({
     if (tier?.price != null) {
       runCheck(categoryId, startDate, addDaysToDateStr(startDate, tier.days));
     } else {
-      setAvailability({ checked: false, count: 0 });
+      setAvailability({ checked: false, isAvailable: false });
     }
   }
 
@@ -187,10 +191,10 @@ export function BookingForm({
       {!isPending && availability.checked && (
         <p
           className={`text-sm font-medium ${
-            availability.count > 0 ? "text-brand" : "text-red-600"
+            availability.isAvailable ? "text-brand" : "text-red-600"
           }`}
         >
-          {availability.count > 0
+          {availability.isAvailable
             ? "Available for your dates!"
             : "Not available for those dates — try different dates."}
         </p>
@@ -257,7 +261,7 @@ export function BookingForm({
 
       <button
         type="submit"
-        disabled={!bookable || (availability.checked && availability.count === 0)}
+        disabled={!bookable || (availability.checked && !availability.isAvailable)}
         className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
         Request Booking

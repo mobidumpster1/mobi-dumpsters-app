@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { findAvailableItems } from "@/lib/availability";
+import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
 import { sendNotificationEmail } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
@@ -15,13 +15,19 @@ export async function checkAvailability(
   startDate: string,
   endDate: string
 ) {
-  if (!categoryId || !startDate || !endDate) return { availableCount: 0 };
+  if (!categoryId || !startDate || !endDate) {
+    return { availableCount: 0, isAvailable: false };
+  }
+  const category = await db.equipmentCategory.findUnique({ where: { id: categoryId } });
+  if (!category) return { availableCount: 0, isAvailable: false };
+
   const items = await findAvailableItems(
-    categoryId,
+    effectiveCategoryId(category),
     new Date(startDate),
     new Date(endDate)
   );
-  return { availableCount: items.length };
+  const needed = requiredQuantity(category);
+  return { availableCount: items.length, isAvailable: items.length >= needed };
 }
 
 export async function submitBookingRequest(formData: FormData) {
@@ -64,14 +70,20 @@ export async function submitBookingRequest(formData: FormData) {
         return new Date(endDateStr);
       })();
 
-  const available = await findAvailableItems(categoryId, startDate, endDate);
-  if (available.length === 0) {
+  const needed = requiredQuantity(category);
+  const available = await findAvailableItems(
+    effectiveCategoryId(category),
+    startDate,
+    endDate
+  );
+  if (available.length < needed) {
     throw new Error(
       "Sorry, nothing is available for those dates anymore. Please try different dates."
     );
   }
-  const item = available[0];
-  const price = tier ? (tier.price ?? 0) : (category.basePrice ?? 0);
+  const items = available.slice(0, needed);
+  const totalPrice = tier ? (tier.price ?? 0) : (category.basePrice ?? 0);
+  const pricePerItem = totalPrice / needed;
 
   let customer = await db.customer.findFirst({ where: { email } });
   if (!customer) {
@@ -92,12 +104,12 @@ export async function submitBookingRequest(formData: FormData) {
       status: "pending",
       notes: str(formData, "notes"),
       items: {
-        create: {
+        create: items.map((item) => ({
           equipmentItemId: item.id,
           startDate,
           expectedReturnDate: endDate,
-          price,
-        },
+          price: pricePerItem,
+        })),
       },
     },
   });
@@ -132,10 +144,10 @@ export async function submitBookingRequest(formData: FormData) {
     },
   });
 
-  // Hold this unit so it doesn't look "Available" for other jobs while the
-  // request is awaiting confirmation.
-  await db.equipmentItem.update({
-    where: { id: item.id },
+  // Hold these units so they don't look "Available" for other jobs while
+  // the request is awaiting confirmation.
+  await db.equipmentItem.updateMany({
+    where: { id: { in: items.map((item) => item.id) } },
     data: {
       status: "reserved",
       currentCustomerId: customer.id,

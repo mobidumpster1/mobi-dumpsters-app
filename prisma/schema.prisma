@@ -92,6 +92,14 @@ model EquipmentCategory {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // Lets a category be a "bundle" that books multiple units of another
+  // category instead of owning equipment itself — e.g. a public listing for
+  // "40 Yard — Two Containers" that actually reserves 2 Roll-Off Dumpsters.
+  bundleOfCategoryId String?
+  bundleOfCategory   EquipmentCategory?  @relation("CategoryBundle", fields: [bundleOfCategoryId], references: [id])
+  bundledAs          EquipmentCategory[] @relation("CategoryBundle")
+  bundleQuantity     Int                 @default(1)
+
   items        EquipmentItem[]
   pricingTiers PricingTier[]
 }

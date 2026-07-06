@@ -1,11 +1,18 @@
 import Link from "next/link";
+import { db } from "@/lib/db";
 import { createCategory } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
+import { BundleFields } from "@/components/BundleFields";
 
-export default function NewCategoryPage() {
+export default async function NewCategoryPage() {
+  const categoryOptions = await db.equipmentCategory.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight text-ink">New Category</h1>
@@ -30,6 +37,7 @@ export default function NewCategoryPage() {
         <CategoryFieldBuilder />
         <CategoryPricingFields />
         <PricingTierBuilder />
+        <BundleFields categoryOptions={categoryOptions} />
         <div className="flex gap-3">
           <button
             type="submit"

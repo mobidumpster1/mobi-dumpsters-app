@@ -43,6 +43,14 @@ function pricingTiers(formData: FormData) {
   }
 }
 
+function bundleFields(formData: FormData) {
+  const bundleOfCategoryId = str(formData, "bundleOfCategoryId");
+  return {
+    bundleOfCategoryId: bundleOfCategoryId || null,
+    bundleQuantity: bundleOfCategoryId ? num(formData, "bundleQuantity") ?? 1 : 1,
+  };
+}
+
 export async function createCategory(formData: FormData) {
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
@@ -57,6 +65,7 @@ export async function createCategory(formData: FormData) {
       description: str(formData, "description"),
       fieldDefinitions,
       ...pricingFields(formData),
+      ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },
     },
   });
@@ -80,6 +89,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
       description: str(formData, "description"),
       fieldDefinitions,
       ...pricingFields(formData),
+      ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },
     },
   });

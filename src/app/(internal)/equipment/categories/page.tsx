@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function CategoriesPage() {
   const categories = await db.equipmentCategory.findMany({
     orderBy: { name: "asc" },
-    include: { items: true },
+    include: { items: true, bundleOfCategory: true },
   });
 
   return (
@@ -42,8 +42,9 @@ export default async function CategoriesPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-medium text-zinc-900">{category.name}</h2>
                 <span className="text-sm text-zinc-500">
-                  {category.items.length} item
-                  {category.items.length === 1 ? "" : "s"}
+                  {category.bundleOfCategory
+                    ? `Bundle: ${category.bundleQuantity}× ${category.bundleOfCategory.name}`
+                    : `${category.items.length} item${category.items.length === 1 ? "" : "s"}`}
                 </span>
               </div>
               {category.description && (
