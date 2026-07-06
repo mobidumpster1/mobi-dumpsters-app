@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { markDelivered, markReturned, confirmBooking, declineBooking } from "../actions";
+import {
+  markDelivered,
+  markReturned,
+  confirmBooking,
+  declineBooking,
+  deleteBooking,
+} from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
 import { GalleryImage } from "@/components/GalleryImage";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +46,8 @@ export default async function BookingDetailPage({
   const total = booking.items.reduce((sum, item) => sum + item.price, 0);
   const confirmWithId = confirmBooking.bind(null, booking.id);
   const declineWithId = declineBooking.bind(null, booking.id);
+  const deleteWithId = deleteBooking.bind(null, booking.id);
+  const canDelete = booking.invoices.length === 0;
 
   return (
     <div>
@@ -62,22 +71,47 @@ export default async function BookingDetailPage({
             </p>
           )}
         </div>
-        {!isPending &&
-          (booking.invoices.length === 0 ? (
-            <Link
-              href={`/invoices/new?bookingId=${booking.id}`}
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-            >
-              Create Invoice
-            </Link>
+        <div className="flex flex-wrap gap-3">
+          {!isPending &&
+            (booking.invoices.length === 0 ? (
+              <Link
+                href={`/invoices/new?bookingId=${booking.id}`}
+                className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              >
+                Create Invoice
+              </Link>
+            ) : (
+              <Link
+                href={`/invoices/${booking.invoices[0].id}`}
+                className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              >
+                View Invoice
+              </Link>
+            ))}
+          <Link
+            href={`/bookings/${booking.id}/edit`}
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Edit
+          </Link>
+          {canDelete ? (
+            <form action={deleteWithId}>
+              <ConfirmButton
+                message="Delete this booking? This can't be undone."
+                className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
           ) : (
-            <Link
-              href={`/invoices/${booking.invoices[0].id}`}
-              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            <span
+              title="Delete the invoice first to delete this booking."
+              className="cursor-not-allowed rounded-xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-400"
             >
-              View Invoice
-            </Link>
-          ))}
+              Delete
+            </span>
+          )}
+        </div>
       </div>
 
       {booking.notes && (
@@ -161,7 +195,95 @@ export default async function BookingDetailPage({
         </div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {booking.items.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+          >
+            <p className="font-medium text-zinc-900">
+              {item.equipmentItem.label}
+            </p>
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Start</dt>
+                <dd className="text-zinc-700">{formatDate(item.startDate)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Expected Return</dt>
+                <dd className="text-zinc-700">
+                  {formatDate(item.expectedReturnDate)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Price</dt>
+                <dd className="text-zinc-700">${item.price.toFixed(2)}</dd>
+              </div>
+            </dl>
+            <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
+              <div>
+                <p className="text-xs text-zinc-500">Delivery</p>
+                {item.deliveredAt ? (
+                  <span className="text-sm text-zinc-500">
+                    {item.deliveredAt.toLocaleDateString()}
+                  </span>
+                ) : (
+                  <form action={markDelivered.bind(null, item.id)}>
+                    <button
+                      type="submit"
+                      className="text-sm font-semibold text-brand hover:underline"
+                    >
+                      Mark Delivered
+                    </button>
+                  </form>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500">Return</p>
+                {item.actualReturnDate ? (
+                  <span className="text-sm text-zinc-500">
+                    {item.actualReturnDate.toLocaleDateString()}
+                  </span>
+                ) : (
+                  <form
+                    action={markReturned.bind(null, item.id)}
+                    className="flex flex-col gap-1.5"
+                  >
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="actualTonnage"
+                      placeholder="Tons (optional)"
+                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="actualMileage"
+                      placeholder="Miles (optional)"
+                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                    />
+                    <button
+                      type="submit"
+                      className="self-start text-sm font-semibold text-brand hover:underline"
+                    >
+                      Mark Returned
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <span className="font-medium text-zinc-500">Total</span>
+          <span className="font-medium text-zinc-900">${total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

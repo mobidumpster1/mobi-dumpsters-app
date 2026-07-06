@@ -2,11 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { unlink } from "fs/promises";
+import path from "path";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
 import { pushBookingToCalendar } from "@/lib/googleCalendar";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
+import { uploadsRoot } from "@/lib/uploads";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -140,6 +143,86 @@ export async function declineBooking(bookingId: string) {
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath("/bookings");
   revalidatePath("/");
+}
+
+export async function updateBooking(bookingId: string, formData: FormData) {
+  const deliveryAddress = str(formData, "deliveryAddress");
+  if (!deliveryAddress) throw new Error("Delivery address is required");
+
+  const booking = await db.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { items: true },
+  });
+
+  const geocoded =
+    deliveryAddress !== booking.deliveryAddress
+      ? await geocodeAddress(deliveryAddress)
+      : null;
+
+  await db.booking.update({
+    where: { id: bookingId },
+    data: {
+      deliveryAddress,
+      notes: str(formData, "notes"),
+      ...(geocoded
+        ? { latitude: geocoded.latitude, longitude: geocoded.longitude }
+        : {}),
+    },
+  });
+
+  for (const item of booking.items) {
+    const startDate = str(formData, `startDate_${item.id}`);
+    const expectedReturnDate = str(formData, `expectedReturnDate_${item.id}`);
+    const priceStr = str(formData, `price_${item.id}`);
+    await db.bookingItem.update({
+      where: { id: item.id },
+      data: {
+        ...(startDate ? { startDate: new Date(startDate) } : {}),
+        ...(expectedReturnDate
+          ? { expectedReturnDate: new Date(expectedReturnDate) }
+          : {}),
+        price: priceStr ? Number(priceStr) || 0 : item.price,
+      },
+    });
+  }
+
+  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath("/bookings");
+  redirect(`/bookings/${bookingId}`);
+}
+
+export async function deleteBooking(bookingId: string) {
+  const booking = await db.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { items: true, invoices: true, photos: true },
+  });
+
+  if (booking.invoices.length > 0) {
+    throw new Error(
+      "This booking has an invoice. Delete the invoice first, then delete the booking."
+    );
+  }
+
+  await db.equipmentItem.updateMany({
+    where: {
+      id: { in: booking.items.map((item) => item.equipmentItemId) },
+      currentCustomerId: booking.customerId,
+    },
+    data: { status: "available", currentCustomerId: null, currentLocation: null },
+  });
+
+  for (const photo of booking.photos) {
+    await unlink(path.join(uploadsRoot(), photo.filePath)).catch(() => {});
+  }
+  await db.photo.deleteMany({ where: { bookingId } });
+  await db.expense.updateMany({ where: { bookingId }, data: { bookingId: null } });
+  await db.bookingItem.deleteMany({ where: { bookingId } });
+  await db.booking.delete({ where: { id: bookingId } });
+
+  revalidatePath("/bookings");
+  revalidatePath("/");
+  revalidatePath("/equipment");
+  redirect("/bookings");
 }
 
 export async function markDelivered(bookingItemId: string) {

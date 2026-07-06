@@ -2,11 +2,28 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
+import { SearchBox } from "@/components/SearchBox";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+
   const customers = await db.customer.findMany({
+    where: q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { companyName: { contains: q, mode: "insensitive" } },
+            { phone: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : undefined,
     orderBy: { name: "asc" },
     include: { bookings: true },
   });
@@ -31,6 +48,10 @@ export default async function CustomersPage() {
         >
           + New Customer
         </Link>
+      </div>
+
+      <div className="mt-6">
+        <SearchBox placeholder="Search customers by name, company, phone, or email…" />
       </div>
 
       <div className="mt-6">
@@ -81,7 +102,7 @@ export default async function CustomersPage() {
         ))}
         {customers.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            No customers yet.
+            {q ? "No customers match your search." : "No customers yet."}
           </p>
         )}
       </div>
@@ -135,7 +156,7 @@ export default async function CustomersPage() {
             {customers.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  No customers yet.
+                  {q ? "No customers match your search." : "No customers yet."}
                 </td>
               </tr>
             )}

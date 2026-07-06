@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { StatusQuickSelect } from "@/components/StatusQuickSelect";
+import { SearchBox } from "@/components/SearchBox";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
 import { quickSetEquipmentStatus } from "./actions";
 
@@ -11,13 +12,32 @@ const MS_PER_DAY = 86_400_000;
 export default async function EquipmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; q?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, q } = await searchParams;
+
+  function statusHref(nextStatus?: string) {
+    const params = new URLSearchParams();
+    if (nextStatus) params.set("status", nextStatus);
+    if (q) params.set("q", q);
+    const qs = params.toString();
+    return `/equipment${qs ? `?${qs}` : ""}`;
+  }
 
   const [items, statusCounts, totalCount] = await Promise.all([
     db.equipmentItem.findMany({
-      where: status ? { status } : undefined,
+      where: {
+        status: status || undefined,
+        ...(q
+          ? {
+              OR: [
+                { label: { contains: q, mode: "insensitive" } },
+                { assetTag: { contains: q, mode: "insensitive" } },
+                { category: { name: { contains: q, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { label: "asc" },
       include: {
         category: true,
@@ -57,7 +77,7 @@ export default async function EquipmentPage({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
-          href="/equipment"
+          href={statusHref()}
           className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
             !status
               ? "bg-brand text-white"
@@ -69,7 +89,7 @@ export default async function EquipmentPage({
         {Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => (
           <Link
             key={value}
-            href={`/equipment?status=${value}`}
+            href={statusHref(value)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               status === value
                 ? "bg-brand text-white"
@@ -79,6 +99,10 @@ export default async function EquipmentPage({
             {label} ({countByStatus.get(value) ?? 0})
           </Link>
         ))}
+      </div>
+
+      <div className="mt-4">
+        <SearchBox placeholder="Search equipment by name, asset tag, or category…" />
       </div>
 
       {/* Mobile: card list */}
@@ -154,7 +178,7 @@ export default async function EquipmentPage({
         })}
         {items.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            No equipment yet.
+            {q || status ? "No equipment matches your filters." : "No equipment yet."}
           </p>
         )}
       </div>
@@ -230,7 +254,7 @@ export default async function EquipmentPage({
             {items.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  No equipment yet.
+                  {q || status ? "No equipment matches your filters." : "No equipment yet."}
                 </td>
               </tr>
             )}
