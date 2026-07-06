@@ -3,8 +3,10 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 
 // Public routes anyone can reach without logging in — the customer-facing
-// booking flow and agreement signing, plus the login page itself.
-const PUBLIC_PATHS = ["/login", "/book", "/agreement"];
+// booking flow and agreement signing, the login page itself, and the cron
+// endpoints Vercel calls on a schedule (which can't log in and are instead
+// protected by CRON_SECRET, see src/app/api/cron/*/route.ts).
+const PUBLIC_PATHS = ["/login", "/book", "/agreement", "/api/cron"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

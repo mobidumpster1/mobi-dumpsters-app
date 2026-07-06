@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { getValidConnection, listCustomers } from "@/lib/quickbooks";
 import { getAgreementSettings } from "@/lib/agreement";
+import { getReviewRequestSettings } from "@/lib/reviewSettings";
+import { sendPendingReviewRequests } from "@/lib/reviewRequest";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -94,4 +97,25 @@ export async function updateAgreementSettings(formData: FormData) {
   });
 
   revalidatePath("/settings");
+}
+
+export async function updateReviewRequestSettings(formData: FormData) {
+  const settings = await getReviewRequestSettings();
+  const googleReviewUrl = str(formData, "googleReviewUrl") || null;
+  const delayDaysStr = str(formData, "delayDays");
+  const delayDays = delayDaysStr ? Math.max(0, Number(delayDaysStr) || 0) : 2;
+  const enabled = formData.get("enabled") === "on";
+
+  await db.reviewRequestSettings.update({
+    where: { id: settings.id },
+    data: { googleReviewUrl, delayDays, enabled },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function sendReviewRequestsNow() {
+  const result = await sendPendingReviewRequests();
+  revalidatePath("/settings");
+  redirect(`/settings?reviews_sent=${result.sent}&reviews_checked=${result.checked ?? 0}`);
 }

@@ -1,6 +1,14 @@
 import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccount } from "@/lib/quickbooks";
-import { saveAccountMappings, disconnectQuickBooks, importCustomersFromQuickBooks, updateAgreementSettings } from "./actions";
+import {
+  saveAccountMappings,
+  disconnectQuickBooks,
+  importCustomersFromQuickBooks,
+  updateAgreementSettings,
+  updateReviewRequestSettings,
+  sendReviewRequestsNow,
+} from "./actions";
 import { getAgreementSettings } from "@/lib/agreement";
+import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { Field, inputClass } from "@/components/Field";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +20,18 @@ function accountOptionValue(account: QboAccount) {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ qb_connected?: string; qb_error?: string }>;
+  searchParams: Promise<{
+    qb_connected?: string;
+    qb_error?: string;
+    reviews_sent?: string;
+    reviews_checked?: string;
+  }>;
 }) {
-  const { qb_connected, qb_error } = await searchParams;
+  const { qb_connected, qb_error, reviews_sent, reviews_checked } = await searchParams;
   const configured = isQuickBooksConfigured();
   const connection = configured ? await getValidConnection() : null;
   const agreement = await getAgreementSettings();
+  const reviewSettings = await getReviewRequestSettings();
 
   let accounts: QboAccount[] = [];
   if (connection) {
@@ -227,6 +241,79 @@ export default async function SettingsPage({
               Preview shareable signing link →
             </a>
           </div>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Review Requests</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Automatically emails a customer a few days after a job is fully
+          picked up, asking for a Google review. Runs once a day — a booking
+          only ever gets asked once.
+        </p>
+
+        {reviews_sent !== undefined && (
+          <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+            Sent {reviews_sent} review request{reviews_sent === "1" ? "" : "s"}
+            {reviews_checked ? ` (checked ${reviews_checked} eligible job${reviews_checked === "1" ? "" : "s"}).` : "."}
+          </p>
+        )}
+
+        <form action={updateReviewRequestSettings} className="mt-4 flex flex-col gap-4">
+          <Field
+            label="Google Review Link"
+            htmlFor="googleReviewUrl"
+          >
+            <input
+              id="googleReviewUrl"
+              name="googleReviewUrl"
+              type="url"
+              placeholder="https://g.page/r/.../review"
+              defaultValue={reviewSettings.googleReviewUrl ?? ""}
+              className={inputClass}
+            />
+          </Field>
+          <p className="-mt-2 text-xs text-zinc-500">
+            Find this on your Google Business Profile under &quot;Get more
+            reviews&quot; — it gives you a shareable link.
+          </p>
+          <Field label="Send this many days after pickup" htmlFor="delayDays">
+            <input
+              id="delayDays"
+              name="delayDays"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={reviewSettings.delayDays}
+              className={inputClass}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={reviewSettings.enabled}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            Send review request emails automatically
+          </label>
+          <div>
+            <button
+              type="submit"
+              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+
+        <form action={sendReviewRequestsNow} className="mt-4 border-t border-zinc-100 pt-4">
+          <button
+            type="submit"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Send Now (check for anyone eligible today)
+          </button>
         </form>
       </section>
     </div>

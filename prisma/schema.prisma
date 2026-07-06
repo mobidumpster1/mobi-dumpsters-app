@@ -267,6 +267,9 @@ model Booking {
   // per equipment item, when the job is closed out.
   vehicleId String?
   vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+  // Set once the daily review-request cron has emailed this customer, so a
+  // booking never gets asked for a review twice.
+  reviewRequestSentAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -425,6 +428,18 @@ model ServiceAgreementSettings {
   content   String   @default("[Placeholder — replace this with your real service agreement text in Settings before sharing with customers. Consider having a lawyer review it.]")
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+// Controls the automated "please leave us a review" email sent a few days
+// after a job is fully closed out. Singleton row, same pattern as
+// ServiceAgreementSettings — created with defaults on first Settings visit.
+model ReviewRequestSettings {
+  id             String   @id @default(cuid())
+  enabled        Boolean  @default(false)
+  googleReviewUrl String?
+  delayDays      Int      @default(2)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a
