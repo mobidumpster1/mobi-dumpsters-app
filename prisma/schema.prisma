@@ -178,6 +178,7 @@ model EquipmentItem {
   locationEvents    EquipmentLocationEvent[]
   photos            EquipmentPhoto[]
   mileageLogEntries MileageLogEntry[]
+  damageReports     DamageReport[]
 }
 
 // A company-owned vehicle (a truck used to tow/deliver equipment) —
@@ -280,6 +281,26 @@ model Booking {
   signedAgreements SignedAgreement[]
   mileageLogEntries MileageLogEntry[]
   dumpLogEntries DumpLogEntry[]
+  damageReports DamageReport[]
+}
+
+// Filed when a returned piece of equipment came back damaged. Estimated
+// cost either gets added to the booking's invoice (billedToCustomer) or
+// recorded as a business expense (the company eats the cost) — never both.
+model DamageReport {
+  id                String        @id @default(cuid())
+  bookingId         String
+  booking           Booking       @relation(fields: [bookingId], references: [id])
+  equipmentItemId   String
+  equipmentItem     EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+  description       String
+  estimatedCost     Float
+  billedToCustomer  Boolean       @default(false)
+  // Set to whichever record actually carries the cost, so deleting the
+  // report can clean it up in the right place.
+  invoiceLineItemId String?
+  expenseId         String?
+  createdAt         DateTime      @default(now())
 }
 
 // A photo attached to a booking (delivery/pickup condition, damage, etc.),
@@ -343,6 +364,9 @@ model Invoice {
   // create duplicate records there.
   quickbooksInvoiceId String?
   quickbooksPaymentId String?
+  // Tracks the most recent automated overdue-payment reminder, so the daily
+  // cron can space repeat nags out instead of re-sending every run.
+  lastReminderSentAt DateTime?
   createdAt     DateTime  @default(now())
 
   lineItems InvoiceLineItem[]
@@ -440,6 +464,18 @@ model ReviewRequestSettings {
   delayDays      Int      @default(2)
   updatedAt      DateTime @updatedAt
   createdAt      DateTime @default(now())
+}
+
+// Controls the automated overdue-invoice reminder email. Singleton row,
+// same pattern as ReviewRequestSettings — created with defaults on first
+// Settings visit.
+model InvoiceReminderSettings {
+  id         String   @id @default(cuid())
+  enabled    Boolean  @default(false)
+  delayDays  Int      @default(7) // days past due before the first reminder
+  repeatDays Int      @default(14) // days between repeat reminders while still unpaid
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a

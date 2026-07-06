@@ -8,6 +8,8 @@ import { getValidConnection, listCustomers } from "@/lib/quickbooks";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { sendPendingReviewRequests } from "@/lib/reviewRequest";
+import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
+import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -118,4 +120,26 @@ export async function sendReviewRequestsNow() {
   const result = await sendPendingReviewRequests();
   revalidatePath("/settings");
   redirect(`/settings?reviews_sent=${result.sent}&reviews_checked=${result.checked ?? 0}`);
+}
+
+export async function updateInvoiceReminderSettings(formData: FormData) {
+  const settings = await getInvoiceReminderSettings();
+  const delayDaysStr = str(formData, "delayDays");
+  const repeatDaysStr = str(formData, "repeatDays");
+  const delayDays = delayDaysStr ? Math.max(0, Number(delayDaysStr) || 0) : 7;
+  const repeatDays = repeatDaysStr ? Math.max(1, Number(repeatDaysStr) || 0) : 14;
+  const enabled = formData.get("enabled") === "on";
+
+  await db.invoiceReminderSettings.update({
+    where: { id: settings.id },
+    data: { delayDays, repeatDays, enabled },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function sendInvoiceRemindersNow() {
+  const result = await sendPendingInvoiceReminders();
+  revalidatePath("/settings");
+  redirect(`/settings?invoices_sent=${result.sent}&invoices_checked=${result.checked ?? 0}`);
 }

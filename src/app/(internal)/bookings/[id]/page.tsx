@@ -11,6 +11,7 @@ import {
   setBookingVehicle,
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
+import { addDamageReport, deleteDamageReport } from "../damageActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
@@ -39,6 +40,7 @@ export default async function BookingDetailPage({
         items: { include: { equipmentItem: true } },
         invoices: true,
         photos: { orderBy: { createdAt: "desc" } },
+        damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
       },
     }),
     db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
@@ -59,6 +61,7 @@ export default async function BookingDetailPage({
   const deleteWithId = deleteBooking.bind(null, booking.id);
   const notifyWithId = notifyOnTheWay.bind(null, booking.id);
   const canDelete = booking.invoices.length === 0;
+  const addDamageReportWithId = addDamageReport.bind(null, booking.id);
 
   return (
     <div>
@@ -419,6 +422,96 @@ export default async function BookingDetailPage({
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <h2 className="mt-8 text-xl font-semibold text-ink">Damage Reports</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        File a report if equipment came back damaged — bill the estimated
+        cost to the customer&apos;s invoice, or record it as a repair
+        expense the business absorbs. Attach photos below under
+        &quot;Damage&quot;.
+      </p>
+      <form
+        action={addDamageReportWithId}
+        className="mt-3 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Equipment" htmlFor="equipmentItemId">
+            <select id="equipmentItemId" name="equipmentItemId" required className={inputClass}>
+              {booking.items.map((item) => (
+                <option key={item.equipmentItemId} value={item.equipmentItemId}>
+                  {item.equipmentItem.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Estimated Repair Cost" htmlFor="estimatedCost">
+            <input
+              id="estimatedCost"
+              name="estimatedCost"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <Field label="Description" htmlFor="description">
+          <input id="description" name="description" required className={inputClass} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+          <input
+            type="checkbox"
+            name="billedToCustomer"
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Bill this to the customer&apos;s invoice (leave unchecked to record it as a repair expense instead)
+        </label>
+        <div>
+          <button
+            type="submit"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            File Damage Report
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-3 flex flex-col gap-3">
+        {booking.damageReports.map((report) => (
+          <div
+            key={report.id}
+            className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+          >
+            <div>
+              <p className="font-medium text-zinc-900">
+                {report.equipmentItem.label} — ${report.estimatedCost.toFixed(2)}
+              </p>
+              <p className="text-sm text-zinc-500">{report.description}</p>
+              <span
+                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                  report.billedToCustomer
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-zinc-100 text-zinc-600"
+                }`}
+              >
+                {report.billedToCustomer ? "Billed to customer" : "Business expense"}
+              </span>
+            </div>
+            <form action={deleteDamageReport.bind(null, report.id)}>
+              <ConfirmButton
+                message="Delete this damage report? This will also remove the associated invoice charge or expense."
+                className="text-sm font-semibold text-red-600 hover:underline"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
+          </div>
+        ))}
+        {booking.damageReports.length === 0 && (
+          <p className="text-sm text-zinc-400">No damage reported.</p>
+        )}
       </div>
 
       <h2 className="mt-8 text-xl font-semibold text-ink">Photos</h2>

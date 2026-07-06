@@ -6,9 +6,12 @@ import {
   updateAgreementSettings,
   updateReviewRequestSettings,
   sendReviewRequestsNow,
+  updateInvoiceReminderSettings,
+  sendInvoiceRemindersNow,
 } from "./actions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
+import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { Field, inputClass } from "@/components/Field";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +28,23 @@ export default async function SettingsPage({
     qb_error?: string;
     reviews_sent?: string;
     reviews_checked?: string;
+    invoices_sent?: string;
+    invoices_checked?: string;
   }>;
 }) {
-  const { qb_connected, qb_error, reviews_sent, reviews_checked } = await searchParams;
+  const {
+    qb_connected,
+    qb_error,
+    reviews_sent,
+    reviews_checked,
+    invoices_sent,
+    invoices_checked,
+  } = await searchParams;
   const configured = isQuickBooksConfigured();
   const connection = configured ? await getValidConnection() : null;
   const agreement = await getAgreementSettings();
   const reviewSettings = await getReviewRequestSettings();
+  const invoiceReminderSettings = await getInvoiceReminderSettings();
 
   let accounts: QboAccount[] = [];
   if (connection) {
@@ -313,6 +326,72 @@ export default async function SettingsPage({
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
           >
             Send Now (check for anyone eligible today)
+          </button>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Overdue Invoice Reminders</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Automatically emails a customer when an invoice is past due, then
+          nags again periodically until it&apos;s paid. Runs once a day.
+        </p>
+
+        {invoices_sent !== undefined && (
+          <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+            Sent {invoices_sent} reminder{invoices_sent === "1" ? "" : "s"}
+            {invoices_checked ? ` (checked ${invoices_checked} overdue invoice${invoices_checked === "1" ? "" : "s"}).` : "."}
+          </p>
+        )}
+
+        <form action={updateInvoiceReminderSettings} className="mt-4 flex flex-col gap-4">
+          <Field label="Send the first reminder this many days past due" htmlFor="delayDays">
+            <input
+              id="delayDays"
+              name="delayDays"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={invoiceReminderSettings.delayDays}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Then repeat every this many days while still unpaid" htmlFor="repeatDays">
+            <input
+              id="repeatDays"
+              name="repeatDays"
+              type="number"
+              min="1"
+              step="1"
+              defaultValue={invoiceReminderSettings.repeatDays}
+              className={inputClass}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={invoiceReminderSettings.enabled}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            Send overdue reminder emails automatically
+          </label>
+          <div>
+            <button
+              type="submit"
+              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+
+        <form action={sendInvoiceRemindersNow} className="mt-4 border-t border-zinc-100 pt-4">
+          <button
+            type="submit"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Send Now (check for anyone overdue today)
           </button>
         </form>
       </section>
