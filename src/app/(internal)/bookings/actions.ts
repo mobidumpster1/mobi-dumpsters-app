@@ -254,6 +254,15 @@ export async function notifyOnTheWay(bookingId: string) {
   redirect(`/bookings/${bookingId}?notified=1`);
 }
 
+export async function setBookingVehicle(bookingId: string, formData: FormData) {
+  const vehicleId = str(formData, "vehicleId");
+  await db.booking.update({
+    where: { id: bookingId },
+    data: { vehicleId: vehicleId || null },
+  });
+  revalidatePath(`/bookings/${bookingId}`);
+}
+
 export async function markDelivered(bookingItemId: string) {
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
@@ -288,7 +297,6 @@ export async function markDelivered(bookingItemId: string) {
 export async function markReturned(bookingItemId: string, formData: FormData) {
   const actualTonnageStr = str(formData, "actualTonnage");
   const actualMileageStr = str(formData, "actualMileage");
-  const vehicleId = str(formData, "vehicleId");
 
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
@@ -298,6 +306,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
       actualTonnage: actualTonnageStr ? Number(actualTonnageStr) : null,
       actualMileage: actualMileageStr ? Number(actualMileageStr) : null,
     },
+    include: { booking: true },
   });
 
   await db.equipmentItem.update({
@@ -318,19 +327,26 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   });
 
   // Feed the mileage log from the same field used for overage billing, so
-  // staff aren't entering the same trip mileage twice.
+  // staff aren't entering the same trip mileage twice. Logged once per
+  // booking (against whichever truck was assigned to the job) even if the
+  // booking has multiple items — one job is one trip, not one per item.
   if (bookingItem.actualMileage) {
-    await db.mileageLogEntry.create({
-      data: {
-        vehicleId: vehicleId || null,
-        equipmentItemId: vehicleId ? null : bookingItem.equipmentItemId,
-        bookingId: bookingItem.bookingId,
-        date: new Date(),
-        miles: bookingItem.actualMileage,
-        purpose: "Job round trip",
-        source: "manual",
-      },
+    const alreadyLogged = await db.mileageLogEntry.findFirst({
+      where: { bookingId: bookingItem.bookingId },
     });
+    if (!alreadyLogged) {
+      await db.mileageLogEntry.create({
+        data: {
+          vehicleId: bookingItem.booking.vehicleId,
+          equipmentItemId: bookingItem.booking.vehicleId ? null : bookingItem.equipmentItemId,
+          bookingId: bookingItem.bookingId,
+          date: new Date(),
+          miles: bookingItem.actualMileage,
+          purpose: "Job round trip",
+          source: "manual",
+        },
+      });
+    }
   }
 
   // If every item on this booking is now back, the job is complete —

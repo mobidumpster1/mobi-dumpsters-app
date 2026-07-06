@@ -162,6 +162,7 @@ model Vehicle {
   updatedAt DateTime @updatedAt
 
   mileageLogEntries MileageLogEntry[]
+  bookings          Booking[]
 }
 
 // A single trip's mileage for a vehicle or a piece of rental equipment — a
@@ -229,6 +230,10 @@ model Booking {
   // Set once a Google Calendar event has been created for this booking, so
   // we don't create duplicates if the push is ever retried.
   googleCalendarEventId String?
+  // Which truck handled this job — used to log its mileage once, instead of
+  // per equipment item, when the job is closed out.
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

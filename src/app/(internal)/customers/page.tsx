@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { LocationMap } from "@/components/LocationMap";
+import { SelectableCustomerMap } from "@/components/SelectableCustomerMap";
 import { AddressLink } from "@/components/AddressLink";
 import { SearchBox } from "@/components/SearchBox";
 
@@ -28,14 +28,13 @@ export default async function CustomersPage({
     include: { bookings: true },
   });
 
-  const pins = customers
+  const mappableCustomers = customers
     .filter((c) => c.latitude !== null && c.longitude !== null)
     .map((c) => ({
       id: c.id,
+      name: c.name,
       lat: c.latitude as number,
       lng: c.longitude as number,
-      label: c.name,
-      href: `/customers/${c.id}`,
     }));
 
   return (
@@ -55,7 +54,7 @@ export default async function CustomersPage({
       </div>
 
       <div className="mt-6">
-        <LocationMap pins={pins} />
+        <SelectableCustomerMap customers={mappableCustomers} />
       </div>
 
       {/* Mobile: card list */}

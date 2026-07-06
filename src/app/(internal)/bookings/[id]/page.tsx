@@ -8,6 +8,7 @@ import {
   declineBooking,
   deleteBooking,
   notifyOnTheWay,
+  setBookingVehicle,
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
@@ -17,6 +18,7 @@ import { LocationMap } from "@/components/LocationMap";
 import { GalleryImage } from "@/components/GalleryImage";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { AddressLink } from "@/components/AddressLink";
+import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +80,16 @@ export default async function BookingDetailPage({
             <p className="mt-1 text-xs text-zinc-400">
               Synced to Google Calendar
             </p>
+          )}
+          {vehicles.length > 0 && (
+            <div className="mt-2">
+              <VehicleQuickSelect
+                bookingId={booking.id}
+                currentVehicleId={booking.vehicleId}
+                vehicles={vehicles}
+                action={setBookingVehicle}
+              />
+            </div>
           )}
         </div>
         <div className="flex flex-wrap gap-3">
@@ -298,20 +310,6 @@ export default async function BookingDetailPage({
                       placeholder="Miles (optional)"
                       className={`${inputClass} px-2.5 py-1.5 text-xs`}
                     />
-                    {vehicles.length > 0 && (
-                      <select
-                        name="vehicleId"
-                        defaultValue=""
-                        className={`${inputClass} px-2.5 py-1.5 text-xs`}
-                      >
-                        <option value="">Which truck? (optional)</option>
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                     <button
                       type="submit"
                       className="self-start text-sm font-semibold text-brand hover:underline"
@@ -398,20 +396,6 @@ export default async function BookingDetailPage({
                         placeholder="Miles (optional)"
                         className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
                       />
-                      {vehicles.length > 0 && (
-                        <select
-                          name="vehicleId"
-                          defaultValue=""
-                          className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
-                        >
-                          <option value="">Which truck? (optional)</option>
-                          {vehicles.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
                       <button
                         type="submit"
                         className="text-sm font-semibold text-brand hover:underline"
