@@ -37,10 +37,11 @@ export function getAuthorizationUrl(state: string) {
   url.searchParams.set("client_id", CLIENT_ID);
   url.searchParams.set("redirect_uri", REDIRECT_URI);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set(
-    "scope",
-    "com.intuit.quickbooks.accounting com.intuit.quickbooks.payment"
-  );
+  // Accounting scope only — online invoice payment links use the standard
+  // Invoice entity's AllowOnlineCreditCardPayment/invoiceLink fields, not
+  // the separate Payments API, so we don't need that scope (which triggers
+  // a much stricter Intuit compliance review for production access).
+  url.searchParams.set("scope", "com.intuit.quickbooks.accounting");
   url.searchParams.set("state", state);
   return url.toString();
 }
