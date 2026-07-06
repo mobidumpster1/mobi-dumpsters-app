@@ -3,10 +3,11 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 
 // Public routes anyone can reach without logging in — the customer-facing
-// booking flow and agreement signing, the login page itself, and the cron
+// booking flow and agreement signing, the login page itself, the cron
 // endpoints Vercel calls on a schedule (which can't log in and are instead
-// protected by CRON_SECRET, see src/app/api/cron/*/route.ts).
-const PUBLIC_PATHS = ["/login", "/book", "/agreement", "/api/cron"];
+// protected by CRON_SECRET, see src/app/api/cron/*/route.ts), and the
+// privacy/terms pages required by Intuit's QuickBooks app review.
+const PUBLIC_PATHS = ["/login", "/book", "/agreement", "/api/cron", "/privacy", "/terms"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
