@@ -22,7 +22,49 @@ export default async function BookingsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {bookings.map((booking) => (
+          <Link
+            key={booking.id}
+            href={`/bookings/${booking.id}`}
+            className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-zinc-900">
+                {booking.customer.name}
+              </span>
+              {booking.status === "pending" ? (
+                <span className="inline-block flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  Pending Review
+                </span>
+              ) : booking.status === "cancelled" ? (
+                <span className="inline-block flex-shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                  Cancelled
+                </span>
+              ) : (
+                <span className="flex-shrink-0 text-xs text-zinc-500">
+                  {computeBookingStatus(booking.items)}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-zinc-600">
+              {booking.items.map((i) => i.equipmentItem.label).join(", ")}
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">
+              {booking.deliveryAddress}
+            </p>
+          </Link>
+        ))}
+        {bookings.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+            No bookings yet.
+          </p>
+        )}
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

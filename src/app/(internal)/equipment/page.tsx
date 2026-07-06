@@ -81,7 +81,86 @@ export default async function EquipmentPage({
         ))}
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {items.map((item) => {
+          const openEvent = item.locationEvents[0];
+          const daysAtSite = openEvent
+            ? Math.floor((new Date().getTime() - openEvent.startedAt.getTime()) / MS_PER_DAY)
+            : null;
+          const isAging =
+            openEvent !== undefined &&
+            openEvent?.location !== "Yard" &&
+            daysAtSite !== null &&
+            daysAtSite > item.category.agingThresholdDays;
+
+          return (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <Link
+                    href={`/equipment/${item.id}`}
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    {item.label}
+                  </Link>
+                  {item.assetTag && (
+                    <div className="text-xs text-zinc-500">{item.assetTag}</div>
+                  )}
+                </div>
+                <StatusQuickSelect
+                  itemId={item.id}
+                  currentStatus={item.status}
+                  action={quickSetEquipmentStatus}
+                />
+              </div>
+              <dl className="mt-2 flex flex-col gap-1 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Category</dt>
+                  <dd className="text-zinc-700">{item.category.name}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Location / Customer</dt>
+                  <dd className="truncate text-zinc-700">
+                    {item.currentCustomer
+                      ? item.currentCustomer.name
+                      : (item.currentLocation ?? "Yard")}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">At Site</dt>
+                  <dd>
+                    {daysAtSite !== null && openEvent?.location !== "Yard" ? (
+                      <span
+                        className={
+                          isAging
+                            ? "font-semibold text-red-600"
+                            : "text-zinc-500"
+                        }
+                      >
+                        {daysAtSite}d{isAging ? " — sitting too long" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400">—</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          );
+        })}
+        {items.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+            No equipment yet.
+          </p>
+        )}
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

@@ -31,7 +31,47 @@ export default async function AgreementsPage() {
         </a>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {signed.map((s) => (
+          <Link
+            key={s.id}
+            href={`/agreements/${s.id}`}
+            className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-zinc-900">{s.signerName}</span>
+              <span className="flex-shrink-0 text-xs text-zinc-500">
+                {formatDate(s.agreedAt)}
+              </span>
+            </div>
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Customer</dt>
+                <dd className="truncate text-zinc-700">
+                  {s.customer?.name ?? "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Booking</dt>
+                <dd className="text-zinc-700">{s.booking ? "Linked" : "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Agreement</dt>
+                <dd className="truncate text-zinc-700">{s.agreementTitle}</dd>
+              </div>
+            </dl>
+          </Link>
+        ))}
+        {signed.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+            No signatures collected yet.
+          </p>
+        )}
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

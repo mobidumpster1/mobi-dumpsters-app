@@ -37,7 +37,57 @@ export default async function CustomersPage() {
         <LocationMap pins={pins} />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="mt-6 flex flex-col gap-3 md:hidden">
+        {customers.map((customer) => (
+          <div
+            key={customer.id}
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+          >
+            <Link
+              href={`/customers/${customer.id}`}
+              className="font-medium text-zinc-900 hover:underline"
+            >
+              {customer.name}
+            </Link>
+            {customer.companyName && (
+              <div className="text-xs text-zinc-500">{customer.companyName}</div>
+            )}
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Phone</dt>
+                <dd className="text-zinc-700">{customer.phone ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Email</dt>
+                <dd className="truncate text-zinc-700">{customer.email ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="flex-shrink-0 text-zinc-500">Address</dt>
+                <dd className="truncate text-right text-zinc-700">
+                  {customer.address ? (
+                    <AddressLink address={customer.address} />
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Bookings</dt>
+                <dd className="text-zinc-700">{customer.bookings.length}</dd>
+              </div>
+            </dl>
+          </div>
+        ))}
+        {customers.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+            No customers yet.
+          </p>
+        )}
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
