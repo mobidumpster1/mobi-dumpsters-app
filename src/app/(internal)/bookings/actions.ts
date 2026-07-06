@@ -288,6 +288,7 @@ export async function markDelivered(bookingItemId: string) {
 export async function markReturned(bookingItemId: string, formData: FormData) {
   const actualTonnageStr = str(formData, "actualTonnage");
   const actualMileageStr = str(formData, "actualMileage");
+  const vehicleId = str(formData, "vehicleId");
 
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
@@ -321,7 +322,8 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   if (bookingItem.actualMileage) {
     await db.mileageLogEntry.create({
       data: {
-        equipmentItemId: bookingItem.equipmentItemId,
+        vehicleId: vehicleId || null,
+        equipmentItemId: vehicleId ? null : bookingItem.equipmentItemId,
         bookingId: bookingItem.bookingId,
         date: new Date(),
         miles: bookingItem.actualMileage,

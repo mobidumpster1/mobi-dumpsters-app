@@ -29,15 +29,18 @@ export default async function BookingDetailPage({
 }) {
   const { id } = await params;
   const { notified } = await searchParams;
-  const booking = await db.booking.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      items: { include: { equipmentItem: true } },
-      invoices: true,
-      photos: { orderBy: { createdAt: "desc" } },
-    },
-  });
+  const [booking, vehicles] = await Promise.all([
+    db.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        items: { include: { equipmentItem: true } },
+        invoices: true,
+        photos: { orderBy: { createdAt: "desc" } },
+      },
+    }),
+    db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
+  ]);
 
   if (!booking) notFound();
 
@@ -295,6 +298,20 @@ export default async function BookingDetailPage({
                       placeholder="Miles (optional)"
                       className={`${inputClass} px-2.5 py-1.5 text-xs`}
                     />
+                    {vehicles.length > 0 && (
+                      <select
+                        name="vehicleId"
+                        defaultValue=""
+                        className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                      >
+                        <option value="">Which truck? (optional)</option>
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <button
                       type="submit"
                       className="self-start text-sm font-semibold text-brand hover:underline"
@@ -381,6 +398,20 @@ export default async function BookingDetailPage({
                         placeholder="Miles (optional)"
                         className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
                       />
+                      {vehicles.length > 0 && (
+                        <select
+                          name="vehicleId"
+                          defaultValue=""
+                          className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
+                        >
+                          <option value="">Which truck? (optional)</option>
+                          {vehicles.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         type="submit"
                         className="text-sm font-semibold text-brand hover:underline"
