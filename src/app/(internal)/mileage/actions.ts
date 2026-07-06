@@ -5,31 +5,36 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 
 export async function addMileageEntry(formData: FormData) {
-  const target = str(formData, "target");
+  const vehicleId = str(formData, "vehicleId");
+  const equipmentItemId = str(formData, "equipmentItemId");
   const dateStr = str(formData, "date");
-  const milesStr = str(formData, "miles");
+  const odometerStartStr = str(formData, "odometerStart");
+  const odometerEndStr = str(formData, "odometerEnd");
   const purpose = str(formData, "purpose");
-  const bookingId = str(formData, "bookingId");
   const notes = str(formData, "notes");
 
-  if (!target) throw new Error("Vehicle or equipment is required");
+  if (!vehicleId) throw new Error("Truck is required");
   if (!dateStr) throw new Error("Date is required");
-  if (!milesStr || Number(milesStr) <= 0) throw new Error("Miles must be a positive number");
   if (!purpose) throw new Error("Purpose is required");
+  if (!odometerStartStr || !odometerEndStr) {
+    throw new Error("Starting and ending mileage are required");
+  }
 
-  const [kind, id] = target.split(":");
-  if ((kind !== "vehicle" && kind !== "equipment") || !id) {
-    throw new Error("Invalid vehicle or equipment selection");
+  const odometerStart = Number(odometerStartStr);
+  const odometerEnd = Number(odometerEndStr);
+  if (odometerEnd <= odometerStart) {
+    throw new Error("Ending mileage must be greater than starting mileage");
   }
 
   await db.mileageLogEntry.create({
     data: {
-      vehicleId: kind === "vehicle" ? id : null,
-      equipmentItemId: kind === "equipment" ? id : null,
+      vehicleId,
+      equipmentItemId: equipmentItemId || null,
       date: new Date(dateStr),
-      miles: Number(milesStr),
+      odometerStart,
+      odometerEnd,
+      miles: odometerEnd - odometerStart,
       purpose,
-      bookingId: bookingId || null,
       notes,
       source: "manual",
     },

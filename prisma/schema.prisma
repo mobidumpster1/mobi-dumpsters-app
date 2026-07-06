@@ -165,18 +165,20 @@ model Vehicle {
   bookings          Booking[]
 }
 
-// A single trip's mileage for a vehicle or a piece of rental equipment — a
-// delivery/pickup, a yard-to-yard move, a maintenance run, etc. Exactly one
-// of vehicleId/equipmentItemId is set. Entered manually today; `source`
-// exists so a future Samsara GPS sync can insert entries the same way
-// without a schema change.
+// A single trip's mileage — which truck drove it, and (optionally) which
+// piece of rental equipment it was hauling. `miles` is the stored/derived
+// total, computed from odometerStart/odometerEnd when those are entered.
+// `source` exists so a future Samsara GPS sync can insert entries the same
+// way without a schema change.
 model MileageLogEntry {
   id              String         @id @default(cuid())
-  equipmentItemId String?
-  equipmentItem   EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
   vehicleId       String?
   vehicle         Vehicle?       @relation(fields: [vehicleId], references: [id])
+  equipmentItemId String?
+  equipmentItem   EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
   date            DateTime
+  odometerStart   Float?
+  odometerEnd     Float?
   miles           Float
   purpose         String
   bookingId       String?
