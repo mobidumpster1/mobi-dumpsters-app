@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { LocationMap } from "@/components/LocationMap";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,9 @@ type CalendarEntry = {
   customerName: string;
   equipmentLabel: string;
   kind: "delivery" | "return";
+  lat: number | null;
+  lng: number | null;
+  address: string;
 };
 
 function AgendaDay({
@@ -145,6 +149,9 @@ export default async function CalendarPage({
         customerName: item.booking.customer.name,
         equipmentLabel: item.equipmentItem.label,
         kind: "delivery",
+        lat: item.booking.latitude,
+        lng: item.booking.longitude,
+        address: item.booking.deliveryAddress,
       });
     }
     if (item.expectedReturnDate >= rangeStart && item.expectedReturnDate <= rangeEnd) {
@@ -153,8 +160,30 @@ export default async function CalendarPage({
         customerName: item.booking.customer.name,
         equipmentLabel: item.equipmentItem.label,
         kind: "return",
+        lat: item.booking.latitude,
+        lng: item.booking.longitude,
+        address: item.booking.deliveryAddress,
       });
     }
+  }
+
+  // One pin per booking (a booking can have a delivery and a return entry
+  // in the same range, or multiple items), for whichever days are in view.
+  function pinsForDays(days: Date[]) {
+    const seen = new Map<string, { id: string; lat: number; lng: number; label: string; href: string }>();
+    for (const day of days) {
+      for (const entry of entriesByDay.get(dateKey(day)) ?? []) {
+        if (entry.lat == null || entry.lng == null || seen.has(entry.bookingId)) continue;
+        seen.set(entry.bookingId, {
+          id: entry.bookingId,
+          lat: entry.lat,
+          lng: entry.lng,
+          label: `${entry.customerName} — ${entry.address}`,
+          href: `/bookings/${entry.bookingId}`,
+        });
+      }
+    }
+    return Array.from(seen.values());
   }
 
   const gridDays: Date[] = [];
@@ -259,7 +288,8 @@ export default async function CalendarPage({
       </div>
 
       {view === "day" && (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
+          <LocationMap pins={pinsForDays([anchor])} heightClassName="h-72" />
           <AgendaDay
             day={anchor}
             entries={entriesByDay.get(dateKey(anchor)) ?? []}
@@ -269,15 +299,18 @@ export default async function CalendarPage({
       )}
 
       {view === "week" && (
-        <div className="mt-4 flex flex-col gap-3">
-          {gridDays.map((day) => (
-            <AgendaDay
-              key={dateKey(day)}
-              day={day}
-              entries={entriesByDay.get(dateKey(day)) ?? []}
-              isToday={dateKey(day) === todayKey}
-            />
-          ))}
+        <div className="mt-4 flex flex-col gap-4">
+          <LocationMap pins={pinsForDays(gridDays)} heightClassName="h-80" />
+          <div className="flex flex-col gap-3">
+            {gridDays.map((day) => (
+              <AgendaDay
+                key={dateKey(day)}
+                day={day}
+                entries={entriesByDay.get(dateKey(day)) ?? []}
+                isToday={dateKey(day) === todayKey}
+              />
+            ))}
+          </div>
         </div>
       )}
 
