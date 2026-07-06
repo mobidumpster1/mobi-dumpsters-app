@@ -11,6 +11,11 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
   const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
   url.searchParams.set("address", address);
   url.searchParams.set("key", apiKey);
+  // The business only serves Middle Georgia. Without this, a vague address
+  // missing a city/state (common with quick manual entry) can silently
+  // resolve to a same-named street on the other side of the world instead
+  // of failing safely.
+  url.searchParams.set("components", "administrative_area:GA|country:US");
 
   try {
     const response = await fetch(url.toString());

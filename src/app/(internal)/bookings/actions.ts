@@ -10,6 +10,8 @@ import { geocodeAddress } from "@/lib/geocode";
 import { pushBookingToCalendar } from "@/lib/googleCalendar";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { uploadsRoot } from "@/lib/uploads";
+import { sendCustomerEmail } from "@/lib/email";
+import { branding } from "@/lib/branding";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -223,6 +225,33 @@ export async function deleteBooking(bookingId: string) {
   revalidatePath("/");
   revalidatePath("/equipment");
   redirect("/bookings");
+}
+
+export async function notifyOnTheWay(bookingId: string) {
+  const booking = await db.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { customer: true },
+  });
+
+  if (!booking.customer.email) {
+    throw new Error("This customer has no email on file — add one to their profile first.");
+  }
+
+  await sendCustomerEmail(
+    booking.customer.email,
+    `${branding.businessName} is on the way!`,
+    [
+      `Hi ${booking.customer.name},`,
+      "",
+      `We're on our way to ${booking.deliveryAddress}.`,
+      "",
+      `Questions? Call or text us at ${branding.phone}.`,
+      "",
+      `- ${branding.businessName}`,
+    ].join("\n")
+  );
+
+  redirect(`/bookings/${bookingId}?notified=1`);
 }
 
 export async function markDelivered(bookingItemId: string) {

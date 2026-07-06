@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { markDelivered, markReturned } from "./bookings/actions";
 import { LocationMap } from "@/components/LocationMap";
+import { AddressLink } from "@/components/AddressLink";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,9 @@ function DispatchCard({
             {itemLabel}
           </Link>
         </p>
-        <p className="mt-1 text-sm text-zinc-500">{address}</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          <AddressLink address={address} />
+        </p>
       </div>
       <form action={action} className="mt-4">
         <button
@@ -121,13 +124,35 @@ export default async function DispatchPage() {
     }),
   ]);
 
-  const pins = activeBookings.map((b) => ({
-    id: b.id,
-    lat: b.latitude as number,
-    lng: b.longitude as number,
-    label: `${b.customer.name} — ${b.deliveryAddress}`,
-    href: `/bookings/${b.id}`,
-  }));
+  // Pin both equipment that's already out at a site and deliveries that are
+  // scheduled but haven't happened yet, so the map is useful for planning
+  // today's route, not just tracking what's already deployed.
+  const pinsByBooking = new Map<
+    string,
+    { id: string; lat: number; lng: number; label: string; href: string }
+  >();
+  for (const b of activeBookings) {
+    pinsByBooking.set(b.id, {
+      id: b.id,
+      lat: b.latitude as number,
+      lng: b.longitude as number,
+      label: `${b.customer.name} — ${b.deliveryAddress}`,
+      href: `/bookings/${b.id}`,
+    });
+  }
+  for (const item of deliveries) {
+    const booking = item.booking;
+    if (booking.latitude == null || booking.longitude == null) continue;
+    if (pinsByBooking.has(booking.id)) continue;
+    pinsByBooking.set(booking.id, {
+      id: booking.id,
+      lat: booking.latitude,
+      lng: booking.longitude,
+      label: `Scheduled: ${booking.customer.name} — ${booking.deliveryAddress}`,
+      href: `/bookings/${booking.id}`,
+    });
+  }
+  const pins = Array.from(pinsByBooking.values());
 
   return (
     <div className="flex flex-col gap-8">

@@ -7,6 +7,7 @@ import {
   confirmBooking,
   declineBooking,
   deleteBooking,
+  notifyOnTheWay,
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
@@ -15,15 +16,19 @@ import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
 import { GalleryImage } from "@/components/GalleryImage";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { AddressLink } from "@/components/AddressLink";
 
 export const dynamic = "force-dynamic";
 
 export default async function BookingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ notified?: string }>;
 }) {
   const { id } = await params;
+  const { notified } = await searchParams;
   const booking = await db.booking.findUnique({
     where: { id },
     include: {
@@ -47,6 +52,7 @@ export default async function BookingDetailPage({
   const confirmWithId = confirmBooking.bind(null, booking.id);
   const declineWithId = declineBooking.bind(null, booking.id);
   const deleteWithId = deleteBooking.bind(null, booking.id);
+  const notifyWithId = notifyOnTheWay.bind(null, booking.id);
   const canDelete = booking.invoices.length === 0;
 
   return (
@@ -63,7 +69,7 @@ export default async function BookingDetailPage({
             </Link>
           </h1>
           <p className="mt-1 text-zinc-500">
-            {status} · {booking.deliveryAddress}
+            {status} · <AddressLink address={booking.deliveryAddress} />
           </p>
           {booking.googleCalendarEventId && (
             <p className="mt-1 text-xs text-zinc-400">
@@ -72,6 +78,25 @@ export default async function BookingDetailPage({
           )}
         </div>
         <div className="flex flex-wrap gap-3">
+          {!isPending && !isCancelled && (
+            booking.customer.email ? (
+              <form action={notifyWithId}>
+                <button
+                  type="submit"
+                  className="rounded-xl border border-blue-300 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                >
+                  🚚 On My Way
+                </button>
+              </form>
+            ) : (
+              <span
+                title="Add an email to this customer's profile to send this."
+                className="cursor-not-allowed rounded-xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-400"
+              >
+                🚚 On My Way
+              </span>
+            )
+          )}
           {!isPending &&
             (booking.invoices.length === 0 ? (
               <Link
@@ -113,6 +138,12 @@ export default async function BookingDetailPage({
           )}
         </div>
       </div>
+
+      {notified === "1" && (
+        <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          Customer notified — email sent to {booking.customer.email}.
+        </p>
+      )}
 
       {booking.notes && (
         <p className="mt-4 text-sm text-zinc-600">{booking.notes}</p>

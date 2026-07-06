@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { computeBookingStatus } from "@/lib/bookingStatus";
+import { AddressLink } from "@/components/AddressLink";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +26,17 @@ export default async function BookingsPage() {
       {/* Mobile: card list */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">
         {bookings.map((booking) => (
-          <Link
+          <div
             key={booking.id}
-            href={`/bookings/${booking.id}`}
-            className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-zinc-900">
+              <Link
+                href={`/bookings/${booking.id}`}
+                className="font-medium text-zinc-900 hover:underline"
+              >
                 {booking.customer.name}
-              </span>
+              </Link>
               {booking.status === "pending" ? (
                 <span className="inline-block flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                   Pending Review
@@ -52,9 +55,9 @@ export default async function BookingsPage() {
               {booking.items.map((i) => i.equipmentItem.label).join(", ")}
             </p>
             <p className="mt-1 text-sm text-zinc-500">
-              {booking.deliveryAddress}
+              <AddressLink address={booking.deliveryAddress} />
             </p>
-          </Link>
+          </div>
         ))}
         {bookings.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
@@ -104,7 +107,7 @@ export default async function BookingsPage() {
                   )}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
-                  {booking.deliveryAddress}
+                  <AddressLink address={booking.deliveryAddress} />
                 </td>
               </tr>
             ))}

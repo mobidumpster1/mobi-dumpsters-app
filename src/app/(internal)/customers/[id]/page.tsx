@@ -162,7 +162,7 @@ export default async function CustomerDetailPage({
                     .join(", ")}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
-                  {booking.deliveryAddress}
+                  <AddressLink address={booking.deliveryAddress} />
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {booking.invoices.length === 0
