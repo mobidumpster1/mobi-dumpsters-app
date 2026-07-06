@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Field, inputClass } from "@/components/Field";
 
 type VehicleOption = { id: string; label: string };
-type EquipmentOption = { id: string; label: string; categoryName: string };
+type EquipmentOption = { id: string; label: string };
 
 export function MileageEntryForm({
   vehicles,
@@ -43,7 +43,7 @@ export function MileageEntryForm({
             <option value="">— None —</option>
             {equipmentItems.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.label} ({item.categoryName})
+                {item.label}
               </option>
             ))}
           </select>

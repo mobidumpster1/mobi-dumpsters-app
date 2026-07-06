@@ -22,6 +22,21 @@ export default async function EditMileageEntryPage({
 
   const updateWithId = updateMileageEntry.bind(null, entry.id);
 
+  // Only one representative item per category (e.g. one roll-off trailer,
+  // even though there are several bins) — plus the entry's actual historical
+  // item if it's a different unit in that same category, so editing doesn't
+  // silently swap which specific unit this trip was recorded against.
+  const haulableByCategory = new Map<string, (typeof equipmentItems)[number]>();
+  for (const item of equipmentItems) {
+    if (!haulableByCategory.has(item.categoryId)) haulableByCategory.set(item.categoryId, item);
+  }
+  const haulableEquipment = Array.from(haulableByCategory.values());
+  const currentItem = equipmentItems.find((item) => item.id === entry.equipmentItemId);
+  const equipmentOptions =
+    currentItem && !haulableEquipment.some((item) => item.id === currentItem.id)
+      ? [...haulableEquipment, currentItem]
+      : haulableEquipment;
+
   return (
     <div className="max-w-xl">
       <h1 className="text-3xl font-bold tracking-tight text-ink">Edit Mileage Entry</h1>
@@ -51,9 +66,9 @@ export default async function EditMileageEntryPage({
               className={inputClass}
             >
               <option value="">— None —</option>
-              {equipmentItems.map((item) => (
+              {equipmentOptions.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.label} ({item.category.name})
+                  {item.id === entry.equipmentItemId ? `${item.label} (${item.category.name})` : item.category.name}
                 </option>
               ))}
             </select>

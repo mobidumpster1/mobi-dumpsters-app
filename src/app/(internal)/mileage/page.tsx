@@ -59,6 +59,15 @@ export default async function MileagePage() {
 
   const activeVehicles = vehicles.filter((v) => v.active);
 
+  // Only one unit of a category is ever towed at a time (e.g. one roll-off
+  // trailer, even though there are several bins) — list one representative
+  // item per category instead of every numbered unit.
+  const haulableByCategory = new Map<string, (typeof equipmentItems)[number]>();
+  for (const item of equipmentItems) {
+    if (!haulableByCategory.has(item.categoryId)) haulableByCategory.set(item.categoryId, item);
+  }
+  const haulableEquipment = Array.from(haulableByCategory.values());
+
   const monthStart = startOfMonth();
   const yearStart = startOfYear();
   const totalAllTime = entries.reduce((sum, e) => sum + (e.miles ?? 0), 0);
@@ -163,10 +172,9 @@ export default async function MileagePage() {
         <div className="mt-3">
           <MileageEntryForm
             vehicles={activeVehicles.map((v) => ({ id: v.id, label: v.label }))}
-            equipmentItems={equipmentItems.map((item) => ({
+            equipmentItems={haulableEquipment.map((item) => ({
               id: item.id,
-              label: item.label,
-              categoryName: item.category.name,
+              label: item.category.name,
             }))}
             action={addMileageEntry}
           />
