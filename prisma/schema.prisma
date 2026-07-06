@@ -360,10 +360,16 @@ model Invoice {
   paidDate      DateTime?
   paymentMethod String?
   notes         String?
-  // Set once pushed to QuickBooks (on marking paid), so retries don't
-  // create duplicate records there.
+  // Set once pushed to QuickBooks — either on marking paid, or earlier if
+  // sent for online payment (see onlinePaymentUrl), in which case markPaid
+  // reuses this same QBO invoice instead of creating a second one.
   quickbooksInvoiceId String?
   quickbooksPaymentId String?
+  // QuickBooks-hosted "pay this invoice online" link, set once a staff
+  // member sends it — customers pay card/ACH directly on Intuit's page, so
+  // no card data ever touches this app.
+  onlinePaymentUrl    String?
+  onlinePaymentSentAt DateTime?
   // Tracks the most recent automated overdue-payment reminder, so the daily
   // cron can space repeat nags out instead of re-sending every run.
   lastReminderSentAt DateTime?

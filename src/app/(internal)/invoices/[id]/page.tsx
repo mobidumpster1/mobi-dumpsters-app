@@ -4,7 +4,14 @@ import { existsSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
-import { markPaid, markUnpaid, deleteInvoice } from "../actions";
+import {
+  markPaid,
+  markUnpaid,
+  deleteInvoice,
+  sendInvoiceForOnlinePayment,
+  checkOnlinePaymentStatus,
+} from "../actions";
+import { isQuickBooksConfigured, getValidConnection, getQboInvoiceBalance } from "@/lib/quickbooks";
 import { Field, inputClass } from "@/components/Field";
 import { PrintButton } from "@/components/PrintButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -17,7 +24,7 @@ export default async function InvoiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const invoice = await db.invoice.findUnique({
+  let invoice = await db.invoice.findUnique({
     where: { id },
     include: {
       booking: { include: { customer: true } },
@@ -28,11 +35,36 @@ export default async function InvoiceDetailPage({
 
   if (!invoice) notFound();
 
+  // Best-effort: if this invoice was sent for online payment and is still
+  // unpaid, quietly check QuickBooks in case the customer already paid,
+  // so staff see it as paid without having to click "Check Payment Status".
+  if (invoice.status !== "paid" && invoice.onlinePaymentUrl && invoice.quickbooksInvoiceId) {
+    try {
+      const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId);
+      if (balance === 0) {
+        invoice = await db.invoice.update({
+          where: { id: invoice.id },
+          data: { status: "paid", paidDate: new Date(), paymentMethod: "QuickBooks Payments (online)" },
+          include: {
+            booking: { include: { customer: true } },
+            customer: true,
+            lineItems: { orderBy: { createdAt: "asc" } },
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to auto-check QuickBooks payment status:", error);
+    }
+  }
+
   const markPaidWithId = markPaid.bind(null, invoice.id);
   const markUnpaidWithId = markUnpaid.bind(null, invoice.id);
   const deleteInvoiceWithId = deleteInvoice.bind(null, invoice.id);
+  const sendForOnlinePaymentWithId = sendInvoiceForOnlinePayment.bind(null, invoice.id);
+  const checkOnlinePaymentStatusWithId = checkOnlinePaymentStatus.bind(null, invoice.id);
   const displayStatus = computeDisplayStatus(invoice.status, invoice.dueDate);
   const customer = invoice.booking?.customer ?? invoice.customer;
+  const quickbooksConnected = isQuickBooksConfigured() ? await getValidConnection() : null;
   const logoExists = existsSync(
     path.join(process.cwd(), "public", branding.logoPath)
   );
@@ -178,6 +210,69 @@ export default async function InvoiceDetailPage({
           </tfoot>
         </table>
       </div>
+
+      {invoice.status !== "paid" && quickbooksConnected && customer && (
+        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm print:hidden">
+          <h2 className="text-lg font-semibold text-ink">Online Payment</h2>
+          {invoice.onlinePaymentUrl ? (
+            <>
+              <p className="mt-1 text-sm text-zinc-500">
+                Sent {invoice.onlinePaymentSentAt ? formatDate(invoice.onlinePaymentSentAt) : ""}
+                . The customer pays card or bank directly on QuickBooks&apos;
+                hosted page — no card details ever touch this app.
+              </p>
+              <a
+                href={invoice.onlinePaymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block break-all text-sm font-semibold text-brand hover:underline"
+              >
+                {invoice.onlinePaymentUrl}
+              </a>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <form action={checkOnlinePaymentStatusWithId}>
+                  <button
+                    type="submit"
+                    className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                  >
+                    Check Payment Status
+                  </button>
+                </form>
+                {customer.email && (
+                  <form action={sendForOnlinePaymentWithId}>
+                    <button
+                      type="submit"
+                      className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      Resend Link
+                    </button>
+                  </form>
+                )}
+              </div>
+            </>
+          ) : customer.email ? (
+            <>
+              <p className="mt-1 text-sm text-zinc-500">
+                Email the customer a QuickBooks-hosted link to pay this
+                invoice by card or bank transfer.
+              </p>
+              <form action={sendForOnlinePaymentWithId} className="mt-3">
+                <button
+                  type="submit"
+                  className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                >
+                  Send for Online Payment
+                </button>
+              </form>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-zinc-400">
+              Add an email to this customer&apos;s profile to send an online
+              payment link.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 flex items-end justify-between gap-3 print:hidden">
         {invoice.status === "paid" ? (

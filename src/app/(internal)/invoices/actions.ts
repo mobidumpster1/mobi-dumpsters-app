@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { pushInvoicePayment } from "@/lib/quickbooks";
+import { pushInvoicePayment, createOnlinePaymentLink, getQboInvoiceBalance } from "@/lib/quickbooks";
 import { computeInvoiceLineItems } from "@/lib/invoicing";
+import { sendCustomerEmail } from "@/lib/email";
+import { branding } from "@/lib/branding";
 
 export async function createInvoice(formData: FormData) {
   const bookingId = str(formData, "bookingId");
@@ -76,6 +78,7 @@ export async function markPaid(invoiceId: string, formData: FormData) {
           invoice.booking?.items
             .map((item) => item.equipmentItem.label)
             .join(", ") ?? invoice.invoiceNumber,
+        existingQboInvoiceId: invoice.quickbooksInvoiceId,
       });
 
       if (result) {
@@ -109,4 +112,89 @@ export async function deleteInvoice(invoiceId: string) {
   await db.invoice.delete({ where: { id: invoiceId } });
   revalidatePath("/invoices");
   redirect("/invoices");
+}
+
+// Sends (or resends) a QuickBooks-hosted "pay this invoice online" link to
+// the customer. No card data ever touches this app — Intuit's page handles
+// the actual charge, requiring QuickBooks Payments to already be enabled on
+// the connected company.
+export async function sendInvoiceForOnlinePayment(invoiceId: string) {
+  const invoice = await db.invoice.findUniqueOrThrow({
+    where: { id: invoiceId },
+    include: {
+      booking: { include: { customer: true } },
+      customer: true,
+      lineItems: true,
+    },
+  });
+
+  const customer = invoice.booking?.customer ?? invoice.customer;
+  if (!customer?.email) {
+    throw new Error(
+      "This customer has no email on file — add one before sending an online payment link."
+    );
+  }
+
+  const result = await createOnlinePaymentLink({
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      quickbooksCustomerId: customer.quickbooksCustomerId,
+    },
+    invoiceNumber: invoice.invoiceNumber,
+    amount: invoice.amount,
+    issueDate: invoice.issueDate,
+    description: invoice.lineItems.map((l) => l.description).join(", ") || invoice.invoiceNumber,
+    billEmail: customer.email,
+    existingQboInvoiceId: invoice.quickbooksInvoiceId,
+  });
+
+  if (!result) {
+    throw new Error("Connect QuickBooks in Settings before sending online payment links.");
+  }
+
+  await db.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      quickbooksInvoiceId: result.qboInvoiceId,
+      onlinePaymentUrl: result.invoiceLink,
+      onlinePaymentSentAt: new Date(),
+    },
+  });
+
+  await sendCustomerEmail(
+    customer.email,
+    `Pay your invoice ${invoice.invoiceNumber} online`,
+    [
+      `Hi ${customer.name},`,
+      "",
+      `You can pay invoice ${invoice.invoiceNumber} ($${invoice.amount.toFixed(2)}) online here:`,
+      "",
+      result.invoiceLink,
+      "",
+      `Thanks,`,
+      `- ${branding.businessName}`,
+    ].join("\n")
+  );
+
+  revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Manually checks QuickBooks for whether the customer has paid the hosted
+// online invoice yet, marking it paid locally if so. Also run
+// best-effort whenever the invoice page loads (see page.tsx).
+export async function checkOnlinePaymentStatus(invoiceId: string) {
+  const invoice = await db.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+  if (invoice.quickbooksInvoiceId && invoice.status !== "paid") {
+    const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId);
+    if (balance === 0) {
+      await db.invoice.update({
+        where: { id: invoiceId },
+        data: { status: "paid", paidDate: new Date(), paymentMethod: "QuickBooks Payments (online)" },
+      });
+    }
+  }
+  revalidatePath(`/invoices/${invoiceId}`);
 }
