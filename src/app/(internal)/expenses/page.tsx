@@ -16,6 +16,12 @@ export default async function ExpensesPage() {
         <h1 className="text-3xl font-bold tracking-tight text-ink">Expenses</h1>
         <div className="flex gap-3">
           <Link
+            href="/expenses/recurring"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            🔁 Recurring Bills
+          </Link>
+          <Link
             href="/expenses/scan"
             className="rounded-xl border border-brand px-5 py-3 text-sm font-semibold text-brand transition-colors hover:bg-brand/5"
           >

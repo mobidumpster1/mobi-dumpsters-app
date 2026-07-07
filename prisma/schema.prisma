@@ -431,6 +431,25 @@ model ExpenseReceipt {
   createdAt DateTime @default(now())
 }
 
+// A bill that recurs on a schedule (loan payments, subscriptions,
+// insurance, licensing) rather than a one-off Expense. Not auto-billed —
+// staff use "Log as Expense" here to record it as a real Expense once it's
+// actually paid, so recordkeeping stays accurate without manual re-entry.
+model RecurringBill {
+  id            String    @id @default(cuid())
+  name          String // e.g. "Truck", "Google Ads"
+  category      String // e.g. "Vehicle Payment", "Advertising"
+  amount        Float? // null when variable (e.g. a credit card balance)
+  frequency     String // monthly | yearly
+  dueDay        Int? // day of month (1-31), for monthly bills
+  dueDate       DateTime? // specific annual date, for yearly bills
+  paymentMethod String?
+  active        Boolean   @default(true)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 // A single row holding the connection to the business's QuickBooks Online
 // company, including which account/item new transactions should post to.
 // Only exists once a "Connect to QuickBooks" flow has completed.
