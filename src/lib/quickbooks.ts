@@ -101,7 +101,12 @@ async function refreshAccessToken(connection: QuickBooksConnection) {
   });
 
   if (!response.ok) {
-    throw new Error(`QuickBooks token refresh failed: ${await response.text()}`);
+    const detail = await response.text();
+    // The refresh token itself is invalid/expired/revoked (e.g. invalid_grant)
+    // — clear the stale connection so Settings falls back to prompting a
+    // fresh "Connect to QuickBooks" instead of failing silently forever.
+    await db.quickBooksConnection.delete({ where: { id: connection.id } }).catch(() => {});
+    throw new Error(`QuickBooks connection expired — please reconnect in Settings. (${detail})`);
   }
 
   const data = await response.json();
