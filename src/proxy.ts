@@ -7,7 +7,15 @@ import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
 // endpoints Vercel calls on a schedule (which can't log in and are instead
 // protected by CRON_SECRET, see src/app/api/cron/*/route.ts), and the
 // privacy/terms pages required by Intuit's QuickBooks app review.
-const PUBLIC_PATHS = ["/login", "/book", "/agreement", "/api/cron", "/privacy", "/terms"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/book",
+  "/agreement",
+  "/api/cron",
+  "/privacy",
+  "/terms",
+  "/dumpster-rental",
+];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
