@@ -10,6 +10,9 @@ import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { sendPendingReviewRequests } from "@/lib/reviewRequest";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
+import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
+import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -142,4 +145,36 @@ export async function sendInvoiceRemindersNow() {
   const result = await sendPendingInvoiceReminders();
   revalidatePath("/settings");
   redirect(`/settings?invoices_sent=${result.sent}&invoices_checked=${result.checked ?? 0}`);
+}
+
+export async function updateJobNotificationSettings(formData: FormData) {
+  const settings = await getJobNotificationSettings();
+  const enabled = formData.get("enabled") === "on";
+
+  await db.jobNotificationSettings.update({
+    where: { id: settings.id },
+    data: { enabled },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateDeliveryReminderSettings(formData: FormData) {
+  const settings = await getDeliveryReminderSettings();
+  const hoursBeforeStr = str(formData, "hoursBefore");
+  const hoursBefore = hoursBeforeStr ? Math.max(1, Number(hoursBeforeStr) || 0) : 24;
+  const enabled = formData.get("enabled") === "on";
+
+  await db.deliveryReminderSettings.update({
+    where: { id: settings.id },
+    data: { hoursBefore, enabled },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function sendDeliveryRemindersNow() {
+  const result = await sendPendingDeliveryReminders();
+  revalidatePath("/settings");
+  redirect(`/settings?deliveries_sent=${result.sent}&deliveries_checked=${result.checked ?? 0}`);
 }

@@ -12,6 +12,7 @@ import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { uploadsRoot } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
+import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -267,7 +268,7 @@ export async function markDelivered(bookingItemId: string) {
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
     data: { deliveredAt: new Date() },
-    include: { booking: true },
+    include: { booking: { include: { customer: true } }, equipmentItem: true },
   });
 
   await db.equipmentItem.update({
@@ -289,6 +290,31 @@ export async function markDelivered(bookingItemId: string) {
     },
   });
 
+  const customer = bookingItem.booking.customer;
+  if (customer.email) {
+    try {
+      const notifySettings = await getJobNotificationSettings();
+      if (notifySettings.enabled) {
+        await sendCustomerEmail(
+          customer.email,
+          `${branding.businessName} — delivered!`,
+          [
+            `Hi ${customer.name},`,
+            "",
+            `Your ${bookingItem.equipmentItem.label} has been delivered to ${bookingItem.booking.deliveryAddress}.`,
+            "",
+            `Questions? Call or text us at ${branding.phone}.`,
+            "",
+            `- ${branding.businessName}`,
+          ].join("\n")
+        );
+      }
+    } catch (error) {
+      // A notification hiccup shouldn't block the delivery from being recorded.
+      console.error("Failed to send delivery notification email:", error);
+    }
+  }
+
   revalidatePath(`/bookings/${bookingItem.bookingId}`);
   revalidatePath("/");
   revalidatePath("/equipment");
@@ -306,7 +332,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
       actualTonnage: actualTonnageStr ? Number(actualTonnageStr) : null,
       actualMileage: actualMileageStr ? Number(actualMileageStr) : null,
     },
-    include: { booking: true },
+    include: { booking: { include: { customer: true } }, equipmentItem: true },
   });
 
   await db.equipmentItem.update({
@@ -356,6 +382,32 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   });
   if (remaining === 0) {
     await createDraftInvoiceForBooking(bookingItem.bookingId);
+  }
+
+  const pickupCustomer = bookingItem.booking.customer;
+  if (pickupCustomer.email) {
+    try {
+      const notifySettings = await getJobNotificationSettings();
+      if (notifySettings.enabled) {
+        await sendCustomerEmail(
+          pickupCustomer.email,
+          `${branding.businessName} — picked up!`,
+          [
+            `Hi ${pickupCustomer.name},`,
+            "",
+            `We've picked up your ${bookingItem.equipmentItem.label} from ${bookingItem.booking.deliveryAddress}.`,
+            ...(bookingItem.actualTonnage != null
+              ? ["", `Total weight: ${bookingItem.actualTonnage.toFixed(2)} tons.`]
+              : []),
+            "",
+            `Thanks for choosing ${branding.businessName}!`,
+          ].join("\n")
+        );
+      }
+    } catch (error) {
+      // A notification hiccup shouldn't block the pickup from being recorded.
+      console.error("Failed to send pickup notification email:", error);
+    }
   }
 
   revalidatePath(`/bookings/${bookingItem.bookingId}`);

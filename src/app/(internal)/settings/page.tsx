@@ -8,10 +8,15 @@ import {
   sendReviewRequestsNow,
   updateInvoiceReminderSettings,
   sendInvoiceRemindersNow,
+  updateJobNotificationSettings,
+  updateDeliveryReminderSettings,
+  sendDeliveryRemindersNow,
 } from "./actions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
+import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { Field, inputClass } from "@/components/Field";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +35,8 @@ export default async function SettingsPage({
     reviews_checked?: string;
     invoices_sent?: string;
     invoices_checked?: string;
+    deliveries_sent?: string;
+    deliveries_checked?: string;
   }>;
 }) {
   const {
@@ -39,12 +46,16 @@ export default async function SettingsPage({
     reviews_checked,
     invoices_sent,
     invoices_checked,
+    deliveries_sent,
+    deliveries_checked,
   } = await searchParams;
   const configured = isQuickBooksConfigured();
   const connection = configured ? await getValidConnection() : null;
   const agreement = await getAgreementSettings();
   const reviewSettings = await getReviewRequestSettings();
   const invoiceReminderSettings = await getInvoiceReminderSettings();
+  const jobNotificationSettings = await getJobNotificationSettings();
+  const deliveryReminderSettings = await getDeliveryReminderSettings();
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;
@@ -402,6 +413,87 @@ export default async function SettingsPage({
             Send Now (check for anyone overdue today)
           </button>
         </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Job Notifications</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Keep customers posted around a job — when equipment goes out, when
+          it comes back, and a heads-up before it's dropped off.
+        </p>
+
+        <form action={updateJobNotificationSettings} className="mt-4 flex flex-col gap-3 border-t border-zinc-100 pt-4">
+          <p className="text-sm font-medium text-ink">Delivery &amp; Pickup</p>
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={jobNotificationSettings.enabled}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            Email the customer automatically when equipment is delivered or
+            picked up (includes the dump weight when it&apos;s recorded)
+          </label>
+          <div>
+            <button
+              type="submit"
+              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-6 border-t border-zinc-100 pt-4">
+          <p className="text-sm font-medium text-ink">Delivery Reminder</p>
+
+          {deliveries_sent !== undefined && (
+            <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+              Sent {deliveries_sent} reminder{deliveries_sent === "1" ? "" : "s"}
+              {deliveries_checked ? ` (checked ${deliveries_checked} upcoming ${deliveries_checked === "1" ? "delivery" : "deliveries"}).` : "."}
+            </p>
+          )}
+
+          <form action={updateDeliveryReminderSettings} className="mt-3 flex flex-col gap-4">
+            <Field label="Send this many hours before delivery" htmlFor="hoursBefore">
+              <input
+                id="hoursBefore"
+                name="hoursBefore"
+                type="number"
+                min="1"
+                step="1"
+                defaultValue={deliveryReminderSettings.hoursBefore}
+                className={inputClass}
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+              <input
+                type="checkbox"
+                name="enabled"
+                defaultChecked={deliveryReminderSettings.enabled}
+                className="h-4 w-4 rounded border-zinc-300"
+              />
+              Send delivery reminder emails automatically
+            </label>
+            <div>
+              <button
+                type="submit"
+                className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+
+          <form action={sendDeliveryRemindersNow} className="mt-4 border-t border-zinc-100 pt-4">
+            <button
+              type="submit"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Send Now (check for upcoming deliveries)
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   );

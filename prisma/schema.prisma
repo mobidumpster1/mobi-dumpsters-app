@@ -330,6 +330,9 @@ model BookingItem {
   actualReturnDate   DateTime?
   deliveredAt        DateTime?
   pickedUpAt         DateTime?
+  // Set once the daily reminder cron has emailed the customer about this
+  // item's upcoming delivery, so it's never sent twice.
+  deliveryReminderSentAt DateTime?
 
   // Entered by staff when closing out the job; compared against the
   // category's included limits to compute overage line items.
@@ -482,6 +485,28 @@ model InvoiceReminderSettings {
   repeatDays Int      @default(14) // days between repeat reminders while still unpaid
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())
+}
+
+// Controls whether marking equipment delivered or picked up automatically
+// emails the customer (pickup includes the dump weight when it was
+// recorded). Singleton row, same pattern as the other *Settings models —
+// created with defaults on first Settings visit.
+model JobNotificationSettings {
+  id        String   @id @default(cuid())
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// Controls the automated "your delivery is coming up" reminder email, sent
+// a configurable number of hours before a booking item's scheduled start.
+// Singleton row, same pattern as ReviewRequestSettings.
+model DeliveryReminderSettings {
+  id          String   @id @default(cuid())
+  enabled     Boolean  @default(false)
+  hoursBefore Int      @default(24)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a
