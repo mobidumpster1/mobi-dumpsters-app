@@ -175,7 +175,7 @@ export default async function ExpenseDetailPage({
           >
             <GalleryImage
               images={expense.receipts.map((r) => ({
-                src: `/api/uploads/${r.filePath}`,
+                src: r.filePath,
                 alt: "Receipt",
               }))}
               index={i}

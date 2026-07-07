@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { unlink } from "fs/promises";
-import path from "path";
 import { db } from "@/lib/db";
-import { saveCustomerPhotoFile, uploadsRoot } from "@/lib/uploads";
+import { saveCustomerPhotoFile, deleteUploadedFile } from "@/lib/uploads";
 import { str } from "@/lib/formData";
 
 export async function uploadCustomerPhoto(customerId: string, formData: FormData) {
@@ -29,7 +27,6 @@ export async function uploadCustomerPhoto(customerId: string, formData: FormData
 
 export async function deleteCustomerPhoto(photoId: string) {
   const photo = await db.customerPhoto.delete({ where: { id: photoId } });
-  const fullPath = path.join(uploadsRoot(), photo.filePath);
-  await unlink(fullPath).catch(() => {});
+  await deleteUploadedFile(photo.filePath);
   revalidatePath(`/customers/${photo.customerId}`);
 }

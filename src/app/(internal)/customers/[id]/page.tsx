@@ -474,7 +474,7 @@ export default async function CustomerDetailPage({
           >
             <GalleryImage
               images={customer.photos.map((p) => ({
-                src: `/api/uploads/${p.filePath}`,
+                src: p.filePath,
                 alt: p.caption ?? p.type,
               }))}
               index={i}

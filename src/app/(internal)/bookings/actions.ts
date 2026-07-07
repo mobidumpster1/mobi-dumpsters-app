@@ -2,14 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { unlink } from "fs/promises";
-import path from "path";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
 import { pushBookingToCalendar } from "@/lib/googleCalendar";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
-import { uploadsRoot } from "@/lib/uploads";
+import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
@@ -215,7 +213,7 @@ export async function deleteBooking(bookingId: string) {
   });
 
   for (const photo of booking.photos) {
-    await unlink(path.join(uploadsRoot(), photo.filePath)).catch(() => {});
+    await deleteUploadedFile(photo.filePath);
   }
   await db.photo.deleteMany({ where: { bookingId } });
   await db.expense.updateMany({ where: { bookingId }, data: { bookingId: null } });

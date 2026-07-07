@@ -560,7 +560,7 @@ export default async function BookingDetailPage({
           >
             <GalleryImage
               images={booking.photos.map((p) => ({
-                src: `/api/uploads/${p.filePath}`,
+                src: p.filePath,
                 alt: p.caption ?? p.type,
               }))}
               index={i}
