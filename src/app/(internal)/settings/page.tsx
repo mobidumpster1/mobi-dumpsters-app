@@ -18,6 +18,7 @@ import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { Field, inputClass } from "@/components/Field";
+import { serviceAreas } from "@/lib/serviceAreas";
 
 export const dynamic = "force-dynamic";
 
@@ -493,6 +494,28 @@ export default async function SettingsPage({
               Send Now (check for upcoming deliveries)
             </button>
           </form>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">SEO City Pages</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Public pages for search engines — not part of the internal app
+          navigation. Good to link from your real website and Google
+          Business Profile.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {serviceAreas.map((area) => (
+            <a
+              key={area.slug}
+              href={`/dumpster-rental/${area.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              {area.city}, GA →
+            </a>
+          ))}
         </div>
       </section>
     </div>
