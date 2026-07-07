@@ -12,6 +12,7 @@ export type Branding = {
   address: string;
   primaryColor: string;
   accentColor: string;
+  facebookPageUrl?: string;
 };
 
 export const branding: Branding = brandingConfig;

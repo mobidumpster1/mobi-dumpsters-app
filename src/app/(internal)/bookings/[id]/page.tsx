@@ -20,6 +20,8 @@ import { GalleryImage } from "@/components/GalleryImage";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
+import { FacebookShareBox } from "@/components/FacebookShareBox";
+import { branding } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export default async function BookingDetailPage({
       where: { id },
       include: {
         customer: true,
-        items: { include: { equipmentItem: true } },
+        items: { include: { equipmentItem: { include: { category: true } } } },
         invoices: true,
         photos: { orderBy: { createdAt: "desc" } },
         damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
@@ -61,6 +63,19 @@ export default async function BookingDetailPage({
   const deleteWithId = deleteBooking.bind(null, booking.id);
   const notifyWithId = notifyOnTheWay.bind(null, booking.id);
   const canDelete = booking.invoices.length === 0;
+
+  // Deliberately generic — no customer name or exact address, since this
+  // is meant to be posted publicly.
+  const categoryNames = Array.from(
+    new Set(booking.items.map((item) => item.equipmentItem.category.name))
+  );
+  const facebookCaption = [
+    `Job complete! 🚛 We just wrapped up a ${categoryNames.join(" + ")} job in the ${branding.address} area.`,
+    "",
+    `Need a dumpster, junk removal, or demo work done? ${branding.phone ? `Call or text us at ${branding.phone}` : "Reach out to us"} to get a quote.`,
+    "",
+    "#MobiDumpsters #DumpsterRental #JunkRemoval #ByronGA #MaconGA",
+  ].join("\n");
   const addDamageReportWithId = addDamageReport.bind(null, booking.id);
 
   return (
@@ -591,6 +606,16 @@ export default async function BookingDetailPage({
           </p>
         )}
       </div>
+
+      {booking.photos.length > 0 && (
+        <div className="mt-6">
+          <FacebookShareBox
+            photos={booking.photos.map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
+            defaultCaption={facebookCaption}
+            facebookPageUrl={branding.facebookPageUrl ?? null}
+          />
+        </div>
+      )}
     </div>
   );
 }
