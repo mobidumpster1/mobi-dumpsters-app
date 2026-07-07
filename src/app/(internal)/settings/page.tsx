@@ -47,11 +47,13 @@ export default async function SettingsPage({
   const invoiceReminderSettings = await getInvoiceReminderSettings();
 
   let accounts: QboAccount[] = [];
+  let accountsError: string | null = null;
   if (connection) {
     try {
       accounts = await listAccounts(connection);
     } catch (error) {
       console.error("Failed to load QuickBooks accounts:", error);
+      accountsError = error instanceof Error ? error.message : String(error);
     }
   }
 
@@ -66,6 +68,11 @@ export default async function SettingsPage({
           DEBUG — QUICKBOOKS_ENVIRONMENT raw value: {debugQuickBooksEnv().rawValue}, resolved to:{" "}
           {debugQuickBooksEnv().resolvedTo}
         </p>
+        {accountsError && (
+          <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 font-mono text-xs text-red-700 break-all">
+            DEBUG — Failed to load accounts: {accountsError}
+          </p>
+        )}
 
         {qb_connected && (
           <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
