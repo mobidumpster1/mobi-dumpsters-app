@@ -1,7 +1,13 @@
 "use client";
 
-import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
 import { useRouter } from "next/navigation";
+
+// Falls back to Google's shared demo Map ID (fine for development, but shows
+// a "for development purposes only" watermark) until a real one is created
+// in Google Cloud Console — Maps Platform → Map Management → Create Map ID
+// — and set as NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID.
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
 
 export type LocationMapPin = {
   id: string;
@@ -44,19 +50,27 @@ export function LocationMap({
     <div className={`${heightClassName} overflow-hidden rounded-lg border border-zinc-200`}>
       <APIProvider apiKey={apiKey}>
         <Map
+          mapId={MAP_ID}
           defaultCenter={center}
           defaultZoom={defaultZoom}
           mapTypeId="satellite"
           gestureHandling="greedy"
           disableDefaultUI={false}
         >
-          {pins.map((pin) => (
-            <Marker
+          {pins.map((pin, index) => (
+            <AdvancedMarker
               key={pin.id}
               position={{ lat: pin.lat, lng: pin.lng }}
               title={pin.label}
               onClick={() => router.push(pin.href)}
-            />
+            >
+              <Pin
+                glyph={String(index + 1)}
+                glyphColor="#ffffff"
+                background="#3f6b2f"
+                borderColor="#2f5122"
+              />
+            </AdvancedMarker>
           ))}
         </Map>
       </APIProvider>
