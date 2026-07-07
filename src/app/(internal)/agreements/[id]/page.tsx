@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
+import { deleteSignedAgreement } from "../actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +20,37 @@ export default async function SignedAgreementDetailPage({
 
   if (!signed) notFound();
 
+  const deleteWithId = deleteSignedAgreement.bind(null, signed.id);
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">
-        {signed.agreementTitle}
-      </h1>
-      <p className="mt-1 text-zinc-500">
-        Signed by {signed.signerName} on {formatDate(signed.agreedAt)} at{" "}
-        {signed.agreedAt.toLocaleTimeString()}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">
+            {signed.agreementTitle}
+          </h1>
+          <p className="mt-1 text-zinc-500">
+            Signed by {signed.signerName} on {formatDate(signed.agreedAt)} at{" "}
+            {signed.agreedAt.toLocaleTimeString()}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href={`/agreements/${signed.id}/edit`}
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Edit
+          </Link>
+          <form action={deleteWithId}>
+            <ConfirmButton
+              message="Delete this signed agreement? This can't be undone."
+              className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              Delete
+            </ConfirmButton>
+          </form>
+        </div>
+      </div>
 
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm sm:grid-cols-3">
         <div>
