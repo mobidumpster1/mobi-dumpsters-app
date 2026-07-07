@@ -29,6 +29,16 @@ export function isQuickBooksConfigured() {
   return Boolean(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);
 }
 
+// Temporary diagnostic — shows exactly what this deployment sees for the
+// environment variable, to debug why connections keep coming back tagged
+// "sandbox" despite the Vercel variable appearing set to "production".
+export function debugQuickBooksEnv() {
+  return {
+    rawValue: JSON.stringify(process.env.QUICKBOOKS_ENVIRONMENT),
+    resolvedTo: CONFIGURED_ENVIRONMENT,
+  };
+}
+
 export function getAuthorizationUrl(state: string) {
   if (!CLIENT_ID || !REDIRECT_URI) {
     throw new Error("QuickBooks is not configured (missing client ID or redirect URI)");
