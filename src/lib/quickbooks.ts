@@ -157,7 +157,16 @@ async function qboFetch(
   });
 
   if (!response.ok) {
-    throw new Error(`QuickBooks API error (${response.status}): ${await response.text()}`);
+    // intuit_tid identifies this specific request to Intuit's support team —
+    // logging it (along with the full response body) gives us everything
+    // needed to troubleshoot without having to reproduce the failure.
+    const intuitTid = response.headers.get("intuit_tid");
+    const detail = await response.text();
+    console.error(
+      `QuickBooks API error (${response.status}) on ${path} [intuit_tid: ${intuitTid ?? "none"}]:`,
+      detail
+    );
+    throw new Error(`QuickBooks API error (${response.status}, intuit_tid: ${intuitTid ?? "none"}): ${detail}`);
   }
 
   return response.json();
