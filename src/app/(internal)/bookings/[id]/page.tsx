@@ -538,6 +538,7 @@ export default async function BookingDetailPage({
             name="file"
             type="file"
             accept="image/*"
+            capture="environment"
             required
             className={inputClass}
           />

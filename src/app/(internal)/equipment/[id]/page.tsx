@@ -191,6 +191,7 @@ export default async function EquipmentDetailPage({
             name="file"
             type="file"
             accept="image/*"
+            capture="environment"
             required
             className={inputClass}
           />

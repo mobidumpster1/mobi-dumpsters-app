@@ -15,6 +15,7 @@ const links = [
   { href: "/bookings", label: "Bookings" },
   { href: "/invoices", label: "Invoices" },
   { href: "/agreements", label: "Agreements" },
+  { href: "/gallery", label: "Gallery" },
   { href: "/expenses", label: "Expenses" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
