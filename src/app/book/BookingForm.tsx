@@ -26,6 +26,17 @@ function addDaysToDateStr(dateStr: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function priceLabel(c: CategoryOption) {
+  if (c.pricingTiers.length > 0) {
+    const priced = c.pricingTiers.filter((t) => t.price != null);
+    if (priced.length === 0) return "Call for pricing";
+    const min = Math.min(...priced.map((t) => t.price as number));
+    return `From $${min.toFixed(2)}`;
+  }
+  if (c.basePrice != null) return `$${c.basePrice.toFixed(2)}`;
+  return null;
+}
+
 export function BookingForm({
   categories,
   agreementTitle,
@@ -106,31 +117,47 @@ export function BookingForm({
 
   return (
     <form action={submitBookingRequest} className="flex flex-col gap-4">
-      <Field label="What do you need?" htmlFor="categoryId">
-        <select
-          id="categoryId"
-          name="categoryId"
-          required
-          className={inputClass}
-          value={categoryId}
-          onChange={(e) => onCategoryChange(e.target.value)}
-        >
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      {selectedCategory?.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={selectedCategory.imageUrl}
-          alt={selectedCategory.name}
-          className="h-40 w-full rounded-xl border border-zinc-200 object-cover"
-        />
-      )}
+      <div>
+        <p className="mb-2 text-sm font-medium text-zinc-700">
+          What do you need?
+        </p>
+        <input type="hidden" name="categoryId" value={categoryId} required />
+        <div className="grid grid-cols-2 gap-3">
+          {categories.map((c) => {
+            const selected = c.id === categoryId;
+            const price = priceLabel(c);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onCategoryChange(c.id)}
+                className={`flex flex-col overflow-hidden rounded-2xl border-2 text-left transition-colors ${
+                  selected
+                    ? "border-brand ring-2 ring-brand/30"
+                    : "border-zinc-200 hover:border-brand/50"
+                }`}
+              >
+                {c.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.imageUrl}
+                    alt={c.name}
+                    className="h-24 w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-24 w-full bg-zinc-100" />
+                )}
+                <div className="p-2.5">
+                  <p className="text-sm font-semibold text-ink">{c.name}</p>
+                  {price && (
+                    <p className="text-xs text-zinc-500">{price}</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {hasTiers && selectedCategory?.description && (
         <p className="text-sm text-zinc-500">{selectedCategory.description}</p>
