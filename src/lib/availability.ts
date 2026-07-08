@@ -32,7 +32,14 @@ export async function listBookableCategories() {
   });
   return categories.filter((category) => {
     const pool = category.bundleOfCategory ? category.bundleOfCategory.items : category.items;
-    return pool.length >= requiredQuantity(category);
+    const hasEnoughUnits = pool.length >= requiredQuantity(category);
+    // Without a base price or at least one priced tier, a booking request
+    // would silently total $0 — hide the category until it's priced rather
+    // than let it appear bookable for free.
+    const hasPricing =
+      category.basePrice !== null ||
+      category.pricingTiers.some((tier) => tier.price !== null);
+    return hasEnoughUnits && hasPricing;
   });
 }
 
