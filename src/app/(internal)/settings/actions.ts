@@ -13,6 +13,11 @@ import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
+import {
+  updateEmailTemplate,
+  resetEmailTemplate,
+  type EmailTemplateKey,
+} from "@/lib/emailTemplates";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -177,4 +182,16 @@ export async function sendDeliveryRemindersNow() {
   const result = await sendPendingDeliveryReminders();
   revalidatePath("/settings");
   redirect(`/settings?deliveries_sent=${result.sent}&deliveries_checked=${result.checked ?? 0}`);
+}
+
+export async function saveEmailTemplate(key: EmailTemplateKey, formData: FormData) {
+  const subject = str(formData, "subject") || "";
+  const body = str(formData, "body") || "";
+  await updateEmailTemplate(key, subject, body);
+  revalidatePath("/settings");
+}
+
+export async function resetEmailTemplateToDefault(key: EmailTemplateKey) {
+  await resetEmailTemplate(key);
+  revalidatePath("/settings");
 }

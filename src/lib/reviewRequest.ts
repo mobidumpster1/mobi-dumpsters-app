@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { branding } from "@/lib/branding";
+import { renderEmailTemplate } from "@/lib/emailTemplates";
 
 // Finds jobs that are fully closed out (every item picked back up), haven't
 // already gotten a review request, have a customer email on file, and were
@@ -40,20 +41,12 @@ export async function sendPendingReviewRequests() {
 
   for (const booking of eligible) {
     try {
-      await sendCustomerEmail(
-        booking.customer.email!,
-        `How did we do, ${booking.customer.name}?`,
-        [
-          `Hi ${booking.customer.name},`,
-          "",
-          `Thanks for choosing ${branding.businessName} for your recent job. If you have a minute, a quick Google review would mean a lot to us and helps other folks in the area find us.`,
-          "",
-          settings.googleReviewUrl!,
-          "",
-          `Thanks again,`,
-          `- ${branding.businessName}`,
-        ].join("\n")
-      );
+      const { subject, body } = await renderEmailTemplate("review_request", {
+        customerName: booking.customer.name,
+        businessName: branding.businessName,
+        reviewUrl: settings.googleReviewUrl!,
+      });
+      await sendCustomerEmail(booking.customer.email!, subject, body);
 
       await db.$transaction([
         db.booking.update({

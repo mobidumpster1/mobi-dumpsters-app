@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { branding } from "@/lib/branding";
+import { renderEmailTemplate } from "@/lib/emailTemplates";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -46,20 +47,14 @@ export async function sendPendingInvoiceReminders() {
   for (const { invoice, customer } of eligible) {
     const daysOverdue = Math.floor((now.getTime() - invoice.dueDate!.getTime()) / MS_PER_DAY);
     try {
-      await sendCustomerEmail(
-        customer!.email!,
-        `Reminder: Invoice ${invoice.invoiceNumber} is past due`,
-        [
-          `Hi ${customer!.name},`,
-          "",
-          `This is a friendly reminder that invoice ${invoice.invoiceNumber} for $${invoice.amount.toFixed(2)} is now ${daysOverdue} day${daysOverdue === 1 ? "" : "s"} past due.`,
-          "",
-          `Let us know if you have questions or need to arrange payment.`,
-          "",
-          `Thanks,`,
-          `- ${branding.businessName}`,
-        ].join("\n")
-      );
+      const { subject, body } = await renderEmailTemplate("invoice_reminder", {
+        customerName: customer!.name,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: invoice.amount.toFixed(2),
+        daysOverdue: `${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`,
+        businessName: branding.businessName,
+      });
+      await sendCustomerEmail(customer!.email!, subject, body);
 
       await db.$transaction([
         db.invoice.update({

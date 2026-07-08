@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { branding } from "@/lib/branding";
+import { renderEmailTemplate } from "@/lib/emailTemplates";
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -44,19 +45,14 @@ export async function sendPendingDeliveryReminders() {
   for (const item of eligible) {
     const customer = item.booking.customer;
     try {
-      await sendCustomerEmail(
-        customer.email!,
-        `Reminder: ${branding.businessName} delivery coming up`,
-        [
-          `Hi ${customer.name},`,
-          "",
-          `Just a heads-up that we'll be delivering your ${item.equipmentItem.label} to ${item.booking.deliveryAddress} soon.`,
-          "",
-          `Questions? Call or text us at ${branding.phone}.`,
-          "",
-          `- ${branding.businessName}`,
-        ].join("\n")
-      );
+      const { subject, body } = await renderEmailTemplate("delivery_reminder", {
+        customerName: customer.name,
+        equipmentLabel: item.equipmentItem.label,
+        address: item.booking.deliveryAddress,
+        phone: branding.phone,
+        businessName: branding.businessName,
+      });
+      await sendCustomerEmail(customer.email!, subject, body);
 
       await db.bookingItem.update({
         where: { id: item.id },

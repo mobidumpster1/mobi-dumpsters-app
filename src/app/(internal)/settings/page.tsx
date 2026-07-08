@@ -11,14 +11,18 @@ import {
   updateJobNotificationSettings,
   updateDeliveryReminderSettings,
   sendDeliveryRemindersNow,
+  saveEmailTemplate,
+  resetEmailTemplateToDefault,
 } from "./actions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
+import { getAllEmailTemplates } from "@/lib/emailTemplates";
 import { Field, inputClass } from "@/components/Field";
 import { serviceAreas } from "@/lib/serviceAreas";
+import { EmailTemplateCard } from "@/components/EmailTemplateCard";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +61,7 @@ export default async function SettingsPage({
   const invoiceReminderSettings = await getInvoiceReminderSettings();
   const jobNotificationSettings = await getJobNotificationSettings();
   const deliveryReminderSettings = await getDeliveryReminderSettings();
+  const emailTemplates = await getAllEmailTemplates();
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;
@@ -494,6 +499,30 @@ export default async function SettingsPage({
               Send Now (check for upcoming deliveries)
             </button>
           </form>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Email Templates</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Customize the wording of any automated customer email. Leave a
+          template alone and it uses the default wording shown here.
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          {emailTemplates.map((t) => (
+            <EmailTemplateCard
+              key={t.key}
+              templateKey={t.key}
+              label={t.label}
+              description={t.description}
+              placeholders={t.placeholders}
+              subject={t.subject}
+              body={t.body}
+              isCustomized={t.isCustomized}
+              saveAction={saveEmailTemplate.bind(null, t.key)}
+              resetAction={resetEmailTemplateToDefault.bind(null, t.key)}
+            />
+          ))}
         </div>
       </section>
 

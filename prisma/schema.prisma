@@ -11,6 +11,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// An editable override for one of the app's automated customer emails
+// (delivery, pickup, reminders, etc). Keyed by a fixed set of template
+// keys defined in src/lib/emailTemplates.ts — if no row exists for a key,
+// the hardcoded default in that file is used instead.
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  subject   String
+  body      String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 // A customer of the business. Kept simple for v1: one address per
 // customer. Per-booking delivery addresses can differ from this.
 model Customer {
@@ -104,6 +117,9 @@ model EquipmentCategory {
   id               String   @id @default(cuid())
   name             String   @unique
   description      String?
+  // Shown next to this category on the public booking page, so customers
+  // can see what they're actually renting.
+  imageUrl         String?
   fieldDefinitions String   @default("[]")
   // How many days an item of this category can sit at one site before it's
   // flagged as "sitting too long" on the equipment dashboard.

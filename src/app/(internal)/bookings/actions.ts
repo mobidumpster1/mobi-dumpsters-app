@@ -11,6 +11,7 @@ import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { renderEmailTemplate } from "@/lib/emailTemplates";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -237,19 +238,13 @@ export async function notifyOnTheWay(bookingId: string) {
   }
 
   try {
-    await sendCustomerEmail(
-      booking.customer.email,
-      `${branding.businessName} is on the way!`,
-      [
-        `Hi ${booking.customer.name},`,
-        "",
-        `We're on our way to ${booking.deliveryAddress}.`,
-        "",
-        `Questions? Call or text us at ${branding.phone}.`,
-        "",
-        `- ${branding.businessName}`,
-      ].join("\n")
-    );
+    const { subject, body } = await renderEmailTemplate("on_my_way", {
+      customerName: booking.customer.name,
+      address: booking.deliveryAddress,
+      phone: branding.phone,
+      businessName: branding.businessName,
+    });
+    await sendCustomerEmail(booking.customer.email, subject, body);
   } catch (error) {
     console.error("Failed to send on-the-way email:", error);
     redirect(`/bookings/${bookingId}?notified=error`);
@@ -298,19 +293,14 @@ export async function markDelivered(bookingItemId: string) {
     try {
       const notifySettings = await getJobNotificationSettings();
       if (notifySettings.enabled) {
-        await sendCustomerEmail(
-          customer.email,
-          `${branding.businessName} — delivered!`,
-          [
-            `Hi ${customer.name},`,
-            "",
-            `Your ${bookingItem.equipmentItem.label} has been delivered to ${bookingItem.booking.deliveryAddress}.`,
-            "",
-            `Questions? Call or text us at ${branding.phone}.`,
-            "",
-            `- ${branding.businessName}`,
-          ].join("\n")
-        );
+        const { subject, body } = await renderEmailTemplate("delivered", {
+          customerName: customer.name,
+          equipmentLabel: bookingItem.equipmentItem.label,
+          address: bookingItem.booking.deliveryAddress,
+          phone: branding.phone,
+          businessName: branding.businessName,
+        });
+        await sendCustomerEmail(customer.email, subject, body);
       }
     } catch (error) {
       // A notification hiccup shouldn't block the delivery from being recorded.
@@ -392,20 +382,17 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
     try {
       const notifySettings = await getJobNotificationSettings();
       if (notifySettings.enabled) {
-        await sendCustomerEmail(
-          pickupCustomer.email,
-          `${branding.businessName} — picked up!`,
-          [
-            `Hi ${pickupCustomer.name},`,
-            "",
-            `We've picked up your ${bookingItem.equipmentItem.label} from ${bookingItem.booking.deliveryAddress}.`,
-            ...(bookingItem.actualTonnage != null
-              ? ["", `Total weight: ${bookingItem.actualTonnage.toFixed(2)} tons.`]
-              : []),
-            "",
-            `Thanks for choosing ${branding.businessName}!`,
-          ].join("\n")
-        );
+        const { subject, body } = await renderEmailTemplate("picked_up", {
+          customerName: pickupCustomer.name,
+          equipmentLabel: bookingItem.equipmentItem.label,
+          address: bookingItem.booking.deliveryAddress,
+          weightLine:
+            bookingItem.actualTonnage != null
+              ? `\nTotal weight: ${bookingItem.actualTonnage.toFixed(2)} tons.\n`
+              : "",
+          businessName: branding.businessName,
+        });
+        await sendCustomerEmail(pickupCustomer.email, subject, body);
       }
     } catch (error) {
       // A notification hiccup shouldn't block the pickup from being recorded.
