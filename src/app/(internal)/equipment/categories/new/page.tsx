@@ -6,6 +6,7 @@ import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { BundleFields } from "@/components/BundleFields";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 export default async function NewCategoryPage() {
   const categoryOptions = await db.equipmentCategory.findMany({
@@ -34,6 +35,12 @@ export default async function NewCategoryPage() {
         <Field label="Description (optional)" htmlFor="description">
           <input id="description" name="description" className={inputClass} />
         </Field>
+        <ImageUploadField
+          name="imageUrl"
+          label="Photo (shown to customers on the booking page)"
+          initialUrl={null}
+          folder="categories/new"
+        />
         <CategoryFieldBuilder />
         <CategoryPricingFields />
         <PricingTierBuilder />

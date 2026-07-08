@@ -11,6 +11,7 @@ type CategoryOption = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   basePrice: number | null;
   pricingTiers: PricingTier[];
 };
@@ -121,6 +122,15 @@ export function BookingForm({
           ))}
         </select>
       </Field>
+
+      {selectedCategory?.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={selectedCategory.imageUrl}
+          alt={selectedCategory.name}
+          className="h-40 w-full rounded-xl border border-zinc-200 object-cover"
+        />
+      )}
 
       {hasTiers && selectedCategory?.description && (
         <p className="text-sm text-zinc-500">{selectedCategory.description}</p>

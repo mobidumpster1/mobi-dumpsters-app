@@ -63,6 +63,7 @@ export async function createCategory(formData: FormData) {
     data: {
       name,
       description: str(formData, "description"),
+      imageUrl: str(formData, "imageUrl"),
       fieldDefinitions,
       ...pricingFields(formData),
       ...bundleFields(formData),
@@ -87,6 +88,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
     data: {
       name,
       description: str(formData, "description"),
+      imageUrl: str(formData, "imageUrl"),
       fieldDefinitions,
       ...pricingFields(formData),
       ...bundleFields(formData),

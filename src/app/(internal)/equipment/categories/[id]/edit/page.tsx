@@ -7,6 +7,7 @@ import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { BundleFields } from "@/components/BundleFields";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 
 export default async function EditCategoryPage({
@@ -52,6 +53,12 @@ export default async function EditCategoryPage({
             className={inputClass}
           />
         </Field>
+        <ImageUploadField
+          name="imageUrl"
+          label="Photo (shown to customers on the booking page)"
+          initialUrl={category.imageUrl}
+          folder={`categories/${category.id}`}
+        />
         <CategoryFieldBuilder initialFields={fields} />
         <CategoryPricingFields
           initial={{
