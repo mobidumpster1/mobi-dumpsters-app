@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDateAndTime } from "@/lib/date";
-import { markDelivered, markReturned } from "./bookings/actions";
+import { markDelivered, markReturned, resolveServiceRequest } from "./bookings/actions";
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
 import { DirectionsButton } from "@/components/DirectionsButton";
@@ -93,7 +93,7 @@ export default async function DispatchPage() {
   const today = startOfToday();
   const weekEnd = daysFromNow(7);
 
-  const [deliveries, pickups, activeBookings, pendingBookings] = await Promise.all([
+  const [deliveries, pickups, activeBookings, pendingBookings, serviceRequests] = await Promise.all([
     db.bookingItem.findMany({
       where: {
         deliveredAt: null,
@@ -124,6 +124,11 @@ export default async function DispatchPage() {
     db.booking.findMany({
       where: { status: "pending" },
       include: { customer: true, items: { include: { equipmentItem: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.serviceRequest.findMany({
+      where: { status: "pending" },
+      include: { booking: { include: { customer: true } } },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -187,6 +192,44 @@ export default async function DispatchPage() {
                   {booking.items.map((item) => item.equipmentItem.label).join(", ")}
                 </span>
               </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {serviceRequests.length > 0 && (
+        <section className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
+          <h2 className="text-xl font-semibold text-ink">
+            {serviceRequests.length} Service Request
+            {serviceRequests.length === 1 ? "" : "s"}
+          </h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {serviceRequests.map((req) => (
+              <div
+                key={req.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm"
+              >
+                <div>
+                  <Link
+                    href={`/bookings/${req.bookingId}`}
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    {req.booking.customer.name}
+                  </Link>
+                  <p className="text-sm text-zinc-500">
+                    {req.type === "extension" ? "Wants more time" : "Wants dump & return"}
+                    {req.details ? ` — ${req.details}` : ""}
+                  </p>
+                </div>
+                <form action={resolveServiceRequest.bind(null, req.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                  >
+                    Mark Handled
+                  </button>
+                </form>
+              </div>
             ))}
           </div>
         </section>

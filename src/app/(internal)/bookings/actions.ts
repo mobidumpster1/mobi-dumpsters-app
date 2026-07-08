@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
@@ -293,12 +294,17 @@ export async function markDelivered(bookingItemId: string) {
     try {
       const notifySettings = await getJobNotificationSettings();
       if (notifySettings.enabled) {
+        const host = (await headers()).get("host");
+        const manageLink = host
+          ? `https://${host}/booking/${bookingItem.bookingId}/manage`
+          : "";
         const { subject, body } = await renderEmailTemplate("delivered", {
           customerName: customer.name,
           equipmentLabel: bookingItem.equipmentItem.label,
           address: bookingItem.booking.deliveryAddress,
           phone: branding.phone,
           businessName: branding.businessName,
+          manageLink,
         });
         await sendCustomerEmail(customer.email, subject, body);
       }
@@ -404,4 +410,17 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   revalidatePath("/");
   revalidatePath("/equipment");
   revalidatePath("/invoices");
+}
+
+// Marks a customer-submitted extension or dump-and-return request as
+// handled — this is just clearing it off the to-do list, it doesn't itself
+// change the booking's dates or trigger a dump trip. Staff make the actual
+// change (edit the booking, log a dump) through the normal tools.
+export async function resolveServiceRequest(requestId: string) {
+  const request = await db.serviceRequest.update({
+    where: { id: requestId },
+    data: { status: "resolved", resolvedAt: new Date() },
+  });
+  revalidatePath(`/bookings/${request.bookingId}`);
+  revalidatePath("/");
 }

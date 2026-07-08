@@ -9,6 +9,7 @@ import {
   deleteBooking,
   notifyOnTheWay,
   setBookingVehicle,
+  resolveServiceRequest,
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
@@ -44,6 +45,7 @@ export default async function BookingDetailPage({
         invoices: true,
         photos: { orderBy: { createdAt: "desc" } },
         damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
+        serviceRequests: { where: { status: "pending" }, orderBy: { createdAt: "desc" } },
       },
     }),
     db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
@@ -196,6 +198,32 @@ export default async function BookingDetailPage({
             Note
           </p>
           <p className="mt-1 text-sm text-zinc-700">{booking.notes}</p>
+        </div>
+      )}
+
+      {booking.serviceRequests.length > 0 && (
+        <div className="mt-4 flex flex-col gap-2">
+          {booking.serviceRequests.map((req) => (
+            <div
+              key={req.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  {req.type === "extension" ? "Extension Requested" : "Dump & Return Requested"}
+                </p>
+                {req.details && <p className="mt-1 text-sm text-zinc-700">{req.details}</p>}
+              </div>
+              <form action={resolveServiceRequest.bind(null, req.id)}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                >
+                  Mark Handled
+                </button>
+              </form>
+            </div>
+          ))}
         </div>
       )}
 

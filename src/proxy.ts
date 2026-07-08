@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/privacy",
   "/terms",
   "/dumpster-rental",
+  "/booking",
 ];
 
 function isPublic(pathname: string) {

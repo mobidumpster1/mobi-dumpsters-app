@@ -300,6 +300,23 @@ model Booking {
   mileageLogEntries MileageLogEntry[]
   dumpLogEntries DumpLogEntry[]
   damageReports DamageReport[]
+  serviceRequests ServiceRequest[]
+}
+
+// A customer-initiated request against an active booking, made from the
+// public "manage your rental" link — e.g. asking for more time, or for the
+// unit to be emptied and brought back instead of a final pickup. Never
+// auto-applied; staff review it and take the actual action (edit the
+// booking, log a dump trip) themselves.
+model ServiceRequest {
+  id         String    @id @default(cuid())
+  bookingId  String
+  booking    Booking   @relation(fields: [bookingId], references: [id])
+  type       String    // extension | dump_and_return
+  details    String?
+  status     String    @default("pending") // pending | resolved
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
 }
 
 // Filed when a returned piece of equipment came back damaged. Estimated

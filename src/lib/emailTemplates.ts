@@ -20,8 +20,9 @@ export const EMAIL_TEMPLATE_INFO: Record<
   },
   delivered: {
     label: "Delivery Confirmation",
-    description: "Sent automatically when equipment is marked delivered.",
-    placeholders: ["customerName", "equipmentLabel", "address", "phone", "businessName"],
+    description:
+      "Sent automatically when equipment is marked delivered. {{manageLink}} is a link where the customer can request an extension or a dump & return.",
+    placeholders: ["customerName", "equipmentLabel", "address", "phone", "businessName", "manageLink"],
   },
   picked_up: {
     label: "Pickup Confirmation",
@@ -83,6 +84,8 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<
       "Hi {{customerName}},",
       "",
       "Your {{equipmentLabel}} has been delivered to {{address}}.",
+      "",
+      "Need more time, or want it emptied and brought back instead of picked up? Manage your rental here: {{manageLink}}",
       "",
       "Questions? Call or text us at {{phone}}.",
       "",
