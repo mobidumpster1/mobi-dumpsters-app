@@ -4,6 +4,7 @@ import { formatDateAndTime } from "@/lib/date";
 import { markDelivered, markReturned } from "./bookings/actions";
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
+import { DirectionsButton } from "@/components/DirectionsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -82,14 +83,7 @@ function DispatchCard({
             {actionLabel}
           </button>
         </form>
-        <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          Get Directions
-        </a>
+        <DirectionsButton address={address} />
       </div>
     </div>
   );
