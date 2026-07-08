@@ -196,15 +196,6 @@ export function BookingForm({
         </Field>
       )}
 
-      {hasTiers && selectedTier?.price != null && (
-        <p className="text-sm text-zinc-600">
-          You picked:{" "}
-          <span className="font-semibold text-ink">
-            {selectedTier.label} — ${selectedTier.price.toFixed(2)}
-          </span>
-        </p>
-      )}
-
       {hasTiers && selectedTier?.price == null && (
         <p className="text-sm font-medium text-red-600">
           That duration isn&apos;t bookable online — please call us for pricing.
