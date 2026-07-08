@@ -6,9 +6,10 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, sendCustomerEmail } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
 import { savePhotoFile } from "@/lib/uploads";
+import { branding } from "@/lib/branding";
 
 export async function checkAvailability(
   categoryId: string,
@@ -28,6 +29,66 @@ export async function checkAvailability(
   );
   const needed = requiredQuantity(category);
   return { availableCount: items.length, isAvailable: items.length >= needed };
+}
+
+// Returns which delivery-start dates in the given month are NOT bookable
+// for a rental of `durationDays` length, so the calendar on /book can gray
+// them out instead of letting the customer pick a date that will just fail
+// the availability check afterward.
+export async function getUnavailableStartDates(
+  categoryId: string,
+  monthStart: string, // "YYYY-MM-01"
+  durationDays: number
+): Promise<string[]> {
+  if (!categoryId || !monthStart) return [];
+  const category = await db.equipmentCategory.findUnique({ where: { id: categoryId } });
+  if (!category) return [];
+
+  const effectiveId = effectiveCategoryId(category);
+  const needed = requiredQuantity(category);
+  const days = Math.max(durationDays, 1);
+
+  const monthStartDate = new Date(`${monthStart}T00:00:00.000Z`);
+  const monthEndDate = new Date(monthStartDate);
+  monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+  const queryEnd = new Date(monthEndDate);
+  queryEnd.setUTCDate(queryEnd.getUTCDate() + days);
+
+  const items = await db.equipmentItem.findMany({
+    where: { categoryId: effectiveId, status: { notIn: ["retired", "needs_repair"] } },
+    include: {
+      bookingItems: {
+        where: {
+          actualReturnDate: null,
+          startDate: { lt: queryEnd },
+          expectedReturnDate: { gt: monthStartDate },
+        },
+      },
+    },
+  });
+
+  const unavailable: string[] = [];
+  for (
+    let d = new Date(monthStartDate);
+    d < monthEndDate;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const dayStart = new Date(d);
+    const dayEnd = new Date(d);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + days);
+
+    const freeCount = items.filter(
+      (item) =>
+        !item.bookingItems.some(
+          (bi) => bi.startDate < dayEnd && bi.expectedReturnDate > dayStart
+        )
+    ).length;
+
+    if (freeCount < needed) {
+      unavailable.push(dayStart.toISOString().slice(0, 10));
+    }
+  }
+  return unavailable;
 }
 
 export async function submitBookingRequest(formData: FormData) {
@@ -130,7 +191,7 @@ export async function submitBookingRequest(formData: FormData) {
     headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     headerList.get("x-real-ip") ??
     null;
-  await db.signedAgreement.create({
+  const signedAgreement = await db.signedAgreement.create({
     data: {
       agreementTitle: agreement.title,
       agreementText: agreement.content,
@@ -167,6 +228,31 @@ export async function submitBookingRequest(formData: FormData) {
       "Open the app's Bookings page to review and confirm.",
     ].join("\n")
   );
+
+  const host = headerList.get("host");
+  const agreementUrl = host ? `https://${host}/agreement/view/${signedAgreement.id}` : null;
+  try {
+    await sendCustomerEmail(
+      email,
+      `${branding.businessName} — we got your request!`,
+      [
+        `Hi ${name},`,
+        "",
+        `We received your request for a ${category.name}${tier ? ` (${tier.label})` : ""}, ${startDateStr} through ${endDate.toISOString().slice(0, 10)}, at ${address}.`,
+        "",
+        "This is a request, not a confirmed booking yet — we'll be in touch shortly to confirm the details and payment.",
+        agreementUrl ? `You can view the service agreement you signed here: ${agreementUrl}` : "",
+        "",
+        `Questions? Call or text us at ${branding.phone}.`,
+        "",
+        `- ${branding.businessName}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+  } catch (error) {
+    console.error("Failed to send booking confirmation email:", error);
+  }
 
   redirect(`/book/thank-you?ref=${booking.id.slice(-8)}`);
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { checkAvailability, submitBookingRequest } from "./actions";
+import { useCallback, useState, useTransition } from "react";
+import { checkAvailability, getUnavailableStartDates, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
+import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 
 type PricingTier = { id: string; label: string; days: number; price: number | null };
 
@@ -47,6 +48,12 @@ export function BookingForm({
     isAvailable: boolean;
   }>({ checked: false, isAvailable: false });
   const [isPending, startTransition] = useTransition();
+
+  const durationDays = hasTiers ? (selectedTier?.days ?? 1) : 1;
+  const fetchUnavailable = useCallback(
+    (monthStart: string) => getUnavailableStartDates(categoryId, monthStart, durationDays),
+    [categoryId, durationDays]
+  );
 
   function runCheck(nextCategoryId: string, nextStart: string, nextEnd: string) {
     if (!nextCategoryId || !nextStart || !nextEnd) {
@@ -155,15 +162,12 @@ export function BookingForm({
 
       <div className={hasTiers ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
         <Field label="Delivery Date" htmlFor="startDate">
-          <input
-            id="startDate"
-            name="startDate"
-            type="date"
-            required
-            min={today()}
-            className={inputClass}
+          <input type="hidden" id="startDate" name="startDate" value={startDate} />
+          <AvailabilityCalendar
             value={startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
+            minDate={today()}
+            onChange={onStartDateChange}
+            fetchUnavailable={fetchUnavailable}
           />
         </Field>
         {!hasTiers && (
