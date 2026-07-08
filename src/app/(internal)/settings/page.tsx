@@ -23,6 +23,7 @@ import { getAllEmailTemplates } from "@/lib/emailTemplates";
 import { Field, inputClass } from "@/components/Field";
 import { serviceAreas } from "@/lib/serviceAreas";
 import { EmailTemplateCard } from "@/components/EmailTemplateCard";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,30 @@ export default async function SettingsPage({
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight text-ink">Settings</h1>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Booking Page Link</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          The public page where customers request a rental online — grab this
+          to text a customer, post on social media, or link from your
+          website.
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <CopyLinkButton
+            path="/book"
+            label="Copy Booking Page Link"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          />
+          <a
+            href="/book"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-brand hover:underline"
+          >
+            Open it →
+          </a>
+        </div>
+      </section>
 
       <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-xl font-semibold text-ink">QuickBooks Online</h2>
