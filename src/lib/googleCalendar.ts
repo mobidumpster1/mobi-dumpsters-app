@@ -38,11 +38,24 @@ export type CalendarBookingInput = {
   notes: string | null;
   items: {
     label: string;
+    categoryName: string;
     startDate: Date;
     expectedReturnDate: Date;
     price: number;
   }[];
 };
+
+// Google Calendar event colorId values — see
+// https://developers.google.com/calendar/api/v3/reference/colors/get
+const CATEGORY_COLOR_IDS: Record<string, string> = {
+  "roll-off dumpster": "6", // Tangerine
+  "dump trailer": "10", // Basil
+};
+
+function colorIdForItems(items: { categoryName: string }[]): string | undefined {
+  const category = items[0]?.categoryName.toLowerCase();
+  return category ? CATEGORY_COLOR_IDS[category] : undefined;
+}
 
 // Creates one all-day Google Calendar event spanning a booking's earliest
 // delivery to latest return date. Returns the event ID, or null if
@@ -79,6 +92,7 @@ export async function pushBookingToCalendar(
         description: [itemLines, booking.notes].filter(Boolean).join("\n\n"),
         start: { date: earliestStart.toISOString().slice(0, 10) },
         end: { date: endExclusive.toISOString().slice(0, 10) },
+        colorId: colorIdForItems(booking.items),
       },
     });
 

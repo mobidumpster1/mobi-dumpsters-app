@@ -57,7 +57,7 @@ export async function createBooking(formData: FormData) {
         })),
       },
     },
-    include: { customer: true, items: { include: { equipmentItem: true } } },
+    include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
   });
 
   await db.equipmentItem.updateMany({
@@ -75,6 +75,7 @@ export async function createBooking(formData: FormData) {
     notes: booking.notes,
     items: booking.items.map((item) => ({
       label: item.equipmentItem.label,
+      categoryName: item.equipmentItem.category.name,
       startDate: item.startDate,
       expectedReturnDate: item.expectedReturnDate,
       price: item.price,
@@ -94,7 +95,7 @@ export async function createBooking(formData: FormData) {
 export async function confirmBooking(bookingId: string, formData: FormData) {
   const booking = await db.booking.findUniqueOrThrow({
     where: { id: bookingId },
-    include: { customer: true, items: { include: { equipmentItem: true } } },
+    include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
   });
 
   for (const item of booking.items) {
@@ -112,6 +113,7 @@ export async function confirmBooking(bookingId: string, formData: FormData) {
       notes: booking.notes,
       items: booking.items.map((item) => ({
         label: item.equipmentItem.label,
+        categoryName: item.equipmentItem.category.name,
         startDate: item.startDate,
         expectedReturnDate: item.expectedReturnDate,
         price: item.price,

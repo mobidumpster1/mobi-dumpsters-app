@@ -316,6 +316,10 @@ export default async function CalendarPage({
 
       {view === "month" && (
         <>
+          <div className="mt-4">
+            <LocationMap pins={pinsForDays(gridDays)} heightClassName="h-80" />
+          </div>
+
           {/* Mobile: agenda list, only days with entries */}
           <div className="mt-4 flex flex-col gap-3 md:hidden">
             {gridDays
