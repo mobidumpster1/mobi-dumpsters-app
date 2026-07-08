@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { createBooking } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { BookingItemsBuilder } from "@/components/BookingItemsBuilder";
+import { CustomerPicker } from "@/components/CustomerPicker";
 
 export const dynamic = "force-dynamic";
 
@@ -20,25 +21,7 @@ export default async function NewBookingPage() {
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight text-ink">New Booking</h1>
       <form action={createBooking} className="mt-6 flex flex-col gap-4">
-        <Field label="Customer" htmlFor="customerId">
-          <select id="customerId" name="customerId" required className={inputClass}>
-            {customers.length === 0 && <option value="">No customers yet</option>}
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {customers.length === 0 && (
-          <p className="text-sm text-amber-600">
-            You need at least one customer first.{" "}
-            <Link href="/customers/new" className="underline">
-              Create one
-            </Link>
-            .
-          </p>
-        )}
+        <CustomerPicker customers={customers} />
         <Field label="Delivery Address" htmlFor="deliveryAddress">
           <input
             id="deliveryAddress"

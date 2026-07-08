@@ -31,6 +31,30 @@ export async function createCustomer(formData: FormData) {
   redirect(`/customers/${customer.id}`);
 }
 
+// Same as createCustomer, but for callers (like the inline "+ New Customer"
+// picker on the New Booking screen) that want to stay on the current page
+// and get the new customer back, instead of being redirected to it.
+export async function quickAddCustomer(formData: FormData) {
+  const name = str(formData, "name");
+  if (!name) throw new Error("Name is required");
+
+  const address = str(formData, "address");
+  const geocoded = address ? await geocodeAddress(address) : null;
+
+  const customer = await db.customer.create({
+    data: {
+      name,
+      phone: str(formData, "phone"),
+      email: str(formData, "email"),
+      address,
+      latitude: geocoded?.latitude,
+      longitude: geocoded?.longitude,
+    },
+  });
+
+  return { id: customer.id, name: customer.name };
+}
+
 export async function updateCustomer(customerId: string, formData: FormData) {
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
