@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { getAgreementSettings } from "@/lib/agreement";
+import { fillBlankCustomerFields } from "@/lib/customerSync";
 
 export async function submitSignature(formData: FormData) {
   const name = str(formData, "name");
@@ -27,6 +28,8 @@ export async function submitSignature(formData: FormData) {
   }
   if (!customer) {
     customer = await db.customer.create({ data: { name, email, phone, address } });
+  } else {
+    await fillBlankCustomerFields(customer, { phone, email, address });
   }
 
   const headerList = await headers();
