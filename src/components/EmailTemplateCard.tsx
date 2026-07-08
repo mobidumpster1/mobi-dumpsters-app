@@ -70,25 +70,23 @@ export function EmailTemplateCard({
                 className={`${inputClass} font-mono text-sm`}
               />
             </Field>
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-              >
-                Save
-              </button>
-              {isCustomized && (
-                <form action={resetAction}>
-                  <ConfirmButton
-                    message="Reset this email back to the default wording?"
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    Reset to default
-                  </ConfirmButton>
-                </form>
-              )}
-            </div>
+            <button
+              type="submit"
+              className="self-start rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
           </form>
+          {isCustomized && (
+            <form action={resetAction} className="mt-3">
+              <ConfirmButton
+                message="Reset this email back to the default wording?"
+                className="text-sm text-red-600 hover:underline"
+              >
+                Reset to default
+              </ConfirmButton>
+            </form>
+          )}
         </div>
       )}
     </div>
