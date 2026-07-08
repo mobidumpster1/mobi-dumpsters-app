@@ -10,6 +10,7 @@ type GalleryPhoto = {
   src: string;
   caption: string | null;
   type: string;
+  mediaType: string;
   createdAt: Date;
   source: "Job" | "Equipment" | "Customer";
   contextLabel: string;
@@ -17,15 +18,19 @@ type GalleryPhoto = {
 };
 
 const SOURCES = ["All", "Job", "Equipment", "Customer"] as const;
+const MEDIA_TYPES = ["All", "Photo", "Video"] as const;
 
 export default async function GalleryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: string }>;
+  searchParams: Promise<{ source?: string; media?: string }>;
 }) {
-  const { source } = await searchParams;
+  const { source, media } = await searchParams;
   const activeSource = SOURCES.includes(source as (typeof SOURCES)[number])
     ? (source as (typeof SOURCES)[number])
+    : "All";
+  const activeMedia = MEDIA_TYPES.includes(media as (typeof MEDIA_TYPES)[number])
+    ? (media as (typeof MEDIA_TYPES)[number])
     : "All";
 
   const [bookingPhotos, equipmentPhotos, customerPhotos] = await Promise.all([
@@ -52,6 +57,7 @@ export default async function GalleryPage({
       src: p.filePath,
       caption: p.caption,
       type: p.type,
+      mediaType: p.mediaType,
       createdAt: p.createdAt,
       source: "Job",
       contextLabel: p.booking.customer.name,
@@ -62,6 +68,7 @@ export default async function GalleryPage({
       src: p.filePath,
       caption: p.caption,
       type: p.type,
+      mediaType: p.mediaType,
       createdAt: p.createdAt,
       source: "Equipment",
       contextLabel: p.equipmentItem.label,
@@ -72,6 +79,7 @@ export default async function GalleryPage({
       src: p.filePath,
       caption: p.caption,
       type: p.type,
+      mediaType: p.mediaType,
       createdAt: p.createdAt,
       source: "Customer",
       contextLabel: p.customer.name,
@@ -79,14 +87,28 @@ export default async function GalleryPage({
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const filtered = activeSource === "All" ? photos : photos.filter((p) => p.source === activeSource);
+  const bySource = activeSource === "All" ? photos : photos.filter((p) => p.source === activeSource);
+  const filtered =
+    activeMedia === "All"
+      ? bySource
+      : bySource.filter((p) => p.mediaType === activeMedia.toLowerCase());
+
+  function withParam(key: "source" | "media", value: string) {
+    const params = new URLSearchParams();
+    const s = key === "source" ? value : activeSource;
+    const m = key === "media" ? value : activeMedia;
+    if (s !== "All") params.set("source", s);
+    if (m !== "All") params.set("media", m);
+    const qs = params.toString();
+    return qs ? `/gallery?${qs}` : "/gallery";
+  }
 
   return (
     <div>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Photo Gallery</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">Photo & Video Gallery</h1>
         <p className="mt-1 text-zinc-500">
-          Every photo across jobs, equipment, and customers, newest first.
+          Every photo and video across jobs, equipment, and customers, newest first.
         </p>
       </div>
 
@@ -94,14 +116,30 @@ export default async function GalleryPage({
         {SOURCES.map((s) => (
           <Link
             key={s}
-            href={s === "All" ? "/gallery" : `/gallery?source=${s}`}
+            href={withParam("source", s)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               activeSource === s
                 ? "bg-brand text-white"
                 : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
             }`}
           >
-            {s === "All" ? "All Photos" : `${s} Photos`}
+            {s === "All" ? "All Sources" : s}
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {MEDIA_TYPES.map((m) => (
+          <Link
+            key={m}
+            href={withParam("media", m)}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              activeMedia === m
+                ? "bg-ink text-white"
+                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+            }`}
+          >
+            {m === "All" ? "All Media" : `${m}s`}
           </Link>
         ))}
       </div>
@@ -116,6 +154,7 @@ export default async function GalleryPage({
               images={filtered.map((p) => ({
                 src: p.src,
                 alt: p.caption ?? p.type,
+                isVideo: p.mediaType === "video",
               }))}
               index={i}
               className="h-32 w-full object-cover sm:h-36"
@@ -140,7 +179,7 @@ export default async function GalleryPage({
         ))}
         {filtered.length === 0 && (
           <p className="col-span-full rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            No photos yet.
+            Nothing here yet.
           </p>
         )}
       </div>

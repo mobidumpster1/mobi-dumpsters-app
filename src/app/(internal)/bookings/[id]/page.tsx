@@ -16,7 +16,8 @@ import { computeBookingStatus } from "@/lib/bookingStatus";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
-import { GalleryImage } from "@/components/GalleryImage";
+import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
@@ -179,7 +180,12 @@ export default async function BookingDetailPage({
       )}
 
       {booking.notes && (
-        <p className="mt-4 text-sm text-zinc-600">{booking.notes}</p>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Note
+          </p>
+          <p className="mt-1 text-sm text-zinc-700">{booking.notes}</p>
+        </div>
       )}
 
       {isPending && (
@@ -529,88 +535,27 @@ export default async function BookingDetailPage({
         )}
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Photos</h2>
-      <form
-        action={uploadPhoto.bind(null, booking.id)}
-        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-      >
-        <div className="flex gap-3">
-          <Field label="Type" htmlFor="type">
-            <select id="type" name="type" defaultValue="delivery" className={inputClass}>
-              <option value="delivery">Delivery</option>
-              <option value="pickup">Pickup</option>
-              <option value="damage">Damage</option>
-              <option value="other">Other</option>
-            </select>
-          </Field>
-          <Field label="Caption (optional)" htmlFor="caption">
-            <input id="caption" name="caption" className={inputClass} />
-          </Field>
-        </div>
-        <Field label="Photo" htmlFor="file">
-          <input
-            id="file"
-            name="file"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            required
-            className={inputClass}
-          />
-        </Field>
-        <div>
-          <button
-            type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            Upload Photo
-          </button>
-        </div>
-      </form>
+      <h2 className="mt-8 text-xl font-semibold text-ink">Photos & Videos</h2>
+      <MediaUploadForm
+        uploadAction={uploadPhoto.bind(null, booking.id)}
+        typeOptions={[
+          { value: "delivery", label: "Delivery" },
+          { value: "pickup", label: "Pickup" },
+          { value: "damage", label: "Damage" },
+          { value: "other", label: "Other" },
+        ]}
+        defaultType="delivery"
+        folder={`bookings/${booking.id}`}
+      />
 
-      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {booking.photos.map((photo, i) => (
-          <div
-            key={photo.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
-          >
-            <GalleryImage
-              images={booking.photos.map((p) => ({
-                src: p.filePath,
-                alt: p.caption ?? p.type,
-              }))}
-              index={i}
-              className="h-40 w-full object-cover"
-            />
-            <div className="p-2">
-              <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium capitalize text-zinc-600">
-                {photo.type}
-              </span>
-              {photo.caption && (
-                <p className="mt-1 text-xs text-zinc-600">{photo.caption}</p>
-              )}
-              <form action={deletePhoto.bind(null, photo.id)} className="mt-1">
-                <button
-                  type="submit"
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </form>
-            </div>
-          </div>
-        ))}
-        {booking.photos.length === 0 && (
-          <p className="col-span-full text-center text-zinc-400">
-            No photos yet.
-          </p>
-        )}
-      </div>
+      <MediaGrid items={booking.photos} deleteAction={deletePhoto} />
 
-      {booking.photos.length > 0 && (
+      {booking.photos.some((p) => p.mediaType !== "video") && (
         <div className="mt-6">
           <FacebookShareBox
-            photos={booking.photos.map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
+            photos={booking.photos
+              .filter((p) => p.mediaType !== "video")
+              .map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
             defaultCaption={facebookCaption}
             facebookPageUrl={branding.facebookPageUrl ?? null}
           />

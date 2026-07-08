@@ -22,25 +22,11 @@ export function savePhotoFile(bookingId: string, file: File): Promise<string> {
   return saveUploadedFile("bookings", bookingId, file);
 }
 
-export function saveEquipmentPhotoFile(
-  equipmentItemId: string,
-  file: File
-): Promise<string> {
-  return saveUploadedFile("equipment", equipmentItemId, file);
-}
-
 export function saveExpenseReceiptFile(
   expenseId: string,
   file: File
 ): Promise<string> {
   return saveUploadedFile("expenses", expenseId, file);
-}
-
-export function saveCustomerPhotoFile(
-  customerId: string,
-  file: File
-): Promise<string> {
-  return saveUploadedFile("customers", customerId, file);
 }
 
 // Deletes a previously-uploaded file given the full URL stored on its

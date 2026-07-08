@@ -2,23 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { saveCustomerPhotoFile, deleteUploadedFile } from "@/lib/uploads";
-import { str } from "@/lib/formData";
+import { deleteUploadedFile } from "@/lib/uploads";
 
-export async function uploadCustomerPhoto(customerId: string, formData: FormData) {
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    throw new Error("A photo file is required");
-  }
-
-  const filePath = await saveCustomerPhotoFile(customerId, file);
-
+export async function uploadCustomerPhoto(
+  customerId: string,
+  data: { filePath: string; mediaType: string; type: string; caption: string }
+) {
   await db.customerPhoto.create({
     data: {
       customerId,
-      filePath,
-      type: str(formData, "type") ?? "other",
-      caption: str(formData, "caption"),
+      filePath: data.filePath,
+      mediaType: data.mediaType,
+      type: data.type || "other",
+      caption: data.caption || null,
     },
   });
 

@@ -5,8 +5,8 @@ import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { formatAttributeValue, parseAttributes, parseFieldDefinitions } from "@/lib/categoryFields";
 import { uploadEquipmentPhoto, deleteEquipmentPhoto } from "../photoActions";
 import { quickSetEquipmentStatus } from "../actions";
-import { Field, inputClass } from "@/components/Field";
-import { GalleryImage } from "@/components/GalleryImage";
+import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { MediaGrid } from "@/components/MediaGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -167,83 +167,20 @@ export default async function EquipmentDetailPage({
         </table>
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Condition Photos</h2>
-      <form
-        action={uploadWithId}
-        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-      >
-        <div className="flex gap-3">
-          <Field label="Type" htmlFor="type">
-            <select id="type" name="type" defaultValue="condition" className={inputClass}>
-              <option value="condition">Condition</option>
-              <option value="damage">Damage</option>
-              <option value="repair">Repair</option>
-              <option value="other">Other</option>
-            </select>
-          </Field>
-          <Field label="Caption (optional)" htmlFor="caption">
-            <input id="caption" name="caption" className={inputClass} />
-          </Field>
-        </div>
-        <Field label="Photo" htmlFor="file">
-          <input
-            id="file"
-            name="file"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            required
-            className={inputClass}
-          />
-        </Field>
-        <div>
-          <button
-            type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            Upload Photo
-          </button>
-        </div>
-      </form>
+      <h2 className="mt-8 text-xl font-semibold text-ink">Condition Photos & Videos</h2>
+      <MediaUploadForm
+        uploadAction={uploadWithId}
+        typeOptions={[
+          { value: "condition", label: "Condition" },
+          { value: "damage", label: "Damage" },
+          { value: "repair", label: "Repair" },
+          { value: "other", label: "Other" },
+        ]}
+        defaultType="condition"
+        folder={`equipment/${item.id}`}
+      />
 
-      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {item.photos.map((photo, i) => (
-          <div
-            key={photo.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
-          >
-            <GalleryImage
-              images={item.photos.map((p) => ({
-                src: p.filePath,
-                alt: p.caption ?? p.type,
-              }))}
-              index={i}
-              className="h-40 w-full object-cover"
-            />
-            <div className="p-2">
-              <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium capitalize text-zinc-600">
-                {photo.type}
-              </span>
-              {photo.caption && (
-                <p className="mt-1 text-xs text-zinc-600">{photo.caption}</p>
-              )}
-              <form action={deleteEquipmentPhoto.bind(null, photo.id)} className="mt-1">
-                <button
-                  type="submit"
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </form>
-            </div>
-          </div>
-        ))}
-        {item.photos.length === 0 && (
-          <p className="col-span-full text-center text-zinc-400">
-            No photos yet.
-          </p>
-        )}
-      </div>
+      <MediaGrid items={item.photos} deleteAction={deleteEquipmentPhoto} />
     </div>
   );
 }

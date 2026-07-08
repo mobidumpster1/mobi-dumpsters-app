@@ -88,6 +88,7 @@ model CustomerPhoto {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id])
   type       String   @default("other") // property | id | contract | other
+  mediaType  String   @default("photo") // photo | video
   caption    String?
   filePath   String
   createdAt  DateTime @default(now())
@@ -243,6 +244,7 @@ model EquipmentPhoto {
   equipmentItemId String
   equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
   type            String        @default("condition") // condition | damage | repair | other
+  mediaType       String        @default("photo") // photo | video
   caption         String?
   filePath        String
   createdAt       DateTime      @default(now())
@@ -303,13 +305,14 @@ model DamageReport {
   createdAt         DateTime      @default(now())
 }
 
-// A photo attached to a booking (delivery/pickup condition, damage, etc.),
-// stored on local disk under /uploads and referenced by relative path.
+// A photo or video attached to a booking (delivery/pickup condition,
+// damage, etc.), stored in Vercel Blob and referenced by its URL.
 model Photo {
   id        String   @id @default(cuid())
   bookingId String
   booking   Booking  @relation(fields: [bookingId], references: [id])
   type      String   @default("other") // delivery | pickup | damage | other
+  mediaType String   @default("photo") // photo | video
   caption   String?
   filePath  String
   createdAt DateTime @default(now())

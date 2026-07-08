@@ -12,7 +12,8 @@ import {
 } from "../dumpActions";
 import { Field, inputClass } from "@/components/Field";
 import { AddressLink } from "@/components/AddressLink";
-import { GalleryImage } from "@/components/GalleryImage";
+import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { formatDate } from "@/lib/date";
 
@@ -427,83 +428,20 @@ export default async function CustomerDetailPage({
         </>
       )}
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Photos</h2>
-      <form
-        action={uploadPhotoWithId}
-        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-      >
-        <div className="flex gap-3">
-          <Field label="Type" htmlFor="type">
-            <select id="type" name="type" defaultValue="other" className={inputClass}>
-              <option value="property">Property</option>
-              <option value="id">ID / License</option>
-              <option value="contract">Contract</option>
-              <option value="other">Other</option>
-            </select>
-          </Field>
-          <Field label="Caption (optional)" htmlFor="caption">
-            <input id="caption" name="caption" className={inputClass} />
-          </Field>
-        </div>
-        <Field label="Photo" htmlFor="file">
-          <input
-            id="file"
-            name="file"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            required
-            className={inputClass}
-          />
-        </Field>
-        <div>
-          <button
-            type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            Upload Photo
-          </button>
-        </div>
-      </form>
+      <h2 className="mt-8 text-xl font-semibold text-ink">Photos & Videos</h2>
+      <MediaUploadForm
+        uploadAction={uploadPhotoWithId}
+        typeOptions={[
+          { value: "property", label: "Property" },
+          { value: "id", label: "ID / License" },
+          { value: "contract", label: "Contract" },
+          { value: "other", label: "Other" },
+        ]}
+        defaultType="other"
+        folder={`customers/${customer.id}`}
+      />
 
-      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {customer.photos.map((photo, i) => (
-          <div
-            key={photo.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
-          >
-            <GalleryImage
-              images={customer.photos.map((p) => ({
-                src: p.filePath,
-                alt: p.caption ?? p.type,
-              }))}
-              index={i}
-              className="h-40 w-full object-cover"
-            />
-            <div className="p-2">
-              <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium capitalize text-zinc-600">
-                {photo.type}
-              </span>
-              {photo.caption && (
-                <p className="mt-1 text-xs text-zinc-600">{photo.caption}</p>
-              )}
-              <form action={deleteCustomerPhoto.bind(null, photo.id)} className="mt-1">
-                <button
-                  type="submit"
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </form>
-            </div>
-          </div>
-        ))}
-        {customer.photos.length === 0 && (
-          <p className="col-span-full text-center text-zinc-400">
-            No photos yet.
-          </p>
-        )}
-      </div>
+      <MediaGrid items={customer.photos} deleteAction={deleteCustomerPhoto} />
 
       {customer.signedAgreements.length > 0 && (
         <>
