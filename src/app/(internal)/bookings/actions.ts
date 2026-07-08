@@ -233,22 +233,27 @@ export async function notifyOnTheWay(bookingId: string) {
   });
 
   if (!booking.customer.email) {
-    throw new Error("This customer has no email on file — add one to their profile first.");
+    redirect(`/bookings/${bookingId}?notified=no-email`);
   }
 
-  await sendCustomerEmail(
-    booking.customer.email,
-    `${branding.businessName} is on the way!`,
-    [
-      `Hi ${booking.customer.name},`,
-      "",
-      `We're on our way to ${booking.deliveryAddress}.`,
-      "",
-      `Questions? Call or text us at ${branding.phone}.`,
-      "",
-      `- ${branding.businessName}`,
-    ].join("\n")
-  );
+  try {
+    await sendCustomerEmail(
+      booking.customer.email,
+      `${branding.businessName} is on the way!`,
+      [
+        `Hi ${booking.customer.name},`,
+        "",
+        `We're on our way to ${booking.deliveryAddress}.`,
+        "",
+        `Questions? Call or text us at ${branding.phone}.`,
+        "",
+        `- ${branding.businessName}`,
+      ].join("\n")
+    );
+  } catch (error) {
+    console.error("Failed to send on-the-way email:", error);
+    redirect(`/bookings/${bookingId}?notified=error`);
+  }
 
   redirect(`/bookings/${bookingId}?notified=1`);
 }

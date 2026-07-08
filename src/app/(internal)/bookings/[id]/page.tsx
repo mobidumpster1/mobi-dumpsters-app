@@ -178,6 +178,17 @@ export default async function BookingDetailPage({
           Customer notified — email sent to {booking.customer.email}.
         </p>
       )}
+      {notified === "no-email" && (
+        <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          This customer has no email on file — add one to their profile first.
+        </p>
+      )}
+      {notified === "error" && (
+        <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Couldn&apos;t send the email — check that Resend is fully set up (a
+          new domain can take a few hours to verify) and try again.
+        </p>
+      )}
 
       {booking.notes && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
