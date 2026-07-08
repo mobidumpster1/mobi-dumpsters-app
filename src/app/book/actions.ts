@@ -93,10 +93,18 @@ export async function getUnavailableStartDates(
   return unavailable;
 }
 
+function addDays(dateStr: string, days: number) {
+  const date = new Date(`${dateStr}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export async function submitBookingRequest(formData: FormData) {
   const categoryId = str(formData, "categoryId");
   const tierId = str(formData, "tierId");
   const startDateStr = str(formData, "startDate");
+  const deliveryTime = str(formData, "deliveryTime") || "09:00";
+  const pickupTime = str(formData, "pickupTime") || "09:00";
   const name = str(formData, "name");
   const phone = str(formData, "phone");
   const email = str(formData, "email");
@@ -124,14 +132,15 @@ export async function submitBookingRequest(formData: FormData) {
     throw new Error("That duration requires a call for pricing — please call us instead.");
   }
 
-  const startDate = new Date(startDateStr);
+  // Rentals (has a tier): pickup is computed from the delivery date plus
+  // the tier's duration, at whatever pickup time was requested. One-time
+  // service jobs (no tier, e.g. junk removal/demolition) don't have a
+  // separate pickup — Chase is on-site the whole time — so both ends land
+  // on the same day.
+  const startDate = new Date(`${startDateStr}T${deliveryTime}`);
   const endDate = tier
-    ? new Date(startDate.getTime() + tier.days * 86_400_000)
-    : (() => {
-        const endDateStr = str(formData, "endDate");
-        if (!endDateStr) throw new Error("Please choose your dates");
-        return new Date(endDateStr);
-      })();
+    ? new Date(`${addDays(startDateStr, tier.days)}T${pickupTime}`)
+    : new Date(`${startDateStr}T${deliveryTime}`);
 
   const needed = requiredQuantity(category);
   const available = await findAvailableItems(
@@ -223,7 +232,9 @@ export async function submitBookingRequest(formData: FormData) {
   await sendNotificationEmail(
     `New booking request from ${name}`,
     [
-      `${name} requested a ${category.name}${tier ? ` (${tier.label})` : ""} from ${startDateStr} to ${endDate.toISOString().slice(0, 10)}.`,
+      tier
+        ? `${name} requested a ${category.name} (${tier.label}) — delivery ${startDateStr} at ${deliveryTime}, pickup ${addDays(startDateStr, tier.days)} at ${pickupTime}.`
+        : `${name} requested a ${category.name} — ${startDateStr} at ${deliveryTime}.`,
       "",
       `Address: ${address}`,
       `Phone: ${phone ?? "—"}`,

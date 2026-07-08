@@ -13,13 +13,18 @@ function monthStartOf(dateStr: string) {
 // A month-grid date picker for the public booking page that grays out and
 // disables dates the customer can't actually start a rental on, instead of
 // letting them pick a date that fails the availability check afterward.
+// When `rangeEnd` is given (the computed pickup date for the chosen rental
+// length), the days between `value` and `rangeEnd` are shaded to show the
+// whole rental span at a glance, not just the drop-off day.
 export function AvailabilityCalendar({
   value,
+  rangeEnd,
   onChange,
   minDate,
   fetchUnavailable,
 }: {
   value: string;
+  rangeEnd?: string;
   onChange: (date: string) => void;
   minDate: string;
   fetchUnavailable: (monthStart: string) => Promise<string[]>;
@@ -100,7 +105,10 @@ export function AvailabilityCalendar({
           if (!dateStr) return <div key={i} />;
           const isPast = dateStr < minDate;
           const isUnavailable = unavailable.has(dateStr);
-          const isSelected = dateStr === value;
+          const isStart = dateStr === value;
+          const isEnd = !!rangeEnd && dateStr === rangeEnd;
+          const isInRange =
+            !!rangeEnd && dateStr > value && dateStr < rangeEnd;
           const disabled = isPast || isUnavailable;
           return (
             <button
@@ -109,11 +117,13 @@ export function AvailabilityCalendar({
               disabled={disabled}
               onClick={() => onChange(dateStr)}
               className={`aspect-square rounded-lg text-sm transition-colors ${
-                isSelected
+                isStart || isEnd
                   ? "bg-brand font-semibold text-white"
-                  : disabled
-                    ? "cursor-not-allowed bg-zinc-100 text-zinc-300"
-                    : "text-zinc-700 hover:bg-brand-light"
+                  : isInRange
+                    ? "bg-green-200 text-ink"
+                    : disabled
+                      ? "cursor-not-allowed bg-zinc-100 text-zinc-300"
+                      : "text-zinc-700 hover:bg-brand-light"
               }`}
             >
               {Number(dateStr.slice(-2))}
@@ -125,13 +135,18 @@ export function AvailabilityCalendar({
       {loading && (
         <p className="mt-2 text-center text-xs text-zinc-400">Checking availability…</p>
       )}
-      <p className="mt-2 flex items-center justify-center gap-3 text-xs text-zinc-400">
+      <p className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-zinc-400">
         <span className="flex items-center gap-1">
           <span className="h-3 w-3 rounded bg-zinc-100" /> Unavailable
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-3 w-3 rounded bg-brand" /> Selected
+          <span className="h-3 w-3 rounded bg-brand" /> Delivery / Pickup
         </span>
+        {rangeEnd && (
+          <span className="flex items-center gap-1">
+            <span className="h-3 w-3 rounded bg-green-200" /> Rental period
+          </span>
+        )}
       </p>
     </div>
   );

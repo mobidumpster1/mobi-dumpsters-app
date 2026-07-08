@@ -51,9 +51,14 @@ export function BookingForm({
   const hasTiers = (selectedCategory?.pricingTiers.length ?? 0) > 0;
 
   const [startDate, setStartDate] = useState(today());
-  const [endDate, setEndDate] = useState("");
+  const [deliveryTime, setDeliveryTime] = useState("09:00");
+  const [pickupTime, setPickupTime] = useState("09:00");
   const [tierId, setTierId] = useState(selectedCategory?.pricingTiers[0]?.id ?? "");
   const selectedTier = selectedCategory?.pricingTiers.find((t) => t.id === tierId);
+  const rangeEnd =
+    hasTiers && selectedTier?.price != null
+      ? addDaysToDateStr(startDate, selectedTier.days)
+      : undefined;
 
   const [availability, setAvailability] = useState<{
     checked: boolean;
@@ -90,7 +95,7 @@ export function BookingForm({
         setAvailability({ checked: false, isAvailable: false });
       }
     } else {
-      runCheck(nextCategoryId, startDate, endDate);
+      runCheck(nextCategoryId, startDate, startDate);
     }
   }
 
@@ -99,7 +104,7 @@ export function BookingForm({
     if (selectedTier) {
       runCheck(categoryId, nextStart, addDaysToDateStr(nextStart, selectedTier.days));
     } else {
-      runCheck(categoryId, nextStart, endDate);
+      runCheck(categoryId, nextStart, nextStart);
     }
   }
 
@@ -197,34 +202,43 @@ export function BookingForm({
         </p>
       )}
 
-      <div className={hasTiers ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
-        <Field label="Delivery Date" htmlFor="startDate">
-          <input type="hidden" id="startDate" name="startDate" value={startDate} />
-          <AvailabilityCalendar
-            value={startDate}
-            minDate={today()}
-            onChange={onStartDateChange}
-            fetchUnavailable={fetchUnavailable}
-          />
-        </Field>
-        {!hasTiers && (
-          <Field label="Pickup Date" htmlFor="endDate">
+      <Field label="Delivery Date" htmlFor="startDate">
+        <input type="hidden" id="startDate" name="startDate" value={startDate} />
+        <AvailabilityCalendar
+          value={startDate}
+          rangeEnd={rangeEnd}
+          minDate={today()}
+          onChange={onStartDateChange}
+          fetchUnavailable={fetchUnavailable}
+        />
+      </Field>
+
+      {hasTiers && (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Delivery Time" htmlFor="deliveryTime">
             <input
-              id="endDate"
-              name="endDate"
-              type="date"
+              id="deliveryTime"
+              name="deliveryTime"
+              type="time"
               required
-              min={startDate}
               className={inputClass}
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                runCheck(categoryId, startDate, e.target.value);
-              }}
+              value={deliveryTime}
+              onChange={(e) => setDeliveryTime(e.target.value)}
             />
           </Field>
-        )}
-      </div>
+          <Field label="Pickup Time" htmlFor="pickupTime">
+            <input
+              id="pickupTime"
+              name="pickupTime"
+              type="time"
+              required
+              className={inputClass}
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
 
       {isPending && (
         <p className="text-sm text-zinc-500">Checking availability…</p>
