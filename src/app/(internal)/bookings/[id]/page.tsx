@@ -20,6 +20,7 @@ import { LocationMap } from "@/components/LocationMap";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { FacebookShareBox } from "@/components/FacebookShareBox";
@@ -132,6 +133,13 @@ export default async function BookingDetailPage({
                 🚚 On My Way
               </span>
             )
+          )}
+          {!isPending && !isCancelled && (
+            <CopyLinkButton
+              path={`/booking/${booking.id}/manage`}
+              label="Copy Rental Link"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            />
           )}
           {!isPending &&
             (booking.invoices.length === 0 ? (

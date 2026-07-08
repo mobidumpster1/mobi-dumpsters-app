@@ -245,7 +245,7 @@ export async function submitBookingRequest(formData: FormData) {
       agreementLine: agreementUrl
         ? `\nYou can view the service agreement you signed here: ${agreementUrl}\n`
         : "",
-      phone: branding.phone,
+      phone: branding.smsPhone,
       businessName: branding.businessName,
     });
     await sendCustomerEmail(email, subject, body);

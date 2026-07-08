@@ -8,6 +8,10 @@ export type Branding = {
   tagline: string;
   logoPath: string;
   phone: string;
+  // Number shown in customer-facing "call or text" messaging (emails, the
+  // rental-management page) — separate from `phone` since that one's also
+  // used on public marketing/legal pages where a personal cell isn't wanted.
+  smsPhone: string;
   email: string;
   address: string;
   primaryColor: string;

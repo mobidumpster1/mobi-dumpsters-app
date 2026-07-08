@@ -242,7 +242,7 @@ export async function notifyOnTheWay(bookingId: string) {
     const { subject, body } = await renderEmailTemplate("on_my_way", {
       customerName: booking.customer.name,
       address: booking.deliveryAddress,
-      phone: branding.phone,
+      phone: branding.smsPhone,
       businessName: branding.businessName,
     });
     await sendCustomerEmail(booking.customer.email, subject, body);
@@ -302,7 +302,7 @@ export async function markDelivered(bookingItemId: string) {
           customerName: customer.name,
           equipmentLabel: bookingItem.equipmentItem.label,
           address: bookingItem.booking.deliveryAddress,
-          phone: branding.phone,
+          phone: branding.smsPhone,
           businessName: branding.businessName,
           manageLink,
         });

@@ -49,7 +49,7 @@ export async function sendPendingDeliveryReminders() {
         customerName: customer.name,
         equipmentLabel: item.equipmentItem.label,
         address: item.booking.deliveryAddress,
-        phone: branding.phone,
+        phone: branding.smsPhone,
         businessName: branding.businessName,
       });
       await sendCustomerEmail(customer.email!, subject, body);

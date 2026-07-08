@@ -68,7 +68,7 @@ export default async function ManageBookingPage({
           {!isActive && !requested && (
             <p className="mt-4 rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
               This rental doesn't have anything active to request changes on
-              right now. Call or text us at {branding.phone} if you need
+              right now. Call or text us at {branding.smsPhone} if you need
               anything.
             </p>
           )}
@@ -130,7 +130,7 @@ export default async function ManageBookingPage({
           )}
 
           <p className="mt-6 text-center text-xs text-zinc-400">
-            Prefer to talk? Call or text {branding.phone}.
+            Prefer to talk? Call or text {branding.smsPhone}.
           </p>
         </div>
       </div>
