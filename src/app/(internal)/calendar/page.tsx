@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { LocationMap } from "@/components/LocationMap";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { cancelBooking } from "../bookings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -71,19 +73,26 @@ function AgendaDay({
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {entries.map((entry, i) => (
-          <Link
+          <div
             key={`${entry.bookingId}-${entry.kind}-${i}`}
-            href={`/bookings/${entry.bookingId}`}
             className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
               entry.kind === "delivery"
                 ? "bg-green-100 text-green-800"
                 : "bg-amber-100 text-amber-800"
             }`}
           >
-            <span className="truncate">
+            <Link href={`/bookings/${entry.bookingId}`} className="min-w-0 flex-1 truncate hover:underline">
               {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName} — {entry.equipmentLabel}
-            </span>
-          </Link>
+            </Link>
+            <form action={cancelBooking.bind(null, entry.bookingId)}>
+              <ConfirmButton
+                message={`Cancel ${entry.customerName}'s booking? This frees the equipment and removes it from Google Calendar.`}
+                className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold opacity-60 hover:bg-white/50 hover:opacity-100"
+              >
+                ✕
+              </ConfirmButton>
+            </form>
+          </div>
         ))}
         {entries.length === 0 && (
           <p className="text-sm text-zinc-400">Nothing scheduled.</p>
@@ -383,18 +392,30 @@ export default async function CalendarPage({
                     </span>
                     <div className="flex flex-col gap-1">
                       {entries.map((entry, i) => (
-                        <Link
+                        <div
                           key={`${entry.bookingId}-${entry.kind}-${i}`}
-                          href={`/bookings/${entry.bookingId}`}
-                          className={`truncate rounded-lg px-1.5 py-1 text-xs font-medium hover:opacity-80 ${
+                          className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium ${
                             entry.kind === "delivery"
                               ? "bg-green-100 text-green-800"
                               : "bg-amber-100 text-amber-800"
                           }`}
-                          title={`${entry.kind === "delivery" ? "Delivery" : "Return"}: ${entry.customerName} — ${entry.equipmentLabel}`}
                         >
-                          {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName}
-                        </Link>
+                          <Link
+                            href={`/bookings/${entry.bookingId}`}
+                            className="min-w-0 flex-1 truncate hover:underline"
+                            title={`${entry.kind === "delivery" ? "Delivery" : "Return"}: ${entry.customerName} — ${entry.equipmentLabel}`}
+                          >
+                            {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName}
+                          </Link>
+                          <form action={cancelBooking.bind(null, entry.bookingId)}>
+                            <ConfirmButton
+                              message={`Cancel ${entry.customerName}'s booking? This frees the equipment and removes it from Google Calendar.`}
+                              className="flex-shrink-0 opacity-60 hover:opacity-100"
+                            >
+                              ✕
+                            </ConfirmButton>
+                          </form>
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -102,3 +102,16 @@ export async function pushBookingToCalendar(
     return null;
   }
 }
+
+// Removes a previously-pushed event — used when a booking is cancelled, so
+// the calendar doesn't keep showing a job that's no longer happening.
+// Silently no-ops if Calendar isn't configured or the event's already gone.
+export async function deleteCalendarEvent(eventId: string): Promise<void> {
+  if (!isConfigured()) return;
+  try {
+    const calendar = await getCalendarClient();
+    await calendar.events.delete({ calendarId: CALENDAR_ID, eventId });
+  } catch (error) {
+    console.error("Failed to delete Google Calendar event:", error);
+  }
+}

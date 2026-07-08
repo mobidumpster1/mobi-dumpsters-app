@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
-import { pushBookingToCalendar } from "@/lib/googleCalendar";
+import { pushBookingToCalendar, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
@@ -147,6 +147,32 @@ export async function declineBooking(bookingId: string) {
 
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath("/bookings");
+  revalidatePath("/");
+}
+
+// Cancels a confirmed booking straight from the Calendar page — frees the
+// equipment and removes the synced Google Calendar event, same outcome as
+// declining a pending request, just reachable from a different screen.
+export async function cancelBooking(bookingId: string) {
+  const booking = await db.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: { items: true },
+  });
+
+  await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
+
+  await db.equipmentItem.updateMany({
+    where: { id: { in: booking.items.map((item) => item.equipmentItemId) } },
+    data: { status: "available", currentCustomerId: null, currentLocation: null },
+  });
+
+  if (booking.googleCalendarEventId) {
+    await deleteCalendarEvent(booking.googleCalendarEventId);
+  }
+
+  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath("/bookings");
+  revalidatePath("/calendar");
   revalidatePath("/");
 }
 
