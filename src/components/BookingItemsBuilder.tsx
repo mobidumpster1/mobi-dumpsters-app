@@ -14,9 +14,21 @@ type EquipmentOption = {
 type BookingItemRow = {
   equipmentItemId: string;
   startDate: string;
+  startTime: string;
   expectedReturnDate: string;
+  expectedReturnTime: string;
   price: string;
 };
+
+// Combines a date input's value with an optional time input's value into a
+// literal UTC timestamp string — matching the rest of this app's pattern of
+// storing wall-clock digits as UTC and always formatting them back out with
+// UTC getters, instead of doing real timezone conversion (which the app has
+// no per-user timezone data to do correctly anyway).
+function combineDateAndTime(date: string, time: string) {
+  if (!date) return "";
+  return time ? `${date}T${time}:00.000Z` : date;
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -31,7 +43,9 @@ export function BookingItemsBuilder({
     {
       equipmentItemId: equipmentOptions[0]?.id ?? "",
       startDate: today(),
+      startTime: "",
       expectedReturnDate: "",
+      expectedReturnTime: "",
       price: "",
     },
   ]);
@@ -48,7 +62,9 @@ export function BookingItemsBuilder({
       {
         equipmentItemId: equipmentOptions[0]?.id ?? "",
         startDate: today(),
+        startTime: "",
         expectedReturnDate: "",
+        expectedReturnTime: "",
         price: "",
       },
     ]);
@@ -91,22 +107,42 @@ export function BookingItemsBuilder({
               </option>
             ))}
           </select>
-          <input
-            type="date"
-            className={`${inputClass} sm:col-span-3`}
-            value={row.startDate}
-            onChange={(e) => updateRow(index, { startDate: e.target.value })}
-            required
-          />
-          <input
-            type="date"
-            className={`${inputClass} sm:col-span-3`}
-            value={row.expectedReturnDate}
-            onChange={(e) =>
-              updateRow(index, { expectedReturnDate: e.target.value })
-            }
-            required
-          />
+          <div className="flex flex-col gap-1 sm:col-span-3">
+            <input
+              type="date"
+              className={inputClass}
+              value={row.startDate}
+              onChange={(e) => updateRow(index, { startDate: e.target.value })}
+              required
+            />
+            <input
+              type="time"
+              className={inputClass}
+              value={row.startTime}
+              onChange={(e) => updateRow(index, { startTime: e.target.value })}
+              aria-label="Delivery time (optional)"
+            />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-3">
+            <input
+              type="date"
+              className={inputClass}
+              value={row.expectedReturnDate}
+              onChange={(e) =>
+                updateRow(index, { expectedReturnDate: e.target.value })
+              }
+              required
+            />
+            <input
+              type="time"
+              className={inputClass}
+              value={row.expectedReturnTime}
+              onChange={(e) =>
+                updateRow(index, { expectedReturnTime: e.target.value })
+              }
+              aria-label="Pickup time (optional)"
+            />
+          </div>
           <input
             type="number"
             step="0.01"
@@ -130,7 +166,17 @@ export function BookingItemsBuilder({
       <input
         type="hidden"
         name="bookingItemsJson"
-        value={JSON.stringify(rows)}
+        value={JSON.stringify(
+          rows.map((r) => ({
+            equipmentItemId: r.equipmentItemId,
+            startDate: combineDateAndTime(r.startDate, r.startTime),
+            expectedReturnDate: combineDateAndTime(
+              r.expectedReturnDate,
+              r.expectedReturnTime
+            ),
+            price: r.price,
+          }))
+        )}
       />
     </div>
   );

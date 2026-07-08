@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { formatDate } from "@/lib/date";
+import { formatDateAndTime } from "@/lib/date";
 import { markDelivered, markReturned } from "./bookings/actions";
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
@@ -73,14 +73,24 @@ function DispatchCard({
           <AddressLink address={address} />
         </p>
       </div>
-      <form action={action} className="mt-4">
-        <button
-          type="submit"
-          className="text-sm font-semibold text-brand hover:underline"
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <form action={action}>
+          <button
+            type="submit"
+            className="text-sm font-semibold text-brand hover:underline"
+          >
+            {actionLabel}
+          </button>
+        </form>
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
         >
-          {actionLabel}
-        </button>
-      </form>
+          Get Directions
+        </a>
+      </div>
     </div>
   );
 }
@@ -204,7 +214,7 @@ export default async function DispatchPage() {
               return (
                 <DispatchCard
                   key={item.id}
-                  date={formatDate(item.startDate)}
+                  date={formatDateAndTime(item.startDate)}
                   urgencyText={u.text}
                   urgencyClassName={u.className}
                   itemLabel={item.equipmentItem.label}
@@ -233,7 +243,7 @@ export default async function DispatchPage() {
               return (
                 <DispatchCard
                   key={item.id}
-                  date={formatDate(item.expectedReturnDate)}
+                  date={formatDateAndTime(item.expectedReturnDate)}
                   urgencyText={u.text}
                   urgencyClassName={u.className}
                   itemLabel={item.equipmentItem.label}
