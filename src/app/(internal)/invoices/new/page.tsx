@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { createInvoice } from "../actions";
 import { Field, inputClass } from "@/components/Field";
-import { computeInvoiceLineItems } from "@/lib/invoicing";
+import { computeInvoiceLineItems, nextInvoiceNumber } from "@/lib/invoicing";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -34,8 +34,7 @@ export default async function NewInvoicePage({
 
   const lines = computeInvoiceLineItems(booking.items);
   const total = lines.reduce((sum, line) => sum + line.amount, 0);
-  const invoiceCount = await db.invoice.count();
-  const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(4, "0")}`;
+  const invoiceNumber = await nextInvoiceNumber();
 
   return (
     <div className="max-w-xl">

@@ -106,9 +106,20 @@ export function computeInvoiceLineItems(
   return lines;
 }
 
-async function nextInvoiceNumber(): Promise<string> {
-  const count = await db.invoice.count();
-  return `INV-${String(count + 1).padStart(4, "0")}`;
+// Derives the next number from the highest existing INV-#### number rather
+// than a row count, since a count drifts out of sync with the sequence
+// whenever an invoice is deleted (or historical HIST-#### rows exist
+// alongside it), which caused collisions with already-used numbers.
+export async function nextInvoiceNumber(): Promise<string> {
+  const invoices = await db.invoice.findMany({
+    where: { invoiceNumber: { startsWith: "INV-" } },
+    select: { invoiceNumber: true },
+  });
+  const maxNumber = invoices.reduce((max, invoice) => {
+    const n = parseInt(invoice.invoiceNumber.slice(4), 10);
+    return Number.isFinite(n) && n > max ? n : max;
+  }, 0);
+  return `INV-${String(maxNumber + 1).padStart(4, "0")}`;
 }
 
 // Creates a draft invoice with computed line items for a booking, unless
