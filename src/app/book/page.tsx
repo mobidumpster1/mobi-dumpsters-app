@@ -2,6 +2,7 @@ import { listBookableCategories } from "@/lib/availability";
 import { BookingForm } from "./BookingForm";
 import { branding } from "@/lib/branding";
 import { getAgreementSettings } from "@/lib/agreement";
+import { UtmCapture } from "@/components/UtmCapture";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function PublicBookingPage() {
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
+      <UtmCapture />
       <div className="mx-auto max-w-xl">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-ink">

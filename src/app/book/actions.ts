@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
@@ -12,6 +12,7 @@ import { savePhotoFile } from "@/lib/uploads";
 import { branding } from "@/lib/branding";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
+import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
 
 export async function checkAvailability(
   categoryId: string,
@@ -162,7 +163,13 @@ export async function submitBookingRequest(formData: FormData) {
     customer = await db.customer.findFirst({ where: { phone } });
   }
   if (!customer) {
-    customer = await db.customer.create({ data: { name, phone, email, address } });
+    // Only set on a genuinely new customer — an existing customer's
+    // original source stays whatever it was, even if this particular
+    // booking happened to come from a different ad click.
+    const utmSource = (await cookies()).get("mobi_utm_source")?.value;
+    customer = await db.customer.create({
+      data: { name, phone, email, address, leadSource: mapUtmSourceToLeadSource(utmSource) },
+    });
   } else {
     await fillBlankCustomerFields(customer, { phone, email, address });
   }

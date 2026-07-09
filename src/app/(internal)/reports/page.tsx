@@ -116,17 +116,36 @@ export default async function ReportsPage() {
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .slice(0, 12);
 
-  const byCustomer = new Map<string, { name: string; revenue: number }>();
+  const byCustomer = new Map<string, { name: string; revenue: number; invoiceCount: number }>();
   for (const invoice of invoices) {
     const customer = invoice.booking?.customer ?? invoice.customer;
     if (!customer) continue;
-    const entry = byCustomer.get(customer.id) ?? { name: customer.name, revenue: 0 };
+    const entry = byCustomer.get(customer.id) ?? { name: customer.name, revenue: 0, invoiceCount: 0 };
     entry.revenue += invoice.amount;
+    entry.invoiceCount += 1;
     byCustomer.set(customer.id, entry);
   }
   const customerRows = Array.from(byCustomer.entries()).sort(
     (a, b) => b[1].revenue - a[1].revenue
   );
+
+  // A customer is "returning" here if they've been invoiced more than
+  // once — a simple, self-maintaining stand-in for "have they booked
+  // with us before," computed fresh each time rather than a field that
+  // could get out of sync.
+  let newCustomerRevenue = 0;
+  let returningCustomerRevenue = 0;
+  let newCustomerCount = 0;
+  let returningCustomerCount = 0;
+  for (const [, row] of byCustomer) {
+    if (row.invoiceCount > 1) {
+      returningCustomerRevenue += row.revenue;
+      returningCustomerCount += 1;
+    } else {
+      newCustomerRevenue += row.revenue;
+      newCustomerCount += 1;
+    }
+  }
 
   const byEquipment = new Map<string, { label: string; cost: number }>();
   for (const expense of expenses) {
@@ -306,6 +325,24 @@ export default async function ReportsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-ink">New vs. Returning Customers</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Returning means invoiced more than once, ever — not limited to a
+          specific time period.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <SummaryCard
+            label={`New Customers (${newCustomerCount})`}
+            value={newCustomerRevenue}
+          />
+          <SummaryCard
+            label={`Returning Customers (${returningCustomerCount})`}
+            value={returningCustomerRevenue}
+          />
         </div>
       </section>
 
