@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { GalleryImage } from "@/components/GalleryImage";
-import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { QuickPhotoUploadButton } from "@/components/QuickPhotoUploadButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { uploadGalleryPhoto, deleteGalleryPhoto } from "./actions";
 
@@ -128,19 +128,15 @@ export default async function GalleryPage({
 
   return (
     <div>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Photo & Video Gallery</h1>
-        <p className="mt-1 text-zinc-500">
-          Every photo and video across jobs, equipment, and customers, newest first.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">Photo & Video Gallery</h1>
+          <p className="mt-1 text-zinc-500">
+            Every photo and video across jobs, equipment, and customers, newest first.
+          </p>
+        </div>
+        <QuickPhotoUploadButton uploadAction={uploadGalleryPhoto} folder="gallery" />
       </div>
-
-      <MediaUploadForm
-        uploadAction={uploadGalleryPhoto}
-        typeOptions={[{ value: "general", label: "General" }]}
-        defaultType="general"
-        folder="gallery"
-      />
 
       <div className="mt-4 flex flex-wrap gap-2">
         {SOURCES.map((s) => (

@@ -94,7 +94,6 @@ export function MediaUploadForm({
           name="file"
           type="file"
           accept="image/*,video/*"
-          capture="environment"
           required
           className={inputClass}
         />
