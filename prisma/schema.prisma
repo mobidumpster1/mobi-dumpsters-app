@@ -82,6 +82,11 @@ model Customer {
   notes       String?
   // Comma-separated labels (e.g. "Residential,Repeat") shown as pills in the UI.
   tags        String   @default("")
+  // How this customer found us — google_ads | meta_ads | b2b_outreach |
+  // referral | organic_search | repeat | other. Null means not specified
+  // rather than forcing a guess. Set automatically to "b2b_outreach" when
+  // converted from a Lead; otherwise picked from a dropdown at creation.
+  leadSource  String?
   // Set once this customer exists in QuickBooks (created here, imported
   // from QuickBooks, or matched during a sync), so we don't create dupes.
   quickbooksCustomerId String?

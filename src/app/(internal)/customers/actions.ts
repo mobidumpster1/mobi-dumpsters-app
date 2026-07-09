@@ -25,6 +25,7 @@ export async function createCustomer(formData: FormData) {
       longitude: geocoded?.longitude,
       notes: str(formData, "notes"),
       tags: normalizeTagsInput(str(formData, "tags") ?? ""),
+      leadSource: str(formData, "leadSource"),
     },
   });
 
@@ -49,6 +50,7 @@ export async function quickAddCustomer(formData: FormData) {
       address,
       latitude: geocoded?.latitude,
       longitude: geocoded?.longitude,
+      leadSource: str(formData, "leadSource"),
     },
   });
 
@@ -74,6 +76,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
       longitude: geocoded?.longitude,
       notes: str(formData, "notes"),
       tags: normalizeTagsInput(str(formData, "tags") ?? ""),
+      leadSource: str(formData, "leadSource"),
     },
   });
 

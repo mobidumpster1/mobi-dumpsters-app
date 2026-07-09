@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
 import { hasPermission, requireUser } from "@/lib/session";
+import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,19 @@ export default async function ReportsPage() {
   }
   const equipmentRows = Array.from(byEquipment.entries()).sort(
     (a, b) => b[1].cost - a[1].cost
+  );
+
+  const byChannel = new Map<string, { revenue: number; bookings: number }>();
+  for (const invoice of invoices) {
+    const customer = invoice.booking?.customer ?? invoice.customer;
+    const source = customer?.leadSource ?? "not_specified";
+    const entry = byChannel.get(source) ?? { revenue: 0, bookings: 0 };
+    entry.revenue += invoice.amount;
+    entry.bookings += 1;
+    byChannel.set(source, entry);
+  }
+  const channelRows = Array.from(byChannel.entries()).sort(
+    (a, b) => b[1].revenue - a[1].revenue
   );
 
   const now = new Date();
@@ -286,6 +300,43 @@ export default async function ReportsPage() {
               {customerRows.length === 0 && (
                 <tr>
                   <td colSpan={2} className="px-4 py-8 text-center text-zinc-400">
+                    No data yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-ink">Channel Performance</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Revenue grouped by how each customer found you — set per customer
+          on their profile, or automatically when converted from a Lead.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Source</th>
+                <th className="px-5 py-3.5 font-semibold">Invoices</th>
+                <th className="px-5 py-3.5 font-semibold">Revenue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {channelRows.map(([source, row]) => (
+                <tr key={source}>
+                  <td className="px-5 py-4 text-zinc-900">
+                    {source === "not_specified" ? "Not Specified" : LEAD_SOURCE_LABELS[source] ?? source}
+                  </td>
+                  <td className="px-5 py-4 text-zinc-600">{row.bookings}</td>
+                  <td className="px-5 py-4 text-zinc-600">${row.revenue.toFixed(2)}</td>
+                </tr>
+              ))}
+              {channelRows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
                     No data yet.
                   </td>
                 </tr>

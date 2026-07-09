@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createCustomer } from "../actions";
 import { Field, inputClass } from "@/components/Field";
+import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
 export default function NewCustomerPage() {
   return (
@@ -21,6 +22,16 @@ export default function NewCustomerPage() {
         </Field>
         <Field label="Address" htmlFor="address">
           <input id="address" name="address" className={inputClass} />
+        </Field>
+        <Field label="How did they find us? (optional)" htmlFor="leadSource">
+          <select id="leadSource" name="leadSource" defaultValue="" className={inputClass}>
+            <option value="">Not specified</option>
+            {Object.entries(LEAD_SOURCE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Tags (comma separated, optional)" htmlFor="tags">
           <input

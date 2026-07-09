@@ -15,6 +15,7 @@ import {
   updateLeadStatus,
   updateLeadNotes,
   deleteLead,
+  convertLeadToCustomer,
   addServiceArea,
   removeServiceArea,
 } from "./actions";
@@ -231,6 +232,18 @@ export default async function LeadsPage({
                 currentNotes={lead.notes}
                 action={updateLeadNotes}
               />
+              {lead.status === "customer" ? (
+                <span className="flex-shrink-0 text-xs font-medium text-green-700">✓ Customer</span>
+              ) : (
+                <form action={convertLeadToCustomer.bind(null, lead.id)}>
+                  <button
+                    type="submit"
+                    className="flex-shrink-0 text-xs font-semibold text-brand hover:underline"
+                  >
+                    Convert
+                  </button>
+                </form>
+              )}
               <form action={deleteLead.bind(null, lead.id)}>
                 <ConfirmButton
                   message={`Remove ${lead.name} from your leads?`}
@@ -315,14 +328,28 @@ export default async function LeadsPage({
                   />
                 </td>
                 <td className="px-5 py-4">
-                  <form action={deleteLead.bind(null, lead.id)}>
-                    <ConfirmButton
-                      message={`Remove ${lead.name} from your leads?`}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Remove
-                    </ConfirmButton>
-                  </form>
+                  <div className="flex items-center gap-3">
+                    {lead.status === "customer" ? (
+                      <span className="text-xs font-medium text-green-700">✓ Customer</span>
+                    ) : (
+                      <form action={convertLeadToCustomer.bind(null, lead.id)}>
+                        <button
+                          type="submit"
+                          className="text-xs font-semibold text-brand hover:underline"
+                        >
+                          Convert
+                        </button>
+                      </form>
+                    )}
+                    <form action={deleteLead.bind(null, lead.id)}>
+                      <ConfirmButton
+                        message={`Remove ${lead.name} from your leads?`}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Remove
+                      </ConfirmButton>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

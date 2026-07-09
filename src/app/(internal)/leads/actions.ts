@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
@@ -104,6 +105,32 @@ export async function deleteLead(leadId: string) {
   await db.lead.delete({ where: { id: leadId } });
   await logAction("lead.deleted", "Lead", leadId);
   revalidatePath("/leads");
+}
+
+// Creates a real Customer from a lead, reusing the address/coordinates
+// already captured from the Places search (no re-geocoding needed) and
+// tagging leadSource "b2b_outreach" automatically — the whole point of
+// converting through this button instead of adding the customer by hand.
+export async function convertLeadToCustomer(leadId: string) {
+  await requirePermission("canManageLeads");
+
+  const lead = await db.lead.findUniqueOrThrow({ where: { id: leadId } });
+
+  const customer = await db.customer.create({
+    data: {
+      name: lead.name,
+      phone: lead.phone,
+      address: lead.address,
+      latitude: lead.latitude,
+      longitude: lead.longitude,
+      leadSource: "b2b_outreach",
+    },
+  });
+
+  await db.lead.update({ where: { id: leadId }, data: { status: "customer" } });
+
+  revalidatePath("/leads");
+  redirect(`/customers/${customer.id}`);
 }
 
 export async function addServiceArea(formData: FormData) {

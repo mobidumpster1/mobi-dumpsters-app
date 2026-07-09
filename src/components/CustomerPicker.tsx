@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Field, inputClass } from "@/components/Field";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
+import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
 type CustomerOption = { id: string; name: string };
 
@@ -26,6 +27,7 @@ export function CustomerPicker({
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [newLeadSource, setNewLeadSource] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +44,7 @@ export function CustomerPicker({
       formData.set("phone", newPhone);
       formData.set("email", newEmail);
       formData.set("address", newAddress);
+      formData.set("leadSource", newLeadSource);
       const customer = await quickAddCustomer(formData);
       setOptions((prev) => [...prev, customer].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedId(customer.id);
@@ -50,6 +53,7 @@ export function CustomerPicker({
       setNewPhone("");
       setNewEmail("");
       setNewAddress("");
+      setNewLeadSource("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add that customer");
     } finally {
@@ -113,6 +117,18 @@ export function CustomerPicker({
               value={newAddress}
               onChange={(e) => setNewAddress(e.target.value)}
             />
+            <select
+              className={inputClass}
+              value={newLeadSource}
+              onChange={(e) => setNewLeadSource(e.target.value)}
+            >
+              <option value="">How did they find us? (optional)</option>
+              {Object.entries(LEAD_SOURCE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               type="button"
