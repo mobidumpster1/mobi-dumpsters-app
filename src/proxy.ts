@@ -18,7 +18,14 @@ const PUBLIC_PATHS = [
   "/booking",
 ];
 
+// Static assets (logo, icons, manifest, etc.) — these need to load for
+// anyone regardless of login state: customers on /book, email clients
+// fetching the logo image in HTML emails, browsers requesting a favicon.
+// Missed this earlier, which silently broke the logo in outgoing emails.
+const STATIC_ASSET_PATTERN = /\.(jpg|jpeg|png|gif|svg|webp|ico|webmanifest|css|js|txt|xml)$/i;
+
 function isPublic(pathname: string) {
+  if (STATIC_ASSET_PATTERN.test(pathname)) return true;
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
