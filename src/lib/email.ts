@@ -47,9 +47,8 @@ function wrapEmailHtml(body: string): string {
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
             <tr>
-              <td align="center" style="background-color:${branding.primaryColor};padding:24px;">
-                <img src="${logoUrl}" alt="${escapeHtml(branding.businessName)}" width="56" height="56" style="border-radius:12px;display:block;margin:0 auto 8px;" />
-                <span style="color:#ffffff;font-size:18px;font-weight:bold;">${escapeHtml(branding.businessName)}</span>
+              <td align="center" style="background-color:#ffffff;padding:24px 24px 16px;border-bottom:4px solid ${branding.primaryColor};">
+                <img src="${logoUrl}" alt="${escapeHtml(branding.businessName)}" width="200" style="display:block;margin:0 auto;max-width:200px;height:auto;" />
               </td>
             </tr>
             <tr>
