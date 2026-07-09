@@ -575,6 +575,27 @@ model DeliveryReminderSettings {
   createdAt   DateTime @default(now())
 }
 
+// A local business found via a Google Places search, tracked for sales
+// outreach — not a customer yet. Deduped by placeId so re-running a search
+// over the same area doesn't create copies; a repeat search just leaves an
+// existing lead's status/notes alone and refreshes its basic details.
+model Lead {
+  id          String    @id @default(cuid())
+  placeId     String    @unique
+  name        String
+  phone       String?
+  address     String?
+  website     String?
+  category    String?
+  rating      Float?
+  searchQuery String?
+  status      String    @default("new") // new | contacted | interested | not_interested | customer
+  notes       String?
+  contactedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 // A record of one customer agreeing to the service agreement — either as a
 // required step of the online booking flow, or via a standalone link sent
 // manually. Stores a snapshot of the exact text agreed to.
