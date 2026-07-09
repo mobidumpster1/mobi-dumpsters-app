@@ -33,7 +33,7 @@ function priceLabel(c: CategoryOption) {
     const min = Math.min(...priced.map((t) => t.price as number));
     return `From $${min.toFixed(2)}`;
   }
-  if (c.basePrice != null) return `$${c.basePrice.toFixed(2)}`;
+  if (c.basePrice != null) return `Starting at $${c.basePrice.toFixed(2)}`;
   return null;
 }
 
@@ -170,10 +170,7 @@ export function BookingForm({
 
       {!hasTiers && selectedCategory?.basePrice != null && (
         <div className="rounded-xl bg-brand-light p-3 text-sm text-zinc-700">
-          <span className="font-semibold text-ink">
-            ${selectedCategory.basePrice.toFixed(2)}
-          </span>{" "}
-          {selectedCategory.description || "Starting price."}
+          {selectedCategory.description || `Starting at $${selectedCategory.basePrice.toFixed(2)}.`}
         </div>
       )}
 

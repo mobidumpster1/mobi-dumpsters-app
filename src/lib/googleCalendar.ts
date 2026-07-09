@@ -48,8 +48,8 @@ export type CalendarBookingInput = {
 // Google Calendar event colorId values — see
 // https://developers.google.com/calendar/api/v3/reference/colors/get
 const CATEGORY_COLOR_IDS: Record<string, string> = {
-  "roll-off dumpster": "6", // Tangerine
-  "dump trailer": "10", // Basil
+  "20 yard dumpster": "6", // Tangerine
+  "10 yard dump trailer": "10", // Basil
 };
 
 function colorIdForItems(items: { categoryName: string }[]): string | undefined {
