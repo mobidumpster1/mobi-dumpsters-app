@@ -25,12 +25,16 @@ const STATUS_FILTERS = ["All", ...Object.keys(LEAD_STATUS_LABELS)] as const;
 // this feature needs — phone, website, rating) resets every calendar month.
 const FREE_SEARCHES_PER_MONTH = 1000;
 
+function titleCase(text: string) {
+  return text.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; trade?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, trade } = await searchParams;
   const activeStatus = STATUS_FILTERS.includes(status as (typeof STATUS_FILTERS)[number])
     ? (status as (typeof STATUS_FILTERS)[number])
     : "All";
@@ -38,14 +42,26 @@ export default async function LeadsPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [leads, searchesUsed, serviceAreas] = await Promise.all([
+  const [leads, searchesUsed, serviceAreas, tradeRows] = await Promise.all([
     db.lead.findMany({
-      where: activeStatus === "All" ? undefined : { status: activeStatus },
+      where: {
+        status: activeStatus === "All" ? undefined : activeStatus,
+        tradeCategory: trade ? trade : undefined,
+      },
       orderBy: { createdAt: "desc" },
     }),
     db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
     db.serviceArea.findMany({ orderBy: { name: "asc" } }),
+    db.lead.findMany({
+      where: { tradeCategory: { not: null } },
+      distinct: ["tradeCategory"],
+      select: { tradeCategory: true },
+      orderBy: { tradeCategory: "asc" },
+    }),
   ]);
+
+  const tradeFilters = tradeRows.map((r) => r.tradeCategory as string);
+  const activeTrade = trade && tradeFilters.includes(trade) ? trade : "All";
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
 
@@ -102,20 +118,50 @@ export default async function LeadsPage({
       )}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((s) => (
-          <Link
-            key={s}
-            href={s === "All" ? "/leads" : `/leads?status=${s}`}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              activeStatus === s
-                ? "bg-brand text-white"
-                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
-            }`}
-          >
-            {s === "All" ? "All Leads" : LEAD_STATUS_LABELS[s]}
-          </Link>
-        ))}
+        {STATUS_FILTERS.map((s) => {
+          const params = new URLSearchParams();
+          if (s !== "All") params.set("status", s);
+          if (activeTrade !== "All") params.set("trade", activeTrade);
+          const qs = params.toString();
+          return (
+            <Link
+              key={s}
+              href={qs ? `/leads?${qs}` : "/leads"}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeStatus === s
+                  ? "bg-brand text-white"
+                  : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+              }`}
+            >
+              {s === "All" ? "All Leads" : LEAD_STATUS_LABELS[s]}
+            </Link>
+          );
+        })}
       </div>
+
+      {tradeFilters.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {["All", ...tradeFilters].map((t) => {
+            const params = new URLSearchParams();
+            if (activeStatus !== "All") params.set("status", activeStatus);
+            if (t !== "All") params.set("trade", t);
+            const qs = params.toString();
+            return (
+              <Link
+                key={t}
+                href={qs ? `/leads?${qs}` : "/leads"}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTrade === t
+                    ? "bg-ink text-white"
+                    : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                }`}
+              >
+                {t === "All" ? "All Types" : titleCase(t)}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Mobile: card list */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">

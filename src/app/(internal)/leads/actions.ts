@@ -18,6 +18,7 @@ import { searchPlaces } from "@/lib/places";
 export async function searchAndSaveLeads(formData: FormData) {
   const query = str(formData, "query");
   if (!query) throw new Error("Search is required");
+  const tradeCategory = query.trim().toLowerCase();
 
   const areas = await db.serviceArea.findMany({ orderBy: { name: "asc" } });
   const searches =
@@ -46,6 +47,7 @@ export async function searchAndSaveLeads(formData: FormData) {
           longitude: result.longitude,
           website: result.website,
           category: result.category,
+          tradeCategory,
           rating: result.rating,
           searchQuery: fullQuery,
         },
@@ -57,6 +59,7 @@ export async function searchAndSaveLeads(formData: FormData) {
           longitude: result.longitude,
           website: result.website,
           category: result.category,
+          tradeCategory,
           rating: result.rating,
         },
       });

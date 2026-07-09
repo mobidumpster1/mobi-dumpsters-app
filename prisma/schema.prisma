@@ -602,6 +602,11 @@ model Lead {
   longitude   Float?
   website     String?
   category    String?
+  // The business type as typed into the search box (e.g. "roofers"),
+  // before any service area gets appended — kept separate from `category`
+  // (Google's own, much noisier classification) so the filter tabs on the
+  // Leads page can group by what the business actually searched for.
+  tradeCategory String?
   rating      Float?
   searchQuery String?
   status      String    @default("new") // new | contacted | interested | not_interested | customer
