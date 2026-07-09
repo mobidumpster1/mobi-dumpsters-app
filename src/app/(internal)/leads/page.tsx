@@ -5,8 +5,17 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { LeadSearchForm } from "@/components/LeadSearchForm";
 import { LeadStatusSelect } from "@/components/LeadStatusSelect";
 import { LeadNotesField } from "@/components/LeadNotesField";
+import { ServiceAreaManager } from "@/components/ServiceAreaManager";
+import { LocationMap } from "@/components/LocationMap";
 import { LEAD_STATUS_LABELS } from "@/lib/leadStatus";
-import { searchAndSaveLeads, updateLeadStatus, updateLeadNotes, deleteLead } from "./actions";
+import {
+  searchAndSaveLeads,
+  updateLeadStatus,
+  updateLeadNotes,
+  deleteLead,
+  addServiceArea,
+  removeServiceArea,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +38,26 @@ export default async function LeadsPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [leads, searchesUsed] = await Promise.all([
+  const [leads, searchesUsed, serviceAreas] = await Promise.all([
     db.lead.findMany({
       where: activeStatus === "All" ? undefined : { status: activeStatus },
       orderBy: { createdAt: "desc" },
     }),
     db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
+    db.serviceArea.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
+
+  const pins = leads
+    .filter((lead) => lead.latitude !== null && lead.longitude !== null)
+    .map((lead) => ({
+      id: lead.id,
+      lat: lead.latitude as number,
+      lng: lead.longitude as number,
+      label: lead.name,
+      href: "/leads",
+    }));
 
   return (
     <div>
@@ -64,8 +84,22 @@ export default async function LeadsPage({
       </div>
 
       <div className="mt-6">
-        <LeadSearchForm action={searchAndSaveLeads} />
+        <ServiceAreaManager
+          areas={serviceAreas}
+          addAction={addServiceArea}
+          removeAction={removeServiceArea}
+        />
       </div>
+
+      <div className="mt-4">
+        <LeadSearchForm action={searchAndSaveLeads} hasAreas={serviceAreas.length > 0} />
+      </div>
+
+      {pins.length > 0 && (
+        <div className="mt-6">
+          <LocationMap pins={pins} />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
         {STATUS_FILTERS.map((s) => (

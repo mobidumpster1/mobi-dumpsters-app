@@ -3,6 +3,8 @@ export type PlaceResult = {
   name: string;
   phone: string | null;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   website: string | null;
   category: string | null;
   rating: number | null;
@@ -13,6 +15,8 @@ export type PlaceResult = {
 // phone/website/rating, which puts every call on the Enterprise SKU rather
 // than the cheaper Pro tier — but outreach is useless without a phone
 // number, so there's no cheaper tier that actually serves this feature.
+// `location` rides along on the same request at no extra tier cost (it's
+// an Essentials-tier field) instead of a separate geocoding call.
 // Returns [] (instead of throwing) if no API key is configured or the
 // request fails, matching the non-fatal pattern used by geocodeAddress.
 export async function searchPlaces(query: string): Promise<PlaceResult[]> {
@@ -26,7 +30,7 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.primaryTypeDisplayName",
+          "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.websiteUri,places.rating,places.primaryTypeDisplayName",
       },
       body: JSON.stringify({ textQuery: query }),
     });
@@ -40,6 +44,7 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
         id: string;
         displayName?: { text?: string };
         formattedAddress?: string;
+        location?: { latitude?: number; longitude?: number };
         nationalPhoneNumber?: string;
         websiteUri?: string;
         rating?: number;
@@ -49,6 +54,8 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
         name: p.displayName?.text ?? "Unnamed business",
         phone: p.nationalPhoneNumber ?? null,
         address: p.formattedAddress ?? null,
+        latitude: typeof p.location?.latitude === "number" ? p.location.latitude : null,
+        longitude: typeof p.location?.longitude === "number" ? p.location.longitude : null,
         website: p.websiteUri ?? null,
         category: p.primaryTypeDisplayName?.text ?? null,
         rating: typeof p.rating === "number" ? p.rating : null,

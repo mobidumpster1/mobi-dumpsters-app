@@ -19,8 +19,10 @@ function SearchButton() {
 
 export function LeadSearchForm({
   action,
+  hasAreas,
 }: {
   action: (formData: FormData) => Promise<void>;
+  hasAreas: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -35,13 +37,13 @@ export function LeadSearchForm({
     >
       <div className="flex-1">
         <label htmlFor="query" className="text-sm font-medium text-zinc-700">
-          Search Google Maps
+          {hasAreas ? "What are you looking for?" : "Search Google Maps"}
         </label>
         <input
           id="query"
           name="query"
           required
-          placeholder="e.g. general contractors near Byron, GA"
+          placeholder={hasAreas ? "e.g. general contractors" : "e.g. general contractors near Byron, GA"}
           className={`${inputClass} mt-1 w-full`}
         />
       </div>

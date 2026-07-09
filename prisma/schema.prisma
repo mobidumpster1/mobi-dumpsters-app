@@ -596,6 +596,10 @@ model Lead {
   name        String
   phone       String?
   address     String?
+  // Returned directly by the Places search itself (no separate geocoding
+  // call needed) — used to plot leads on the map.
+  latitude    Float?
+  longitude   Float?
   website     String?
   category    String?
   rating      Float?
@@ -605,6 +609,16 @@ model Lead {
   contactedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// A saved city/area (e.g. "Byron, GA") that Lead searches run against
+// automatically, so a search only needs a business type ("roofers") instead
+// of retyping the whole service area every time. A search with no saved
+// areas just runs the typed query as-is.
+model ServiceArea {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a
