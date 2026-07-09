@@ -14,6 +14,12 @@ export type Branding = {
   smsPhone: string;
   email: string;
   address: string;
+  // Where equipment sits by default when not out on a job — geocoded once
+  // and stored here (rather than re-geocoding on every page load) since it
+  // never changes.
+  yardAddress: string;
+  yardLatitude: number;
+  yardLongitude: number;
   primaryColor: string;
   accentColor: string;
   facebookPageUrl?: string;

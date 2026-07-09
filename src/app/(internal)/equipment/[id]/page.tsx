@@ -8,6 +8,7 @@ import { quickSetEquipmentStatus } from "../actions";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { LocationMap } from "@/components/LocationMap";
+import { branding } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -128,25 +129,36 @@ export default async function EquipmentDetailPage({
         )}
       </dl>
 
-      {item.currentCustomer?.latitude !== null &&
-        item.currentCustomer?.latitude !== undefined &&
-        item.currentCustomer?.longitude !== null &&
-        item.currentCustomer?.longitude !== undefined && (
-          <div className="mt-6">
-            <LocationMap
-              pins={[
-                {
-                  id: item.id,
-                  lat: item.currentCustomer.latitude,
-                  lng: item.currentCustomer.longitude,
-                  label: item.currentCustomer.name,
-                  href: `/customers/${item.currentCustomer.id}`,
-                },
-              ]}
-              heightClassName="h-64"
-            />
-          </div>
-        )}
+      {(() => {
+        // Out on a job — pin the current customer's address, if it's
+        // geocoded. Otherwise it's sitting at the yard, which always has a
+        // known location since it never moves.
+        const pin = item.currentCustomer
+          ? item.currentCustomer.latitude !== null && item.currentCustomer.longitude !== null
+            ? {
+                id: item.id,
+                lat: item.currentCustomer.latitude,
+                lng: item.currentCustomer.longitude,
+                label: item.currentCustomer.name,
+                href: `/customers/${item.currentCustomer.id}`,
+              }
+            : null
+          : {
+              id: item.id,
+              lat: branding.yardLatitude,
+              lng: branding.yardLongitude,
+              label: "Yard",
+              href: `/equipment/${item.id}`,
+            };
+
+        return (
+          pin && (
+            <div className="mt-6">
+              <LocationMap pins={[pin]} heightClassName="h-64" />
+            </div>
+          )
+        );
+      })()}
 
       <h2 className="mt-8 text-xl font-semibold text-ink">Location History</h2>
       <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">

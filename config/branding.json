@@ -6,6 +6,9 @@
   "smsPhone": "(478) 954-3387",
   "email": "",
   "address": "Byron, GA",
+  "yardAddress": "618 Berlyn Drive, Byron, GA 31008",
+  "yardLatitude": 32.7006962,
+  "yardLongitude": -83.785102,
   "primaryColor": "#3f6b2f",
   "accentColor": "#1a1a1a"
 }
