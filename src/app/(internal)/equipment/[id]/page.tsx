@@ -7,6 +7,7 @@ import { uploadEquipmentPhoto, deleteEquipmentPhoto } from "../photoActions";
 import { quickSetEquipmentStatus } from "../actions";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
+import { LocationMap } from "@/components/LocationMap";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,26 @@ export default async function EquipmentDetailPage({
           </div>
         )}
       </dl>
+
+      {item.currentCustomer?.latitude !== null &&
+        item.currentCustomer?.latitude !== undefined &&
+        item.currentCustomer?.longitude !== null &&
+        item.currentCustomer?.longitude !== undefined && (
+          <div className="mt-6">
+            <LocationMap
+              pins={[
+                {
+                  id: item.id,
+                  lat: item.currentCustomer.latitude,
+                  lng: item.currentCustomer.longitude,
+                  label: item.currentCustomer.name,
+                  href: `/customers/${item.currentCustomer.id}`,
+                },
+              ]}
+              heightClassName="h-64"
+            />
+          </div>
+        )}
 
       <h2 className="mt-8 text-xl font-semibold text-ink">Location History</h2>
       <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
