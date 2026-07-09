@@ -266,6 +266,17 @@ model EquipmentPhoto {
   createdAt       DateTime      @default(now())
 }
 
+// A standalone photo/video uploaded straight from the Gallery page — not
+// tied to a job, piece of equipment, or customer. For general shots
+// (marketing, category photos, anything without an obvious home).
+model GalleryPhoto {
+  id        String   @id @default(cuid())
+  mediaType String   @default("photo") // photo | video
+  caption   String?
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
 // A rental transaction for one customer. May include multiple pieces of
 // equipment, each tracked independently via BookingItem.
 model Booking {

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { GalleryImage } from "@/components/GalleryImage";
+import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { uploadGalleryPhoto, deleteGalleryPhoto } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +15,13 @@ type GalleryPhoto = {
   type: string;
   mediaType: string;
   createdAt: Date;
-  source: "Job" | "Equipment" | "Customer";
+  source: "Job" | "Equipment" | "Customer" | "General";
   contextLabel: string;
-  contextHref: string;
+  contextHref: string | null;
+  deleteId: string | null;
 };
 
-const SOURCES = ["All", "Job", "Equipment", "Customer"] as const;
+const SOURCES = ["All", "Job", "Equipment", "Customer", "General"] as const;
 const MEDIA_TYPES = ["All", "Photo", "Video"] as const;
 
 export default async function GalleryPage({
@@ -33,7 +37,7 @@ export default async function GalleryPage({
     ? (media as (typeof MEDIA_TYPES)[number])
     : "All";
 
-  const [bookingPhotos, equipmentPhotos, customerPhotos] = await Promise.all([
+  const [bookingPhotos, equipmentPhotos, customerPhotos, generalPhotos] = await Promise.all([
     db.photo.findMany({
       include: { booking: { include: { customer: true } } },
       orderBy: { createdAt: "desc" },
@@ -46,6 +50,10 @@ export default async function GalleryPage({
     }),
     db.customerPhoto.findMany({
       include: { customer: true },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    }),
+    db.galleryPhoto.findMany({
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
@@ -62,6 +70,7 @@ export default async function GalleryPage({
       source: "Job",
       contextLabel: p.booking.customer.name,
       contextHref: `/bookings/${p.bookingId}`,
+      deleteId: null,
     })),
     ...equipmentPhotos.map((p): GalleryPhoto => ({
       id: `equipment-${p.id}`,
@@ -73,6 +82,7 @@ export default async function GalleryPage({
       source: "Equipment",
       contextLabel: p.equipmentItem.label,
       contextHref: `/equipment/${p.equipmentItemId}`,
+      deleteId: null,
     })),
     ...customerPhotos.map((p): GalleryPhoto => ({
       id: `customer-${p.id}`,
@@ -84,6 +94,19 @@ export default async function GalleryPage({
       source: "Customer",
       contextLabel: p.customer.name,
       contextHref: `/customers/${p.customerId}`,
+      deleteId: null,
+    })),
+    ...generalPhotos.map((p): GalleryPhoto => ({
+      id: `general-${p.id}`,
+      src: p.filePath,
+      caption: p.caption,
+      type: "general",
+      mediaType: p.mediaType,
+      createdAt: p.createdAt,
+      source: "General",
+      contextLabel: p.caption ?? "General",
+      contextHref: null,
+      deleteId: p.id,
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
@@ -111,6 +134,13 @@ export default async function GalleryPage({
           Every photo and video across jobs, equipment, and customers, newest first.
         </p>
       </div>
+
+      <MediaUploadForm
+        uploadAction={uploadGalleryPhoto}
+        typeOptions={[{ value: "general", label: "General" }]}
+        defaultType="general"
+        folder="gallery"
+      />
 
       <div className="mt-4 flex flex-wrap gap-2">
         {SOURCES.map((s) => (
@@ -160,12 +190,18 @@ export default async function GalleryPage({
               className="h-32 w-full object-cover sm:h-36"
             />
             <div className="p-2">
-              <Link
-                href={photo.contextHref}
-                className="block truncate text-xs font-semibold text-ink hover:underline"
-              >
-                {photo.contextLabel}
-              </Link>
+              {photo.contextHref ? (
+                <Link
+                  href={photo.contextHref}
+                  className="block truncate text-xs font-semibold text-ink hover:underline"
+                >
+                  {photo.contextLabel}
+                </Link>
+              ) : (
+                <p className="truncate text-xs font-semibold text-ink">
+                  {photo.contextLabel}
+                </p>
+              )}
               <div className="mt-0.5 flex items-center justify-between gap-2">
                 <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium capitalize text-zinc-600">
                   {photo.source} · {photo.type}
@@ -174,6 +210,16 @@ export default async function GalleryPage({
                   {formatDate(photo.createdAt)}
                 </span>
               </div>
+              {photo.deleteId && (
+                <form action={deleteGalleryPhoto.bind(null, photo.deleteId)} className="mt-1">
+                  <ConfirmButton
+                    message={`Delete this ${photo.mediaType === "video" ? "video" : "photo"}?`}
+                    className="text-[10px] text-red-600 hover:underline"
+                  >
+                    Delete
+                  </ConfirmButton>
+                </form>
+              )}
             </div>
           </div>
         ))}
