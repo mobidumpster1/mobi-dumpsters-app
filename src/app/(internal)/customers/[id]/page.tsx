@@ -16,6 +16,7 @@ import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { formatDate } from "@/lib/date";
+import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,12 @@ export default async function CustomerDetailPage({
             className={`font-medium ${creditBalance > 0 ? "text-green-700" : "text-zinc-900"}`}
           >
             ${creditBalance.toFixed(2)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-zinc-500">Found Us Via</dt>
+          <dd className="text-zinc-900">
+            {customer.leadSource ? LEAD_SOURCE_LABELS[customer.leadSource] ?? customer.leadSource : "Not specified"}
           </dd>
         </div>
         {customer.notes && (
