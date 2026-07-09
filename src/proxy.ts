@@ -41,6 +41,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // API routes are called by fetch/SDK code (e.g. the Vercel Blob upload
+  // client), not a browser navigating — redirecting them to the HTML
+  // /login page breaks the caller, which expects JSON and gets a page
+  // instead. A plain 401 lets it fail with a real error rather than a
+  // confusing "failed to retrieve the client token"-style message.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("from", pathname);
   return NextResponse.redirect(loginUrl);
