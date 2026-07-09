@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { branding } from "@/lib/branding";
 import { ThemeToggle } from "./ThemeToggle";
 
-const links = [
+const DEFAULT_LINKS = [
   { href: "/", label: "Dispatch" },
   { href: "/calendar", label: "Calendar" },
   { href: "/customers", label: "Customers" },
@@ -22,41 +22,140 @@ const links = [
   { href: "/settings", label: "Settings" },
 ];
 
+const ORDER_STORAGE_KEY = "sidebarOrder";
+
+// Applies a saved href order to the real link list, appending any links
+// that aren't in the saved order yet (e.g. a page added after the order was
+// last saved) so new nav items don't silently disappear.
+function applyOrder(savedOrder: string[]): typeof DEFAULT_LINKS {
+  if (savedOrder.length === 0) return DEFAULT_LINKS;
+  const byHref = new Map(DEFAULT_LINKS.map((link) => [link.href, link]));
+  const ordered = savedOrder
+    .map((href) => byHref.get(href))
+    .filter((link): link is (typeof DEFAULT_LINKS)[number] => Boolean(link));
+  const missing = DEFAULT_LINKS.filter((link) => !savedOrder.includes(link.href));
+  return [...ordered, ...missing];
+}
+
+function MoveArrows({
+  onMoveUp,
+  onMoveDown,
+  disableUp,
+  disableDown,
+}: {
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  disableUp: boolean;
+  disableDown: boolean;
+}) {
+  return (
+    <span className="flex flex-shrink-0 items-center gap-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          onMoveUp();
+        }}
+        disabled={disableUp}
+        aria-label="Move up"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-30"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          onMoveDown();
+        }}
+        disabled={disableDown}
+        aria-label="Move down"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-30"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </span>
+  );
+}
+
 function NavLinks({
+  links,
   pathname,
   pendingCount,
   onNavigate,
+  reordering,
+  onMove,
 }: {
+  links: typeof DEFAULT_LINKS;
   pathname: string;
   pendingCount: number;
   onNavigate?: () => void;
+  reordering: boolean;
+  onMove: (index: number, direction: -1 | 1) => void;
 }) {
   return (
     <nav className="flex flex-col gap-1">
-      {links.map((link) => {
+      {links.map((link, index) => {
         const isActive =
           link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={onNavigate}
-            className={`flex items-center justify-between rounded-xl px-5 py-4 text-base font-medium transition-colors ${
-              isActive
-                ? "bg-white text-brand-dark"
-                : "text-white/90 hover:bg-white/10 hover:text-white"
-            }`}
-          >
+        const rowClass = `flex items-center justify-between rounded-xl px-5 py-4 text-base font-medium transition-colors ${
+          isActive && !reordering
+            ? "bg-white text-brand-dark"
+            : "text-white/90 hover:bg-white/10 hover:text-white"
+        }`;
+
+        const label = (
+          <>
             {link.label}
-            {link.href === "/bookings" && pendingCount > 0 && (
+            {link.href === "/bookings" && pendingCount > 0 && !reordering && (
               <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">
                 {pendingCount}
               </span>
             )}
+          </>
+        );
+
+        if (reordering) {
+          return (
+            <div key={link.href} className={rowClass}>
+              {label}
+              <MoveArrows
+                onMoveUp={() => onMove(index, -1)}
+                onMoveDown={() => onMove(index, 1)}
+                disableUp={index === 0}
+                disableDown={index === links.length - 1}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <Link key={link.href} href={link.href} onClick={onNavigate} className={rowClass}>
+            {label}
           </Link>
         );
       })}
     </nav>
+  );
+}
+
+function ReorderToggle({
+  reordering,
+  onToggle,
+  className,
+}: {
+  reordering: boolean;
+  onToggle: () => void;
+  className: string;
+}) {
+  return (
+    <button type="button" onClick={onToggle} className={className}>
+      {reordering ? "Done" : "Reorder tabs"}
+    </button>
   );
 }
 
@@ -69,11 +168,35 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [links, setLinks] = useState(DEFAULT_LINKS);
+  const [reordering, setReordering] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ORDER_STORAGE_KEY);
+      if (saved) setLinks(applyOrder(JSON.parse(saved)));
+    } catch {
+      // localStorage unavailable or corrupt saved value — just use default order.
+    }
+  }, []);
 
   // Close the mobile drawer automatically whenever the route changes.
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  function moveLink(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= links.length) return;
+    const next = [...links];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setLinks(next);
+    try {
+      localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next.map((l) => l.href)));
+    } catch {
+      // localStorage unavailable — order just won't persist across visits.
+    }
+  }
 
   const logo = logoExists && (
     // eslint-disable-next-line @next/next/no-img-element
@@ -165,10 +288,18 @@ export function Sidebar({
                 </button>
               </div>
             </div>
+            <ReorderToggle
+              reordering={reordering}
+              onToggle={() => setReordering((r) => !r)}
+              className="self-start rounded-xl px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+            />
             <NavLinks
+              links={links}
               pathname={pathname}
               pendingCount={pendingCount}
-              onNavigate={() => setOpen(false)}
+              onNavigate={reordering ? undefined : () => setOpen(false)}
+              reordering={reordering}
+              onMove={moveLink}
             />
           </aside>
         </div>
@@ -185,10 +316,23 @@ export function Sidebar({
             {branding.businessName}
           </span>
         </Link>
-        <NavLinks pathname={pathname} pendingCount={pendingCount} />
-        <div className="mt-auto flex items-center justify-between rounded-xl px-5 py-3 text-sm font-medium text-white/90">
-          Theme
-          <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10" />
+        <NavLinks
+          links={links}
+          pathname={pathname}
+          pendingCount={pendingCount}
+          reordering={reordering}
+          onMove={moveLink}
+        />
+        <div className="mt-auto flex flex-col gap-2">
+          <ReorderToggle
+            reordering={reordering}
+            onToggle={() => setReordering((r) => !r)}
+            className="self-start rounded-xl px-2 py-1 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+          />
+          <div className="flex items-center justify-between rounded-xl px-5 py-3 text-sm font-medium text-white/90">
+            Theme
+            <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10" />
+          </div>
         </div>
       </aside>
     </>
