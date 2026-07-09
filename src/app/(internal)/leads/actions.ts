@@ -13,6 +13,14 @@ export async function searchAndSaveLeads(formData: FormData) {
   const query = str(formData, "query");
   if (!query) throw new Error("Search is required");
 
+  // Logged before the results are known so the free-quota count reflects
+  // every call actually billed by Google, not just the ones that found
+  // matches — a zero-result search still uses up one of the 1,000 free
+  // Enterprise-tier calls for the month.
+  if (process.env.GOOGLE_MAPS_API_KEY) {
+    await db.placesSearchLog.create({ data: { query } });
+  }
+
   const results = await searchPlaces(query);
 
   for (const result of results) {

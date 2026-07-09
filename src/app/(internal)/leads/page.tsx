@@ -12,6 +12,10 @@ export const dynamic = "force-dynamic";
 
 const STATUS_FILTERS = ["All", ...Object.keys(LEAD_STATUS_LABELS)] as const;
 
+// Google's free tier for the Places Text Search Enterprise SKU (the fields
+// this feature needs — phone, website, rating) resets every calendar month.
+const FREE_SEARCHES_PER_MONTH = 1000;
+
 export default async function LeadsPage({
   searchParams,
 }: {
@@ -22,18 +26,41 @@ export default async function LeadsPage({
     ? (status as (typeof STATUS_FILTERS)[number])
     : "All";
 
-  const leads = await db.lead.findMany({
-    where: activeStatus === "All" ? undefined : { status: activeStatus },
-    orderBy: { createdAt: "desc" },
-  });
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [leads, searchesUsed] = await Promise.all([
+    db.lead.findMany({
+      where: activeStatus === "All" ? undefined : { status: activeStatus },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
+  ]);
+
+  const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
 
   return (
     <div>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Leads</h1>
-        <p className="mt-1 text-zinc-500">
-          Find local businesses on Google Maps and keep track of outreach.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">Leads</h1>
+          <p className="mt-1 text-zinc-500">
+            Find local businesses on Google Maps and keep track of outreach.
+          </p>
+        </div>
+        <div
+          className={`rounded-xl border px-4 py-2 text-sm font-medium ${
+            searchesLeft === 0
+              ? "border-red-200 bg-red-50 text-red-700"
+              : searchesLeft <= 100
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-zinc-200 bg-zinc-50 text-zinc-600"
+          }`}
+        >
+          {searchesLeft === 0
+            ? "Free searches used up this month"
+            : `${searchesLeft.toLocaleString()} of ${FREE_SEARCHES_PER_MONTH.toLocaleString()} free searches left this month`}
+        </div>
       </div>
 
       <div className="mt-6">

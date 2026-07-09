@@ -575,6 +575,17 @@ model DeliveryReminderSettings {
   createdAt   DateTime @default(now())
 }
 
+// One "search" click on the Leads page — logged purely so we can show how
+// many of the monthly free Places API calls (1,000, Enterprise SKU) are
+// left, computed as a count of these rather than a stored counter so it's
+// always auditable and naturally resets when a new calendar month's
+// entries are counted.
+model PlacesSearchLog {
+  id        String   @id @default(cuid())
+  query     String
+  createdAt DateTime @default(now())
+}
+
 // A local business found via a Google Places search, tracked for sales
 // outreach — not a customer yet. Deduped by placeId so re-running a search
 // over the same area doesn't create copies; a repeat search just leaves an
