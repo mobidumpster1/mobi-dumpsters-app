@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
+import { hasPermission, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +77,9 @@ function SummaryCard({
 }
 
 export default async function ReportsPage() {
+  const user = await requireUser();
+  if (!hasPermission(user, "canViewReports")) redirect("/");
+
   const [invoices, expenses] = await Promise.all([
     db.invoice.findMany({
       include: { booking: { include: { customer: true } }, customer: true },

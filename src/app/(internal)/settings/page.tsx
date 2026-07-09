@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccount } from "@/lib/quickbooks";
 import {
   saveAccountMappings,
@@ -14,6 +15,7 @@ import {
   saveEmailTemplate,
   resetEmailTemplateToDefault,
 } from "./actions";
+import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
@@ -24,8 +26,19 @@ import { Field, inputClass } from "@/components/Field";
 import { serviceAreas } from "@/lib/serviceAreas";
 import { EmailTemplateCard } from "@/components/EmailTemplateCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+
+const PERMISSION_OPTIONS = [
+  { key: "canManageInvoices", label: "Manage invoices (create/edit, mark paid, send payment links)" },
+  { key: "canDeleteRecords", label: "Delete records (bookings, customers, equipment, invoices, leads)" },
+  { key: "canManageExpenses", label: "Manage expenses & recurring bills" },
+  { key: "canViewReports", label: "View profit reports" },
+  { key: "canManageLeads", label: "Manage Leads" },
+] as const;
 
 function accountOptionValue(account: QboAccount) {
   return `${account.Id}|||${account.Name}`;
@@ -45,6 +58,9 @@ export default async function SettingsPage({
     deliveries_checked?: string;
   }>;
 }) {
+  const currentUser = await requireUser();
+  if (currentUser.role !== "owner") redirect("/");
+
   const {
     qb_connected,
     qb_error,
@@ -56,6 +72,7 @@ export default async function SettingsPage({
     deliveries_checked,
   } = await searchParams;
   const configured = isQuickBooksConfigured();
+  const staffUsers = await db.user.findMany({ orderBy: { createdAt: "asc" } });
   const connection = configured ? await getValidConnection() : null;
   const agreement = await getAgreementSettings();
   const reviewSettings = await getReviewRequestSettings();
@@ -101,6 +118,131 @@ export default async function SettingsPage({
             Open it →
           </a>
         </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Staff Accounts</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          You (the owner) always have full access. Staff accounts can do the
+          day-to-day work — bookings, equipment, customers, mileage — plus
+          whatever you check off below for them individually.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-4">
+          {staffUsers.map((staffUser) => (
+            <div
+              key={staffUser.id}
+              className="rounded-xl border border-zinc-200 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium text-zinc-900">{staffUser.name}</span>{" "}
+                  <span className="text-sm text-zinc-500">({staffUser.email})</span>
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                      staffUser.role === "owner"
+                        ? "bg-brand/10 text-brand-dark"
+                        : "bg-zinc-100 text-zinc-600"
+                    }`}
+                  >
+                    {staffUser.role}
+                  </span>
+                  {!staffUser.active && (
+                    <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                      Deactivated
+                    </span>
+                  )}
+                </div>
+                {staffUser.role !== "owner" && (
+                  <form action={setStaffActive.bind(null, staffUser.id, !staffUser.active)}>
+                    {staffUser.active ? (
+                      <ConfirmButton
+                        message={`Deactivate ${staffUser.name}? They'll be signed out immediately and won't be able to log back in until reactivated.`}
+                        className="text-xs font-semibold text-red-600 hover:underline"
+                      >
+                        Deactivate
+                      </ConfirmButton>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="text-xs font-semibold text-brand hover:underline"
+                      >
+                        Reactivate
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+
+              {staffUser.role !== "owner" && (
+                <form
+                  action={updateStaffPermissions.bind(null, staffUser.id)}
+                  className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3"
+                >
+                  {PERMISSION_OPTIONS.map((perm) => (
+                    <label
+                      key={perm.key}
+                      className="flex items-center gap-2 text-sm text-zinc-700"
+                    >
+                      <input
+                        type="checkbox"
+                        name={perm.key}
+                        defaultChecked={staffUser[perm.key]}
+                        className="h-4 w-4 rounded border-zinc-300"
+                      />
+                      {perm.label}
+                    </label>
+                  ))}
+                  <div>
+                    <button
+                      type="submit"
+                      className="mt-1 rounded-lg border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      Save Permissions
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <form
+          action={addStaffUser}
+          className="mt-4 flex flex-col gap-4 border-t border-zinc-100 pt-4"
+        >
+          <p className="text-sm font-medium text-ink">Add a Staff Account</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Name" htmlFor="staffName">
+              <input id="staffName" name="name" required className={inputClass} />
+            </Field>
+            <Field label="Email" htmlFor="staffEmail">
+              <input
+                id="staffEmail"
+                name="email"
+                type="email"
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Temporary Password" htmlFor="staffPassword">
+              <input
+                id="staffPassword"
+                name="password"
+                required
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <div>
+            <button
+              type="submit"
+              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              + Add Staff Account
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">

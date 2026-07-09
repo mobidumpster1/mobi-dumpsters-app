@@ -13,6 +13,8 @@ import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
+import { requirePermission } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -223,6 +225,8 @@ export async function updateBooking(bookingId: string, formData: FormData) {
 }
 
 export async function deleteBooking(bookingId: string) {
+  await requirePermission("canDeleteRecords");
+
   const booking = await db.booking.findUniqueOrThrow({
     where: { id: bookingId },
     include: { items: true, invoices: true, photos: true },
@@ -249,6 +253,7 @@ export async function deleteBooking(bookingId: string) {
   await db.expense.updateMany({ where: { bookingId }, data: { bookingId: null } });
   await db.bookingItem.deleteMany({ where: { bookingId } });
   await db.booking.delete({ where: { id: bookingId } });
+  await logAction("booking.deleted", "Booking", bookingId);
 
   revalidatePath("/bookings");
   revalidatePath("/");

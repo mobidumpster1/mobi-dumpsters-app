@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Field, inputClass } from "@/components/Field";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { hasPermission, requireUser } from "@/lib/session";
 import {
   addRecurringBill,
   toggleRecurringBillActive,
@@ -93,6 +95,9 @@ function BillRow({
 }
 
 export default async function RecurringBillsPage() {
+  const user = await requireUser();
+  if (!hasPermission(user, "canManageExpenses")) redirect("/");
+
   const bills = await db.recurringBill.findMany({ orderBy: { name: "asc" } });
   const monthly = bills.filter((b) => b.frequency === "monthly");
   const yearly = bills.filter((b) => b.frequency === "yearly");

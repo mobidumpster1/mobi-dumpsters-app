@@ -8,8 +8,11 @@ import { pushInvoicePayment, createOnlinePaymentLink, getQboInvoiceBalance } fro
 import { computeInvoiceLineItems } from "@/lib/invoicing";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
+import { requirePermission } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 export async function createInvoice(formData: FormData) {
+  await requirePermission("canManageInvoices");
   const bookingId = str(formData, "bookingId");
   const invoiceNumber = str(formData, "invoiceNumber");
   const issueDateStr = str(formData, "issueDate");
@@ -44,6 +47,8 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function markPaid(invoiceId: string, formData: FormData) {
+  await requirePermission("canManageInvoices");
+
   const invoice = await db.invoice.update({
     where: { id: invoiceId },
     data: {
@@ -96,10 +101,13 @@ export async function markPaid(invoiceId: string, formData: FormData) {
     }
   }
 
+  await logAction("invoice.marked_paid", "Invoice", invoiceId);
   revalidatePath(`/invoices/${invoiceId}`);
 }
 
 export async function markUnpaid(invoiceId: string) {
+  await requirePermission("canManageInvoices");
+
   await db.invoice.update({
     where: { id: invoiceId },
     data: { status: "unpaid", paidDate: null, paymentMethod: null },
@@ -108,8 +116,11 @@ export async function markUnpaid(invoiceId: string) {
 }
 
 export async function deleteInvoice(invoiceId: string) {
+  await requirePermission("canDeleteRecords");
+
   await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
   await db.invoice.delete({ where: { id: invoiceId } });
+  await logAction("invoice.deleted", "Invoice", invoiceId);
   revalidatePath("/invoices");
   redirect("/invoices");
 }
@@ -119,6 +130,8 @@ export async function deleteInvoice(invoiceId: string) {
 // the actual charge, requiring QuickBooks Payments to already be enabled on
 // the connected company.
 export async function sendInvoiceForOnlinePayment(invoiceId: string) {
+  await requirePermission("canManageInvoices");
+
   const invoice = await db.invoice.findUniqueOrThrow({
     where: { id: invoiceId },
     include: {

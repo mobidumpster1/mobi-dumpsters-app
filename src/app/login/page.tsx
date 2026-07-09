@@ -19,19 +19,30 @@ export default async function LoginPage({
 
         {error && (
           <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            Incorrect password. Try again.
+            Incorrect email or password. Try again.
           </p>
         )}
 
         <form action={login} className="mt-6 flex flex-col gap-4">
           {from && <input type="hidden" name="from" value={from} />}
+          <Field label="Email" htmlFor="email">
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoFocus
+              autoComplete="username"
+              className={inputClass}
+            />
+          </Field>
           <Field label="Password" htmlFor="password">
             <input
               id="password"
               name="password"
               type="password"
               required
-              autoFocus
+              autoComplete="current-password"
               className={inputClass}
             />
           </Field>

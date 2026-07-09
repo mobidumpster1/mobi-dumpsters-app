@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
+import { requirePermission } from "@/lib/session";
 
 export async function addRecurringBill(formData: FormData) {
+  await requirePermission("canManageExpenses");
+
   const name = str(formData, "name");
   const category = str(formData, "category");
   const frequency = str(formData, "frequency") ?? "monthly";
@@ -33,6 +36,8 @@ export async function addRecurringBill(formData: FormData) {
 }
 
 export async function updateRecurringBill(billId: string, formData: FormData) {
+  await requirePermission("canManageExpenses");
+
   const name = str(formData, "name");
   const category = str(formData, "category");
   const frequency = str(formData, "frequency") ?? "monthly";
@@ -62,6 +67,8 @@ export async function updateRecurringBill(billId: string, formData: FormData) {
 }
 
 export async function toggleRecurringBillActive(billId: string, currentlyActive: boolean) {
+  await requirePermission("canManageExpenses");
+
   await db.recurringBill.update({
     where: { id: billId },
     data: { active: !currentlyActive },
@@ -70,6 +77,8 @@ export async function toggleRecurringBillActive(billId: string, currentlyActive:
 }
 
 export async function deleteRecurringBill(billId: string) {
+  await requirePermission("canManageExpenses");
+
   await db.recurringBill.delete({ where: { id: billId } });
   revalidatePath("/expenses/recurring");
 }
@@ -78,6 +87,8 @@ export async function deleteRecurringBill(billId: string) {
 // period), pre-filled from the recurring bill's details — doesn't touch
 // the recurring bill itself, so it can be logged again next period.
 export async function logRecurringBillAsExpense(billId: string) {
+  await requirePermission("canManageExpenses");
+
   const bill = await db.recurringBill.findUniqueOrThrow({ where: { id: billId } });
 
   const today = new Date();

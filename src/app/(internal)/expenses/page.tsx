@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
+import { hasPermission, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
+  const user = await requireUser();
+  if (!hasPermission(user, "canManageExpenses")) redirect("/");
+
   const expenses = await db.expense.findMany({
     orderBy: { date: "desc" },
     include: { equipmentItem: true, booking: { include: { customer: true } } },

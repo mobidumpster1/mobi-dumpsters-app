@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { hasPermission, requireUser } from "@/lib/session";
 import { AddressLink } from "@/components/AddressLink";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { LeadSearchForm } from "@/components/LeadSearchForm";
@@ -34,6 +36,9 @@ export default async function LeadsPage({
 }: {
   searchParams: Promise<{ status?: string; trade?: string }>;
 }) {
+  const user = await requireUser();
+  if (!hasPermission(user, "canManageLeads")) redirect("/");
+
   const { status, trade } = await searchParams;
   const activeStatus = STATUS_FILTERS.includes(status as (typeof STATUS_FILTERS)[number])
     ? (status as (typeof STATUS_FILTERS)[number])

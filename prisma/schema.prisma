@@ -11,6 +11,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// A staff login. "owner" has unrestricted access regardless of the
+// permission flags below — those only apply to "staff" accounts, and exist
+// so day-to-day operational work (bookings, equipment, customers, mileage)
+// stays open to staff by default while money-touching and destructive
+// actions stay owner-only unless explicitly granted. `active: false` locks
+// a user out immediately (checked on every request, not just at login)
+// without touching their historical AuditLog entries.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("staff") // owner | staff
+  active       Boolean  @default(true)
+
+  // Staff-only permission grants — ignored for role "owner".
+  canManageInvoices Boolean @default(false) // create/edit invoices, mark paid, send payment links
+  canDeleteRecords  Boolean @default(false) // delete bookings/customers/equipment/invoices/leads
+  canManageExpenses Boolean @default(false) // expenses + recurring bills
+  canViewReports    Boolean @default(false) // profit report
+  canManageLeads    Boolean @default(false) // Leads page
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+// A record of a sensitive action for accountability — who marked an invoice
+// paid, who deleted a booking, etc. Append-only; never edited or deleted
+// alongside the user who caused it, so deactivating a user doesn't erase
+// what they did.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // e.g. "invoice.marked_paid", "booking.deleted"
+  entity    String   // e.g. "Invoice", "Booking"
+  entityId  String?
+  createdAt DateTime @default(now())
+}
+
 // An editable override for one of the app's automated customer emails
 // (delivery, pickup, reminders, etc). Keyed by a fixed set of template
 // keys defined in src/lib/emailTemplates.ts — if no row exists for a key,

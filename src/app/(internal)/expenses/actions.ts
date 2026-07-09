@@ -5,8 +5,11 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { pushExpensePurchase } from "@/lib/quickbooks";
+import { requirePermission } from "@/lib/session";
 
 export async function createExpense(formData: FormData) {
+  await requirePermission("canManageExpenses");
+
   const vendor = str(formData, "vendor");
   const category = str(formData, "category");
   const amountStr = str(formData, "amount");
@@ -36,6 +39,8 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function updateExpense(expenseId: string, formData: FormData) {
+  await requirePermission("canManageExpenses");
+
   const vendor = str(formData, "vendor");
   const category = str(formData, "category");
   const amountStr = str(formData, "amount");
@@ -65,6 +70,8 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 }
 
 export async function markExpensePaid(expenseId: string) {
+  await requirePermission("canManageExpenses");
+
   const expense = await db.expense.update({
     where: { id: expenseId },
     data: { status: "paid", paidDate: new Date() },
@@ -93,6 +100,8 @@ export async function markExpensePaid(expenseId: string) {
 }
 
 export async function markExpenseUnpaid(expenseId: string) {
+  await requirePermission("canManageExpenses");
+
   await db.expense.update({
     where: { id: expenseId },
     data: { status: "unpaid", paidDate: null },

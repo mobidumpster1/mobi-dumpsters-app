@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { searchPlaces } from "@/lib/places";
+import { requirePermission } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 // Runs a Places search and upserts each match into the saved lead list.
 // Upsert-by-placeId means re-running the same (or an overlapping) search
@@ -16,6 +18,8 @@ import { searchPlaces } from "@/lib/places";
 // how fast the free monthly quota gets used, in exchange for not having to
 // retype the area every time.
 export async function searchAndSaveLeads(formData: FormData) {
+  await requirePermission("canManageLeads");
+
   const query = str(formData, "query");
   if (!query) throw new Error("Search is required");
   const tradeCategory = query.trim().toLowerCase();
@@ -70,6 +74,8 @@ export async function searchAndSaveLeads(formData: FormData) {
 }
 
 export async function updateLeadStatus(leadId: string, status: string) {
+  await requirePermission("canManageLeads");
+
   await db.lead.update({
     where: { id: leadId },
     data: {
@@ -82,6 +88,8 @@ export async function updateLeadStatus(leadId: string, status: string) {
 }
 
 export async function updateLeadNotes(leadId: string, formData: FormData) {
+  await requirePermission("canManageLeads");
+
   await db.lead.update({
     where: { id: leadId },
     data: { notes: str(formData, "notes") },
@@ -91,11 +99,16 @@ export async function updateLeadNotes(leadId: string, formData: FormData) {
 }
 
 export async function deleteLead(leadId: string) {
+  await requirePermission("canManageLeads");
+
   await db.lead.delete({ where: { id: leadId } });
+  await logAction("lead.deleted", "Lead", leadId);
   revalidatePath("/leads");
 }
 
 export async function addServiceArea(formData: FormData) {
+  await requirePermission("canManageLeads");
+
   const name = str(formData, "name");
   if (!name) throw new Error("Area name is required");
 
@@ -109,6 +122,8 @@ export async function addServiceArea(formData: FormData) {
 }
 
 export async function removeServiceArea(areaId: string) {
+  await requirePermission("canManageLeads");
+
   await db.serviceArea.delete({ where: { id: areaId } });
   revalidatePath("/leads");
 }

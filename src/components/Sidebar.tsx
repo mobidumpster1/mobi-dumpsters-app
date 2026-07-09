@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { branding } from "@/lib/branding";
 import { ThemeToggle } from "./ThemeToggle";
+import { logout } from "@/app/login/actions";
 
 const DEFAULT_LINKS = [
   { href: "/", label: "Dispatch" },
@@ -24,16 +25,42 @@ const DEFAULT_LINKS = [
 
 const ORDER_STORAGE_KEY = "sidebarOrder";
 
-// Applies a saved href order to the real link list, appending any links
-// that aren't in the saved order yet (e.g. a page added after the order was
-// last saved) so new nav items don't silently disappear.
-function applyOrder(savedOrder: string[]): typeof DEFAULT_LINKS {
-  if (savedOrder.length === 0) return DEFAULT_LINKS;
-  const byHref = new Map(DEFAULT_LINKS.map((link) => [link.href, link]));
+export type SidebarUser = {
+  name: string;
+  email: string;
+  role: string;
+  canManageExpenses: boolean;
+  canViewReports: boolean;
+  canManageLeads: boolean;
+};
+
+// Owner sees everything. Staff see everything except Settings (never
+// togglable — it's how permissions themselves get granted) and whatever
+// they haven't been individually granted access to.
+function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
+  if (user.role === "owner") return DEFAULT_LINKS;
+  return DEFAULT_LINKS.filter((link) => {
+    if (link.href === "/settings") return false;
+    if (link.href === "/reports") return user.canViewReports;
+    if (link.href === "/leads") return user.canManageLeads;
+    if (link.href === "/expenses") return user.canManageExpenses;
+    return true;
+  });
+}
+
+// Applies a saved href order to the given link list, appending any links
+// that aren't in the saved order yet (a page added since, or a permission
+// just granted) so nav items never silently disappear.
+function applyOrder(
+  availableLinks: typeof DEFAULT_LINKS,
+  savedOrder: string[]
+): typeof DEFAULT_LINKS {
+  if (savedOrder.length === 0) return availableLinks;
+  const byHref = new Map(availableLinks.map((link) => [link.href, link]));
   const ordered = savedOrder
     .map((href) => byHref.get(href))
     .filter((link): link is (typeof DEFAULT_LINKS)[number] => Boolean(link));
-  const missing = DEFAULT_LINKS.filter((link) => !savedOrder.includes(link.href));
+  const missing = availableLinks.filter((link) => !savedOrder.includes(link.href));
   return [...ordered, ...missing];
 }
 
@@ -159,26 +186,49 @@ function ReorderToggle({
   );
 }
 
+function AccountRow({ user }: { user: SidebarUser }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl px-5 py-3 text-sm text-white/90">
+      <Link href="/account" className="min-w-0 hover:underline">
+        <div className="truncate font-medium">{user.name}</div>
+        <div className="text-xs capitalize text-white/60">{user.role}</div>
+      </Link>
+      <form action={logout}>
+        <button
+          type="submit"
+          className="flex-shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+        >
+          Sign Out
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export function Sidebar({
   logoExists,
   pendingCount = 0,
+  user,
 }: {
   logoExists: boolean;
   pendingCount?: number;
+  user: SidebarUser;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [links, setLinks] = useState(DEFAULT_LINKS);
+  const availableLinks = linksForUser(user);
+  const [links, setLinks] = useState(availableLinks);
   const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ORDER_STORAGE_KEY);
-      if (saved) setLinks(applyOrder(JSON.parse(saved)));
+      if (saved) setLinks(applyOrder(availableLinks, JSON.parse(saved)));
     } catch {
       // localStorage unavailable or corrupt saved value — just use default order.
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.role]);
 
   // Close the mobile drawer automatically whenever the route changes.
   useEffect(() => {
@@ -301,6 +351,9 @@ export function Sidebar({
               reordering={reordering}
               onMove={moveLink}
             />
+            <div className="mt-auto">
+              <AccountRow user={user} />
+            </div>
           </aside>
         </div>
       )}
@@ -333,6 +386,7 @@ export function Sidebar({
             Theme
             <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white hover:bg-white/10" />
           </div>
+          <AccountRow user={user} />
         </div>
       </aside>
     </>

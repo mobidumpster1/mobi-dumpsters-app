@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 
 // Public routes anyone can reach without logging in — the customer-facing
 // booking flow and agreement signing, the login page itself, the cron
@@ -36,8 +36,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Only checks the signature/expiry here — a fast, DB-free check so every
+  // request doesn't need a round trip. Whether the user is still active
+  // (not deactivated) is enforced separately in src/lib/session.ts, which
+  // runs in the actual pages/actions where a database is available.
   const cookie = request.cookies.get(SESSION_COOKIE)?.value;
-  if (cookie && cookie === sessionToken()) {
+  if (verifySessionToken(cookie)) {
     return NextResponse.next();
   }
 
