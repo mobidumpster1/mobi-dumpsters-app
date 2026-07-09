@@ -1,11 +1,12 @@
+import Link from "next/link";
 import { branding } from "@/lib/branding";
 
 export default async function ThankYouPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; agreement?: string }>;
 }) {
-  const { ref } = await searchParams;
+  const { ref, agreement } = await searchParams;
 
   return (
     <div className="theme-light flex min-h-screen items-center justify-center bg-brand-light px-4">
@@ -16,6 +17,14 @@ export default async function ThankYouPage({
           shortly to confirm details and payment.
         </p>
         {ref && <p className="mt-4 text-sm text-zinc-400">Reference #: {ref}</p>}
+        {agreement && (
+          <Link
+            href={`/agreement/view/${agreement}`}
+            className="mt-6 inline-block rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            View Your Order &amp; Signed Agreement
+          </Link>
+        )}
       </div>
     </div>
   );

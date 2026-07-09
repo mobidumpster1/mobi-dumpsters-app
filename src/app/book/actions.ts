@@ -264,5 +264,5 @@ export async function submitBookingRequest(formData: FormData) {
     console.error("Failed to send booking confirmation email:", error);
   }
 
-  redirect(`/book/thank-you?ref=${booking.id.slice(-8)}`);
+  redirect(`/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}`);
 }
