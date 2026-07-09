@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { SearchBox } from "@/components/SearchBox";
+import { EquipmentTabs } from "@/components/EquipmentTabs";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
 import { quickSetEquipmentStatus } from "./actions";
 
@@ -59,20 +60,16 @@ export default async function EquipmentPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight text-ink">Equipment</h1>
-        <div className="flex gap-3">
-          <Link
-            href="/equipment/categories"
-            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Manage Categories
-          </Link>
-          <Link
-            href="/equipment/new"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            + New Equipment
-          </Link>
-        </div>
+        <Link
+          href="/equipment/new"
+          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+        >
+          + New Equipment
+        </Link>
+      </div>
+
+      <div className="mt-4">
+        <EquipmentTabs />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

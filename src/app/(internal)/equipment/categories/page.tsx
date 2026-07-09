@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { EquipmentTabs } from "@/components/EquipmentTabs";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,10 @@ export default async function CategoriesPage() {
         >
           + New Category
         </Link>
+      </div>
+
+      <div className="mt-4">
+        <EquipmentTabs />
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
