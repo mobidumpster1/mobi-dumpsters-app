@@ -11,6 +11,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// One business using the app — the unit everything else (customers,
+// bookings, invoices, leads, settings...) ultimately belongs to. Every
+// installation today has exactly one row here (Mobi Dumpsters), but every
+// tenant-owned table is built to carry an organizationId from day one so
+// a second business can be onboarded later without retrofitting existing
+// data. See src/lib/session.ts for how a logged-in request carries this.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
 // A staff login. "owner" has unrestricted access regardless of the
 // permission flags below — those only apply to "staff" accounts, and exist
 // so day-to-day operational work (bookings, equipment, customers, mileage)
@@ -26,12 +41,25 @@ model User {
   role         String   @default("staff") // owner | staff
   active       Boolean  @default(true)
 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
   // Staff-only permission grants — ignored for role "owner".
   canManageInvoices Boolean @default(false) // create/edit invoices, mark paid, send payment links
   canDeleteRecords  Boolean @default(false) // delete bookings/customers/equipment/invoices/leads
   canManageExpenses Boolean @default(false) // expenses + recurring bills
   canViewReports    Boolean @default(false) // profit report
   canManageLeads    Boolean @default(false) // Leads page
+
+  // A support/maintenance capability, completely separate from the
+  // per-organization owner/staff scale above — an owner controls their
+  // own organization's staff; this controls whether a user can step
+  // into *any* organization to help troubleshoot (see
+  // src/lib/session.ts and src/app/(internal)/platform-admin/actions.ts).
+  // Off for everyone by default, including owner accounts — must be
+  // explicitly granted, and every use of it is audit-logged separately
+  // from normal activity.
+  isPlatformAdmin Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

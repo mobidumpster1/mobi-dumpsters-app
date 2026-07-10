@@ -10,6 +10,8 @@ const PERMISSION_FIELDS = {
   email: true,
   role: true,
   active: true,
+  organizationId: true,
+  isPlatformAdmin: true,
   canManageInvoices: true,
   canDeleteRecords: true,
   canManageExpenses: true,
@@ -17,12 +19,31 @@ const PERMISSION_FIELDS = {
   canManageLeads: true,
 } as const;
 
+// Set (only by a platform admin, via the Platform Admin page) when
+// helping troubleshoot another organization. Carries no authority on its
+// own — getCurrentUser() only ever honors it after confirming the real
+// logged-in user is isPlatformAdmin, so a non-admin setting this cookie
+// by hand has no effect.
+export const IMPERSONATION_COOKIE = "mobi_impersonate_org";
+
 export type SessionUser = {
   id: string;
   name: string;
   email: string;
   role: string;
   active: boolean;
+  // The user's own organization — their real, permanent identity.
+  // Never changes due to impersonation. Use this for "who does this
+  // person actually work for," never for scoping business data.
+  organizationId: string;
+  // Which organization's data this request should actually see —
+  // equal to organizationId normally, or the impersonated org's id
+  // during platform-admin support access. Every query that scopes
+  // business data (customers, bookings, invoices, etc.) should filter
+  // by this field, not organizationId.
+  effectiveOrganizationId: string;
+  impersonating: { id: string; name: string } | null;
+  isPlatformAdmin: boolean;
   canManageInvoices: boolean;
   canDeleteRecords: boolean;
   canManageExpenses: boolean;
@@ -53,7 +74,23 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   });
   if (!user || !user.active) return null;
 
-  return user;
+  let effectiveOrganizationId = user.organizationId;
+  let impersonating: { id: string; name: string } | null = null;
+
+  // Only a platform admin's session ever looks at this cookie — anyone
+  // else's copy of it (however it got there) is simply ignored.
+  if (user.isPlatformAdmin) {
+    const impersonatedOrgId = cookieStore.get(IMPERSONATION_COOKIE)?.value;
+    if (impersonatedOrgId && impersonatedOrgId !== user.organizationId) {
+      const org = await db.organization.findUnique({ where: { id: impersonatedOrgId } });
+      if (org) {
+        effectiveOrganizationId = org.id;
+        impersonating = { id: org.id, name: org.name };
+      }
+    }
+  }
+
+  return { ...user, effectiveOrganizationId, impersonating };
 }
 
 export async function requireUser(): Promise<SessionUser> {

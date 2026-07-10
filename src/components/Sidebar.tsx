@@ -22,6 +22,7 @@ const DEFAULT_LINKS = [
   { href: "/documents", label: "Documents" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
+  { href: "/platform-admin", label: "Platform Admin" },
 ];
 
 const ORDER_STORAGE_KEY = "sidebarOrder";
@@ -33,21 +34,26 @@ export type SidebarUser = {
   canManageExpenses: boolean;
   canViewReports: boolean;
   canManageLeads: boolean;
+  isPlatformAdmin: boolean;
 };
 
 // Owner sees everything. Staff see everything except Settings (never
 // togglable — it's how permissions themselves get granted) and whatever
-// they haven't been individually granted access to.
+// they haven't been individually granted access to. Platform Admin is
+// separate from both — it's gated purely on isPlatformAdmin, since it's a
+// cross-organization support capability rather than an in-org permission.
 function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
-  if (user.role === "owner") return DEFAULT_LINKS;
-  return DEFAULT_LINKS.filter((link) => {
-    if (link.href === "/settings") return false;
-    if (link.href === "/reports") return user.canViewReports;
-    if (link.href === "/documents") return user.canViewReports;
-    if (link.href === "/leads") return user.canManageLeads;
-    if (link.href === "/expenses") return user.canManageExpenses;
-    return true;
-  });
+  const base = user.role === "owner"
+    ? DEFAULT_LINKS
+    : DEFAULT_LINKS.filter((link) => {
+        if (link.href === "/settings") return false;
+        if (link.href === "/reports") return user.canViewReports;
+        if (link.href === "/documents") return user.canViewReports;
+        if (link.href === "/leads") return user.canManageLeads;
+        if (link.href === "/expenses") return user.canManageExpenses;
+        return true;
+      });
+  return base.filter((link) => link.href !== "/platform-admin" || user.isPlatformAdmin);
 }
 
 // Applies a saved href order to the given link list, appending any links

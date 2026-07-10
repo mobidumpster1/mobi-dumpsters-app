@@ -19,6 +19,7 @@ import {
   removePermitArea,
 } from "./actions";
 import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
+import { setPlatformAdmin } from "../platform-admin/actions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
@@ -158,26 +159,52 @@ export default async function SettingsPage({
                       Deactivated
                     </span>
                   )}
+                  {staffUser.isPlatformAdmin && (
+                    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      Platform Admin
+                    </span>
+                  )}
                 </div>
-                {staffUser.role !== "owner" && (
-                  <form action={setStaffActive.bind(null, staffUser.id, !staffUser.active)}>
-                    {staffUser.active ? (
+                <div className="flex items-center gap-3">
+                  <form
+                    action={setPlatformAdmin.bind(null, staffUser.id, !staffUser.isPlatformAdmin)}
+                  >
+                    {staffUser.isPlatformAdmin ? (
                       <ConfirmButton
-                        message={`Deactivate ${staffUser.name}? They'll be signed out immediately and won't be able to log back in until reactivated.`}
-                        className="text-xs font-semibold text-red-600 hover:underline"
+                        message={`Revoke platform admin access for ${staffUser.name}? They'll no longer be able to view other organizations for support purposes.`}
+                        className="text-xs font-semibold text-zinc-500 hover:underline"
                       >
-                        Deactivate
+                        Revoke Platform Admin
                       </ConfirmButton>
                     ) : (
-                      <button
-                        type="submit"
-                        className="text-xs font-semibold text-brand hover:underline"
+                      <ConfirmButton
+                        message={`Grant platform admin access to ${staffUser.name}? This lets them view any organization's data for troubleshooting purposes. Only grant this to trusted maintenance/support accounts.`}
+                        className="text-xs font-semibold text-zinc-500 hover:underline"
                       >
-                        Reactivate
-                      </button>
+                        Grant Platform Admin
+                      </ConfirmButton>
                     )}
                   </form>
-                )}
+                  {staffUser.role !== "owner" && (
+                    <form action={setStaffActive.bind(null, staffUser.id, !staffUser.active)}>
+                      {staffUser.active ? (
+                        <ConfirmButton
+                          message={`Deactivate ${staffUser.name}? They'll be signed out immediately and won't be able to log back in until reactivated.`}
+                          className="text-xs font-semibold text-red-600 hover:underline"
+                        >
+                          Deactivate
+                        </ConfirmButton>
+                      ) : (
+                        <button
+                          type="submit"
+                          className="text-xs font-semibold text-brand hover:underline"
+                        >
+                          Reactivate
+                        </button>
+                      )}
+                    </form>
+                  )}
+                </div>
               </div>
 
               {staffUser.role !== "owner" && (

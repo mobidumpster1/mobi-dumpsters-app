@@ -16,7 +16,7 @@ async function requireOwner() {
 }
 
 export async function addStaffUser(formData: FormData) {
-  await requireOwner();
+  const owner = await requireOwner();
 
   const name = str(formData, "name");
   const email = str(formData, "email");
@@ -31,6 +31,7 @@ export async function addStaffUser(formData: FormData) {
       email: email.toLowerCase(),
       passwordHash: hashPassword(password),
       role: "staff",
+      organizationId: owner.organizationId,
     },
   });
 
