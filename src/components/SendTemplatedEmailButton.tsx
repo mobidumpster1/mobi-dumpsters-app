@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 
 type Template = { id: string; name: string };
 
-export function SendLeadEmailButton({
-  leadId,
+export function SendTemplatedEmailButton({
+  id,
   templates,
   action,
 }: {
-  leadId: string;
+  id: string;
   templates: Template[];
-  action: (leadId: string, templateId: string) => Promise<void>;
+  action: (id: string, templateId: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
@@ -27,7 +27,7 @@ export function SendLeadEmailButton({
     setSending(true);
     setError(null);
     try {
-      await action(leadId, templateId);
+      await action(id, templateId);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't send that email");

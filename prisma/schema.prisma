@@ -90,6 +90,9 @@ model Customer {
   // Set once this customer exists in QuickBooks (created here, imported
   // from QuickBooks, or matched during a sync), so we don't create dupes.
   quickbooksCustomerId String?
+  // Set when a Win-Back campaign email is sent to this customer, so the
+  // page can show it's already been reached out to recently.
+  lastWinBackEmailSentAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -680,6 +683,31 @@ model LeadEmailTemplate {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A reusable outreach message for the Win-Back page — e.g. "we miss you"
+// with a discount. {{customerName}} in the subject/body gets swapped for
+// the customer's name when sent. Kept as its own list, separate from
+// LeadEmailTemplate, since cold-outreach messaging and win-back messaging
+// read very differently even though the sending mechanism is identical.
+model WinBackEmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Controls what counts as "lapsed" on the Win-Back page. Singleton row,
+// same pattern as ReviewRequestSettings — created with defaults on first
+// Settings visit. No enabled/automation flag: win-back is always a
+// staff-triggered one-click send, never an automated cron.
+model WinBackSettings {
+  id         String   @id @default(cuid())
+  lapsedDays Int      @default(90)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
 }
 
 // A saved city/area (e.g. "Byron, GA") that Lead searches run against

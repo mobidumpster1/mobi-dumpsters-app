@@ -13,6 +13,7 @@ import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
+import { getWinBackSettings } from "@/lib/winbackSettings";
 import {
   updateEmailTemplate,
   resetEmailTemplate,
@@ -144,6 +145,20 @@ export async function updateInvoiceReminderSettings(formData: FormData) {
   });
 
   revalidatePath("/settings");
+}
+
+export async function updateWinBackSettings(formData: FormData) {
+  const settings = await getWinBackSettings();
+  const lapsedDaysStr = str(formData, "lapsedDays");
+  const lapsedDays = lapsedDaysStr ? Math.max(1, Number(lapsedDaysStr) || 0) : 90;
+
+  await db.winBackSettings.update({
+    where: { id: settings.id },
+    data: { lapsedDays },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/customers/winback");
 }
 
 export async function sendInvoiceRemindersNow() {

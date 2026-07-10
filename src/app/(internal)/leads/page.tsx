@@ -8,8 +8,8 @@ import { LeadSearchForm } from "@/components/LeadSearchForm";
 import { LeadStatusSelect } from "@/components/LeadStatusSelect";
 import { LeadNotesField } from "@/components/LeadNotesField";
 import { LeadEmailField } from "@/components/LeadEmailField";
-import { SendLeadEmailButton } from "@/components/SendLeadEmailButton";
-import { LeadEmailTemplateManager } from "@/components/LeadEmailTemplateManager";
+import { SendTemplatedEmailButton } from "@/components/SendTemplatedEmailButton";
+import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { ServiceAreaManager } from "@/components/ServiceAreaManager";
 import { LocationMap } from "@/components/LocationMap";
 import { LEAD_STATUS_LABELS } from "@/lib/leadStatus";
@@ -119,8 +119,9 @@ export default async function LeadsPage({
           addAction={addServiceArea}
           removeAction={removeServiceArea}
         />
-        <LeadEmailTemplateManager
+        <EmailTemplateManager
           templates={emailTemplates}
+          placeholderToken="{{businessName}}"
           addAction={createLeadEmailTemplate}
           removeAction={deleteLeadEmailTemplate}
         />
@@ -241,7 +242,7 @@ export default async function LeadsPage({
             </dl>
             <div className="mt-2 flex items-center gap-2">
               <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
-              <SendLeadEmailButton leadId={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+              <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
             </div>
             {lead.lastEmailSentAt && (
               <p className="mt-1 text-xs text-zinc-400">
@@ -339,7 +340,7 @@ export default async function LeadsPage({
                 <td className="min-w-[180px] px-5 py-4">
                   <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
                   <div className="mt-1">
-                    <SendLeadEmailButton leadId={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                    <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
                   </div>
                   {lead.lastEmailSentAt && (
                     <p className="mt-1 text-xs text-zinc-400">

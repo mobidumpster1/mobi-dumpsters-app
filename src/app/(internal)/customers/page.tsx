@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { hasPermission, requireUser } from "@/lib/session";
 import { SelectableCustomerMap } from "@/components/SelectableCustomerMap";
 import { AddressLink } from "@/components/AddressLink";
 import { SearchBox } from "@/components/SearchBox";
+import { CustomerTabs } from "@/components/CustomerTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ export default async function CustomersPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const user = await requireUser();
   const { q } = await searchParams;
 
   const customers = await db.customer.findMany({
@@ -50,6 +53,10 @@ export default async function CustomersPage({
       </div>
 
       <div className="mt-6">
+        <CustomerTabs showWinBack={hasPermission(user, "canManageLeads")} />
+      </div>
+
+      <div className="mt-4">
         <SearchBox placeholder="Search customers by name, company, phone, or email…" />
       </div>
 

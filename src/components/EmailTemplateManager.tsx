@@ -3,15 +3,18 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 
 type Template = { id: string; name: string; subject: string; body: string };
 
-// Manages the reusable outreach messages used by SendLeadEmailButton on
-// each lead row. {{businessName}} in the subject/body gets swapped for the
-// lead's actual name when a message is sent.
-export function LeadEmailTemplateManager({
+// Manages a reusable list of outreach messages, used by SendTemplatedEmailButton
+// on each row of the page that renders it. `placeholderToken` (e.g.
+// "{{businessName}}" for Leads, "{{customerName}}" for Win-Back) gets
+// swapped for the actual name when a message is sent.
+export function EmailTemplateManager({
   templates,
+  placeholderToken,
   addAction,
   removeAction,
 }: {
   templates: Template[];
+  placeholderToken: string;
   addAction: (formData: FormData) => Promise<void>;
   removeAction: (templateId: string) => Promise<void>;
 }) {
@@ -19,9 +22,9 @@ export function LeadEmailTemplateManager({
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <h2 className="text-sm font-semibold text-zinc-700">Email Templates</h2>
       <p className="mt-1 text-xs text-zinc-500">
-        Write a message once, then send it to any lead in one click. Use{" "}
-        <code className="rounded bg-zinc-100 px-1 py-0.5">{"{{businessName}}"}</code>{" "}
-        anywhere you want the lead&rsquo;s name filled in automatically.
+        Write a message once, then send it in one click. Use{" "}
+        <code className="rounded bg-zinc-100 px-1 py-0.5">{placeholderToken}</code>{" "}
+        anywhere you want the name filled in automatically.
       </p>
 
       {templates.length > 0 && (
@@ -37,7 +40,7 @@ export function LeadEmailTemplateManager({
               </div>
               <form action={removeAction.bind(null, t.id)}>
                 <ConfirmButton
-                  message={`Delete the "${t.name}" template? Leads it's been sent to already keep their send history.`}
+                  message={`Delete the "${t.name}" template? Anyone it's already been sent to keeps their send history.`}
                   className="flex-shrink-0 text-xs font-semibold text-red-600 hover:underline"
                 >
                   Delete
@@ -64,7 +67,7 @@ export function LeadEmailTemplateManager({
             id="templateSubject"
             name="subject"
             required
-            placeholder="e.g. Reliable dumpster service for {{businessName}}"
+            placeholder={`e.g. Reliable dumpster service for ${placeholderToken}`}
             className={`${inputClass} py-2.5 text-sm`}
           />
         </Field>
@@ -74,7 +77,7 @@ export function LeadEmailTemplateManager({
             name="body"
             required
             rows={5}
-            placeholder={`Hi {{businessName}},\n\nWe work with contractors around Byron/Macon on dumpster rentals for job sites...`}
+            placeholder={`Hi ${placeholderToken},\n\nWe work with contractors around Byron/Macon on dumpster rentals for job sites...`}
             className={`${inputClass} text-sm`}
           />
         </Field>

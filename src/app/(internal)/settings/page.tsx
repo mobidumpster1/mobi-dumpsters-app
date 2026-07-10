@@ -14,6 +14,7 @@ import {
   sendDeliveryRemindersNow,
   saveEmailTemplate,
   resetEmailTemplateToDefault,
+  updateWinBackSettings,
 } from "./actions";
 import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
 import { getAgreementSettings } from "@/lib/agreement";
@@ -21,6 +22,7 @@ import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
+import { getWinBackSettings } from "@/lib/winbackSettings";
 import { getAllEmailTemplates } from "@/lib/emailTemplates";
 import { Field, inputClass } from "@/components/Field";
 import { serviceAreas } from "@/lib/serviceAreas";
@@ -37,7 +39,7 @@ const PERMISSION_OPTIONS = [
   { key: "canDeleteRecords", label: "Delete records (bookings, customers, equipment, invoices, leads)" },
   { key: "canManageExpenses", label: "Manage expenses & recurring bills" },
   { key: "canViewReports", label: "View profit reports" },
-  { key: "canManageLeads", label: "Manage Leads" },
+  { key: "canManageLeads", label: "Manage Leads & Win-Back outreach" },
 ] as const;
 
 function accountOptionValue(account: QboAccount) {
@@ -79,6 +81,7 @@ export default async function SettingsPage({
   const invoiceReminderSettings = await getInvoiceReminderSettings();
   const jobNotificationSettings = await getJobNotificationSettings();
   const deliveryReminderSettings = await getDeliveryReminderSettings();
+  const winBackSettings = await getWinBackSettings();
   const emailTemplates = await getAllEmailTemplates();
 
   let accounts: QboAccount[] = [];
@@ -585,6 +588,37 @@ export default async function SettingsPage({
           >
             Send Now (check for anyone overdue today)
           </button>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Win-Back Campaign</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Controls which customers show up on the Win-Back page (under
+          Customers) as lapsed — never sent automatically, always a
+          one-click send from that page.
+        </p>
+
+        <form action={updateWinBackSettings} className="mt-4 flex flex-col gap-4">
+          <Field label="Flag a customer as lapsed after this many days of no activity" htmlFor="lapsedDays">
+            <input
+              id="lapsedDays"
+              name="lapsedDays"
+              type="number"
+              min="1"
+              step="1"
+              defaultValue={winBackSettings.lapsedDays}
+              className={inputClass}
+            />
+          </Field>
+          <div>
+            <button
+              type="submit"
+              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
+          </div>
         </form>
       </section>
 
