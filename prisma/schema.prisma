@@ -90,9 +90,6 @@ model Customer {
   // Set once this customer exists in QuickBooks (created here, imported
   // from QuickBooks, or matched during a sync), so we don't create dupes.
   quickbooksCustomerId String?
-  // Set when a Win-Back campaign email is sent to this customer, so the
-  // page can show it's already been reached out to recently.
-  lastWinBackEmailSentAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -105,6 +102,7 @@ model Customer {
   signedAgreements SignedAgreement[]
   dumpLogEntries  DumpLogEntry[]
   creditEntries   CustomerCreditEntry[]
+  winBackSends    WinBackSend[]
 }
 
 // One dump event for a customer's rental — a customer can request more
@@ -697,6 +695,25 @@ model WinBackEmailTemplate {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  sends WinBackSend[]
+}
+
+// One outreach attempt against a lapsed customer — created every time a
+// Win-Back template is sent (single or bulk). This is the source of truth
+// for "have we reached out, and what happened" — status starts at "sent"
+// and staff update it as they hear back, same idea as Lead.status but
+// scoped per send instead of per customer, so a customer can have more
+// than one campaign wave in their history.
+model WinBackSend {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  templateId String?
+  template   WinBackEmailTemplate? @relation(fields: [templateId], references: [id])
+  status     String   @default("sent") // sent | responded | booked | not_interested
+  sentAt     DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // Controls what counts as "lapsed" on the Win-Back page. Singleton row,
