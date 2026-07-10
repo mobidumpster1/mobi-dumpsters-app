@@ -8,7 +8,7 @@ import { searchPlaces } from "@/lib/places";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { sendCustomerEmail } from "@/lib/email";
-import { stopEnrollment } from "@/lib/leadSequences";
+import { stopAllActiveEnrollmentsForLead } from "@/lib/leadSequences";
 
 // Runs a Places search and upserts each match into the saved lead list.
 // Upsert-by-placeId means re-running the same (or an overlapping) search
@@ -87,17 +87,10 @@ export async function updateLeadStatus(leadId: string, status: string) {
     },
   });
 
-  // Status is the only reliable "this lead is being handled" signal
-  // available without inbound-reply detection — moving off "new" stops
-  // any sequence from advancing further, auto or manual.
+  // A manual status change is one of two signals that stop a sequence —
+  // the other is an actual reply, handled by the inbound webhook.
   if (status !== "new") {
-    const activeEnrollments = await db.leadSequenceEnrollment.findMany({
-      where: { leadId, status: "active" },
-      select: { id: true },
-    });
-    for (const { id } of activeEnrollments) {
-      await stopEnrollment(id);
-    }
+    await stopAllActiveEnrollmentsForLead(leadId, "status_changed");
   }
 
   revalidatePath("/leads");

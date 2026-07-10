@@ -103,10 +103,15 @@ export async function sendNotificationEmail(subject: string, body: string) {
 // business inbox. Throws on failure — callers use this to show a real
 // success/failure result to the staff member sending it, unlike the silent
 // best-effort business notifications above.
-export async function sendCustomerEmail(to: string, subject: string, body: string) {
+export async function sendCustomerEmail(to: string, subject: string, body: string, replyTo?: string) {
   if (!RESEND_API_KEY) {
     throw new Error("Email isn't set up yet — add RESEND_API_KEY to send customer emails.");
   }
+
+  // Defaults to the monitored business inbox so replies never bounce;
+  // callers doing inbound-reply tracking (lead sequences) pass a
+  // per-lead parseable address instead. See src/lib/leadSequences.ts.
+  const effectiveReplyTo = replyTo ?? NOTIFICATION_EMAIL;
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -121,9 +126,9 @@ export async function sendCustomerEmail(to: string, subject: string, body: strin
       text: body,
       html: wrapEmailHtml(body),
       // FROM_EMAIL is a branded sending address with no real inbox behind
-      // it — this makes a customer/lead's "Reply" land in the actual
-      // monitored business inbox instead of bouncing.
-      ...(NOTIFICATION_EMAIL ? { reply_to: NOTIFICATION_EMAIL } : {}),
+      // it — this makes a customer/lead's "Reply" land somewhere real
+      // instead of bouncing.
+      ...(effectiveReplyTo ? { reply_to: effectiveReplyTo } : {}),
     }),
   });
 

@@ -694,11 +694,13 @@ model Lead {
   email           String?
   lastEmailSentAt DateTime?
   // Set via the unsubscribe link in a sequence email (see
-  // LeadSequenceEnrollment) — once true, no sequence email, auto or
-  // manual, sends to this lead again. Doesn't block the one-off "Send"
-  // button on the Leads page, which is a person actively choosing to
-  // reach out, not automation.
+  // LeadSequenceEnrollment) — once true, no email sends to this lead
+  // again, one-click or automated.
   emailOptOut Boolean   @default(false)
+  // Set by the inbound-reply webhook (src/app/api/webhooks/resend-inbound)
+  // when a lead actually replies to a sequence email — distinct from
+  // contactedAt, which is set when staff manually mark a lead contacted.
+  repliedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

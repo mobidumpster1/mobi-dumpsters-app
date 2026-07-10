@@ -5,13 +5,16 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 // Public routes anyone can reach without logging in — the customer-facing
 // booking flow and agreement signing, the login page itself, the cron
 // endpoints Vercel calls on a schedule (which can't log in and are instead
-// protected by CRON_SECRET, see src/app/api/cron/*/route.ts), and the
+// protected by CRON_SECRET, see src/app/api/cron/*/route.ts), inbound
+// webhooks from third parties (protected by their own signature
+// verification, see src/app/api/webhooks/*/route.ts), and the
 // privacy/terms pages required by Intuit's QuickBooks app review.
 const PUBLIC_PATHS = [
   "/login",
   "/book",
   "/agreement",
   "/api/cron",
+  "/api/webhooks",
   "/privacy",
   "/terms",
   "/dumpster-rental",

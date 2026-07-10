@@ -97,8 +97,16 @@ export async function sendSequenceStep(enrollmentId: string): Promise<
     enrollment.id
   );
 
+  // Only routes through the per-lead parseable reply address once inbound
+  // parsing is actually configured (LEAD_REPLY_DOMAIN set) — until then,
+  // sendCustomerEmail falls back to its default reply-to (the monitored
+  // business inbox), so this is inert with no setup required.
+  const replyTo = process.env.LEAD_REPLY_DOMAIN
+    ? `lead-${lead.id}@${process.env.LEAD_REPLY_DOMAIN}`
+    : undefined;
+
   try {
-    await sendCustomerEmail(lead.email, subject, body);
+    await sendCustomerEmail(lead.email, subject, body, replyTo);
   } catch (error) {
     console.error(`Failed to send sequence step for enrollment ${enrollmentId}:`, error);
     return { ok: false, reason: "The email failed to send — try again shortly." };
@@ -167,11 +175,24 @@ export async function enrollLeadInSequence(
   return "enrolled";
 }
 
-export async function stopEnrollment(enrollmentId: string) {
+export async function stopEnrollment(enrollmentId: string, reason: string = "manual") {
   await db.leadSequenceEnrollment.update({
     where: { id: enrollmentId },
-    data: { status: "stopped", stoppedReason: "manual", nextDueAt: null },
+    data: { status: "stopped", stoppedReason: reason, nextDueAt: null },
   });
+}
+
+// Stops every active sequence a lead is currently in — used whenever
+// something external makes the lead no longer a fit for automated
+// outreach (a status change, or an actual reply coming in).
+export async function stopAllActiveEnrollmentsForLead(leadId: string, reason: string) {
+  const activeEnrollments = await db.leadSequenceEnrollment.findMany({
+    where: { leadId, status: "active" },
+    select: { id: true },
+  });
+  for (const { id } of activeEnrollments) {
+    await stopEnrollment(id, reason);
+  }
 }
 
 // Called once a day by the cron — only advances enrollments belonging to
