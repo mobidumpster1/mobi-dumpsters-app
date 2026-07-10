@@ -44,12 +44,22 @@ export default async function CustomersPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight text-ink">Customers</h1>
-        <Link
-          href="/customers/new"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-        >
-          + New Customer
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {hasPermission(user, "canViewReports") && (
+            <a
+              href="/api/customers/export"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Export CSV
+            </a>
+          )}
+          <Link
+            href="/customers/new"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            + New Customer
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6">

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { hashPassword } from "@/lib/auth";
 import { requireUser } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 async function requireOwner() {
   const user = await requireUser();
@@ -24,7 +25,7 @@ export async function addStaffUser(formData: FormData) {
     throw new Error("Name, email, and a temporary password are all required.");
   }
 
-  await db.user.create({
+  const newUser = await db.user.create({
     data: {
       name,
       email: email.toLowerCase(),
@@ -33,6 +34,7 @@ export async function addStaffUser(formData: FormData) {
     },
   });
 
+  await logAction("user.created", "User", newUser.id);
   revalidatePath("/settings");
 }
 
@@ -54,11 +56,13 @@ export async function updateStaffPermissions(userId: string, formData: FormData)
   );
 
   await db.user.update({ where: { id: userId }, data });
+  await logAction("user.permissions_updated", "User", userId);
   revalidatePath("/settings");
 }
 
 export async function setStaffActive(userId: string, active: boolean) {
   await requireOwner();
   await db.user.update({ where: { id: userId }, data: { active } });
+  await logAction(active ? "user.activated" : "user.deactivated", "User", userId);
   revalidatePath("/settings");
 }

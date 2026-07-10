@@ -112,6 +112,7 @@ export async function markUnpaid(invoiceId: string) {
     where: { id: invoiceId },
     data: { status: "unpaid", paidDate: null, paymentMethod: null },
   });
+  await logAction("invoice.marked_unpaid", "Invoice", invoiceId);
   revalidatePath(`/invoices/${invoiceId}`);
 }
 

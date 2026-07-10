@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { pushExpensePurchase } from "@/lib/quickbooks";
 import { requirePermission } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 export async function createExpense(formData: FormData) {
   await requirePermission("canManageExpenses");
@@ -95,6 +96,7 @@ export async function markExpensePaid(expenseId: string) {
     console.error("Failed to push expense to QuickBooks:", error);
   }
 
+  await logAction("expense.marked_paid", "Expense", expenseId);
   revalidatePath(`/expenses/${expenseId}`);
   revalidatePath("/expenses");
 }
@@ -106,6 +108,7 @@ export async function markExpenseUnpaid(expenseId: string) {
     where: { id: expenseId },
     data: { status: "unpaid", paidDate: null },
   });
+  await logAction("expense.marked_unpaid", "Expense", expenseId);
   revalidatePath(`/expenses/${expenseId}`);
   revalidatePath("/expenses");
 }

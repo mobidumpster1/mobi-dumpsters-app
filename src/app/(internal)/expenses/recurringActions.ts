@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { requirePermission } from "@/lib/session";
+import { logAction } from "@/lib/auditLog";
 
 export async function addRecurringBill(formData: FormData) {
   await requirePermission("canManageExpenses");
@@ -80,6 +81,7 @@ export async function deleteRecurringBill(billId: string) {
   await requirePermission("canManageExpenses");
 
   await db.recurringBill.delete({ where: { id: billId } });
+  await logAction("recurring_bill.deleted", "RecurringBill", billId);
   revalidatePath("/expenses/recurring");
 }
 
