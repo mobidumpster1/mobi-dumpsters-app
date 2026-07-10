@@ -15,6 +15,8 @@ import {
   saveEmailTemplate,
   resetEmailTemplateToDefault,
   updateWinBackSettings,
+  addPermitArea,
+  removePermitArea,
 } from "./actions";
 import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
 import { getAgreementSettings } from "@/lib/agreement";
@@ -82,6 +84,7 @@ export default async function SettingsPage({
   const jobNotificationSettings = await getJobNotificationSettings();
   const deliveryReminderSettings = await getDeliveryReminderSettings();
   const winBackSettings = await getWinBackSettings();
+  const permitAreas = await db.permitArea.findMany({ orderBy: { name: "asc" } });
   const emailTemplates = await getAllEmailTemplates();
 
   let accounts: QboAccount[] = [];
@@ -619,6 +622,53 @@ export default async function SettingsPage({
               Save
             </button>
           </div>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Permit-Required Areas</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Cities or counties where street placement requires a permit. When a
+          booking&apos;s delivery address matches one of these, a permit
+          checklist automatically shows up on that booking — otherwise it
+          stays out of the way.
+        </p>
+
+        {permitAreas.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {permitAreas.map((area) => (
+              <span
+                key={area.id}
+                className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1.5 pl-3 pr-1.5 text-sm text-zinc-700"
+              >
+                {area.name}
+                <form action={removePermitArea.bind(null, area.id)}>
+                  <button
+                    type="submit"
+                    aria-label={`Remove ${area.name}`}
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700"
+                  >
+                    ×
+                  </button>
+                </form>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <form action={addPermitArea} className="mt-3 flex gap-2">
+          <input
+            name="name"
+            required
+            placeholder="e.g. Byron, GA"
+            className={`${inputClass} flex-1 py-2.5 text-sm`}
+          />
+          <button
+            type="submit"
+            className="flex-shrink-0 rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            + Add Area
+          </button>
         </form>
       </section>
 

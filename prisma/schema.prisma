@@ -367,6 +367,15 @@ model Booking {
   // Set once the daily review-request cron has emailed this customer, so a
   // booking never gets asked for a review twice.
   reviewRequestSentAt DateTime?
+  // Permit tracking for street placement — only relevant in certain
+  // cities/counties (configured in Settings as PermitArea rows). Auto-set
+  // true at creation when deliveryAddress matches one, but always
+  // manually toggleable too, since address matching is a suggestion, not
+  // the final word. A simple checklist, not a workflow: no approval
+  // routing, no reminders.
+  permitRequired Boolean @default(false)
+  permitNumber   String?
+  permitStatus   String? // requested | approved | denied
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -751,6 +760,15 @@ model WinBackSettings {
 // of retyping the whole service area every time. A search with no saved
 // areas just runs the typed query as-is.
 model ServiceArea {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+// A city/county where street placement requires a permit — configured in
+// Settings so the booking detail page's permit checklist only shows up
+// when it's actually relevant, instead of on every booking.
+model PermitArea {
   id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now())

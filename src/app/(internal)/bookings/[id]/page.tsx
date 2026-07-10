@@ -13,7 +13,9 @@ import {
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
+import { setPermitRequired, updatePermit } from "../permitActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
+import { matchesPermitArea, PERMIT_STATUS_LABELS } from "@/lib/permits";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
@@ -37,7 +39,7 @@ export default async function BookingDetailPage({
 }) {
   const { id } = await params;
   const { notified } = await searchParams;
-  const [booking, vehicles] = await Promise.all([
+  const [booking, vehicles, permitAreas] = await Promise.all([
     db.booking.findUnique({
       where: { id },
       include: {
@@ -50,9 +52,15 @@ export default async function BookingDetailPage({
       },
     }),
     db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
+    db.permitArea.findMany(),
   ]);
 
   if (!booking) notFound();
+
+  const showPermitChecklist =
+    booking.permitRequired || matchesPermitArea(booking.deliveryAddress, permitAreas);
+  const setPermitRequiredWithId = setPermitRequired.bind(null, booking.id);
+  const updatePermitWithId = updatePermit.bind(null, booking.id);
 
   const isPending = booking.status === "pending";
   const isCancelled = booking.status === "cancelled";
@@ -207,6 +215,62 @@ export default async function BookingDetailPage({
           </p>
           <p className="mt-1 text-sm text-zinc-700">{booking.notes}</p>
         </div>
+      )}
+
+      {showPermitChecklist ? (
+        <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+              Permit for Street Placement
+            </p>
+            <form action={setPermitRequiredWithId.bind(null, false)}>
+              <button type="submit" className="text-xs text-zinc-500 hover:underline">
+                Not needed after all
+              </button>
+            </form>
+          </div>
+          <form
+            action={updatePermitWithId}
+            className="mt-2 flex flex-wrap items-end gap-3"
+          >
+            <Field label="Permit Number" htmlFor="permitNumber">
+              <input
+                id="permitNumber"
+                name="permitNumber"
+                defaultValue={booking.permitNumber ?? ""}
+                className={`${inputClass} py-2`}
+                placeholder="optional"
+              />
+            </Field>
+            <Field label="Status" htmlFor="permitStatus">
+              <select
+                id="permitStatus"
+                name="permitStatus"
+                defaultValue={booking.permitStatus ?? ""}
+                className={`${inputClass} py-2`}
+              >
+                <option value="">Not requested yet</option>
+                {Object.entries(PERMIT_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button
+              type="submit"
+              className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              Save
+            </button>
+          </form>
+        </div>
+      ) : (
+        <form action={setPermitRequiredWithId.bind(null, true)} className="mt-3">
+          <button type="submit" className="text-xs text-zinc-400 hover:text-zinc-600 hover:underline">
+            + This delivery requires a permit
+          </button>
+        </form>
       )}
 
       {booking.serviceRequests.length > 0 && (

@@ -15,6 +15,7 @@ import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
+import { matchesPermitArea } from "@/lib/permits";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -40,7 +41,10 @@ export async function createBooking(formData: FormData) {
     throw new Error("At least one equipment item is required");
   }
 
-  const geocoded = await geocodeAddress(deliveryAddress);
+  const [geocoded, permitAreas] = await Promise.all([
+    geocodeAddress(deliveryAddress),
+    db.permitArea.findMany(),
+  ]);
 
   const booking = await db.booking.create({
     data: {
@@ -50,6 +54,7 @@ export async function createBooking(formData: FormData) {
       longitude: geocoded?.longitude,
       notes: str(formData, "notes"),
       status: "confirmed",
+      permitRequired: matchesPermitArea(deliveryAddress, permitAreas),
       items: {
         create: validItems.map((item) => ({
           equipmentItemId: item.equipmentItemId,
@@ -187,10 +192,11 @@ export async function updateBooking(bookingId: string, formData: FormData) {
     include: { items: true },
   });
 
-  const geocoded =
-    deliveryAddress !== booking.deliveryAddress
-      ? await geocodeAddress(deliveryAddress)
-      : null;
+  const addressChanged = deliveryAddress !== booking.deliveryAddress;
+  const [geocoded, permitAreas] = await Promise.all([
+    addressChanged ? geocodeAddress(deliveryAddress) : Promise.resolve(null),
+    addressChanged ? db.permitArea.findMany() : Promise.resolve([]),
+  ]);
 
   await db.booking.update({
     where: { id: bookingId },
@@ -199,6 +205,13 @@ export async function updateBooking(bookingId: string, formData: FormData) {
       notes: str(formData, "notes"),
       ...(geocoded
         ? { latitude: geocoded.latitude, longitude: geocoded.longitude }
+        : {}),
+      // Only ever auto-upgrades to true on an address change — never
+      // auto-clears an existing flag, since staff may have manually
+      // confirmed a permit is needed for an address that doesn't
+      // textually match a configured area.
+      ...(addressChanged && !booking.permitRequired && matchesPermitArea(deliveryAddress, permitAreas)
+        ? { permitRequired: true }
         : {}),
     },
   });

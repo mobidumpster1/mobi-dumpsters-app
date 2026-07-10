@@ -161,6 +161,24 @@ export async function updateWinBackSettings(formData: FormData) {
   revalidatePath("/customers/winback");
 }
 
+export async function addPermitArea(formData: FormData) {
+  const name = str(formData, "name");
+  if (!name) throw new Error("Area name is required");
+
+  await db.permitArea.upsert({
+    where: { name },
+    create: { name },
+    update: {},
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function removePermitArea(areaId: string) {
+  await db.permitArea.delete({ where: { id: areaId } });
+  revalidatePath("/settings");
+}
+
 export async function sendInvoiceRemindersNow() {
   const result = await sendPendingInvoiceReminders();
   revalidatePath("/settings");
