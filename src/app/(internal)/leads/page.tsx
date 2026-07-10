@@ -312,7 +312,11 @@ export default async function LeadsPage({
             </dl>
             <div className="mt-2 flex items-center gap-2">
               <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
-              <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+              {lead.emailOptOut ? (
+                <span className="flex-shrink-0 text-xs font-medium text-zinc-400">Unsubscribed</span>
+              ) : (
+                <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+              )}
             </div>
             {lead.sequenceEnrollments.length > 0 ? (
               <div className="mt-1 flex items-center justify-between gap-2 text-xs text-zinc-500">
@@ -327,6 +331,7 @@ export default async function LeadsPage({
                 </form>
               </div>
             ) : (
+              !lead.emailOptOut &&
               sequences.length > 0 && (
                 <div className="mt-1">
                   <SendTemplatedEmailButton
@@ -437,7 +442,11 @@ export default async function LeadsPage({
                 <td className="min-w-[180px] px-5 py-4">
                   <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
                   <div className="mt-1">
-                    <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                    {lead.emailOptOut ? (
+                      <span className="text-xs font-medium text-zinc-400">Unsubscribed</span>
+                    ) : (
+                      <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                    )}
                   </div>
                   {lead.lastEmailSentAt && (
                     <p className="mt-1 text-xs text-zinc-400">
@@ -459,6 +468,7 @@ export default async function LeadsPage({
                       </form>
                     </div>
                   ) : (
+                    !lead.emailOptOut &&
                     sequences.length > 0 && (
                       <SendTemplatedEmailButton
                         id={lead.id}

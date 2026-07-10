@@ -140,6 +140,9 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
   if (!lead.email) {
     throw new Error("Add an email address for this lead before sending.");
   }
+  if (lead.emailOptOut) {
+    throw new Error("This lead has unsubscribed — no further emails, one-click or automated.");
+  }
 
   const subject = template.subject.replaceAll("{{businessName}}", lead.name);
   const body = template.body.replaceAll("{{businessName}}", lead.name);
