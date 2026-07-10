@@ -7,6 +7,22 @@ import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { enrollLeadInSequence, sendSequenceStep, stopEnrollment } from "@/lib/leadSequences";
 
+export async function updateDailySendCap(formData: FormData) {
+  await requirePermission("canManageLeads");
+
+  const capStr = str(formData, "dailySendCap");
+  const dailySendCap = capStr ? Math.max(1, Number(capStr) || 0) : 25;
+
+  const settings = await db.leadOutreachSettings.findFirst();
+  if (settings) {
+    await db.leadOutreachSettings.update({ where: { id: settings.id }, data: { dailySendCap } });
+  } else {
+    await db.leadOutreachSettings.create({ data: { dailySendCap } });
+  }
+
+  revalidatePath("/leads/sequences");
+}
+
 export async function createSequence(formData: FormData) {
   await requirePermission("canManageLeads");
 

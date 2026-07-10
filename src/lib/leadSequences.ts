@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { logAction } from "@/lib/auditLog";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -128,7 +129,14 @@ export async function sendSequenceStep(enrollmentId: string): Promise<
     }),
     db.lead.update({ where: { id: lead.id }, data: { lastEmailSentAt: now } }),
     db.leadEmailSend.create({
-      data: { leadId: lead.id, templateId: template.id, subject, sentAt: now, resendEmailId },
+      data: {
+        leadId: lead.id,
+        templateId: template.id,
+        subject,
+        sentAt: now,
+        resendEmailId,
+        source: sequence.autoSend ? "sequence_auto" : "sequence_manual",
+      },
     }),
   ]);
 
@@ -203,13 +211,36 @@ export async function stopAllActiveEnrollmentsForLead(leadId: string, reason: st
 // autoSend sequences. Manual (non-autoSend) sequences rely on nextDueAt
 // alone, read directly by the Leads page's due-list, with a person
 // clicking Send instead of this loop doing it.
+//
+// Capped at dailySendCap (LeadOutreachSettings) even if more are due —
+// a large backlog firing all at once reads as automated/spammy and can
+// hurt a sending domain's reputation. Oldest-due leads go first, so a
+// backlog gets worked down over successive days rather than the same
+// newest leads winning the cap every time. Only counts sends this cron
+// itself made today (source: "sequence_auto") — a human clicking Send
+// on a manual sequence doesn't eat into this budget.
 export async function sendDueAutomatedSequenceSteps() {
+  const settings = await getLeadOutreachSettings();
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const sentToday = await db.leadEmailSend.count({
+    where: { source: "sequence_auto", sentAt: { gte: startOfDay } },
+  });
+  const remaining = Math.max(0, settings.dailySendCap - sentToday);
+
+  if (remaining === 0) {
+    return { checked: 0, sent: 0, stopped: 0, errors: [] as string[], cappedForToday: true };
+  }
+
   const due = await db.leadSequenceEnrollment.findMany({
     where: {
       status: "active",
       nextDueAt: { lte: new Date() },
       sequence: { autoSend: true, active: true },
     },
+    orderBy: { nextDueAt: "asc" },
+    take: remaining,
     select: { id: true },
   });
 
@@ -227,5 +258,5 @@ export async function sendDueAutomatedSequenceSteps() {
     }
   }
 
-  return { checked: due.length, sent, stopped, errors };
+  return { checked: due.length, sent, stopped, errors, cappedForToday: false };
 }

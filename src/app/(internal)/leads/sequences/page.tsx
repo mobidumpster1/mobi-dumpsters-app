@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hasPermission, requireUser } from "@/lib/session";
 import { Field, inputClass } from "@/components/Field";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
 import {
   createSequence,
   toggleSequenceAutoSend,
@@ -11,6 +12,7 @@ import {
   deleteSequence,
   addSequenceStep,
   deleteSequenceStep,
+  updateDailySendCap,
 } from "../sequenceActions";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +21,10 @@ export default async function SequencesPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageLeads")) redirect("/");
 
-  const [sequences, templates] = await Promise.all([
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const [sequences, templates, outreachSettings, autoSentToday] = await Promise.all([
     db.emailSequence.findMany({
       orderBy: { createdAt: "asc" },
       include: {
@@ -28,6 +33,10 @@ export default async function SequencesPage() {
       },
     }),
     db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
+    getLeadOutreachSettings(),
+    db.leadEmailSend.count({
+      where: { source: "sequence_auto", sentAt: { gte: startOfDay } },
+    }),
   ]);
 
   return (
@@ -47,6 +56,47 @@ export default async function SequencesPage() {
         >
           Back to Leads
         </Link>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-zinc-700">Sending Limits</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Caps how many Auto-Send emails go out per day, even if more leads are due — a big batch
+          firing all at once looks automated and can hurt your sending domain's reputation.
+          Doesn't apply to manual sequences or one-click sends, since a person sending those is
+          already self-paced. Checked once a day; if more leads are due than the cap allows, the
+          oldest-due ones go out first and the rest wait for tomorrow.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <div
+            className={`rounded-xl border px-4 py-2 text-sm font-medium ${
+              autoSentToday >= outreachSettings.dailySendCap
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-zinc-200 bg-zinc-50 text-zinc-600"
+            }`}
+          >
+            {autoSentToday} of {outreachSettings.dailySendCap} Auto-Send emails used today
+          </div>
+          <form action={updateDailySendCap} className="flex items-end gap-2">
+            <Field label="Daily cap" htmlFor="dailySendCap">
+              <input
+                id="dailySendCap"
+                name="dailySendCap"
+                type="number"
+                min="1"
+                step="1"
+                defaultValue={outreachSettings.dailySendCap}
+                className={`${inputClass} w-24 py-2 text-sm`}
+              />
+            </Field>
+            <button
+              type="submit"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Save
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-4">

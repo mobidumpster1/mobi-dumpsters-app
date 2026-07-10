@@ -728,6 +728,23 @@ model LeadEmailSend {
   // — lets the bounce webhook (src/app/api/webhooks/resend-events) match
   // a bounce to exactly this send instead of guessing "the latest one."
   resendEmailId String?
+  // manual (one-click Send button) | sequence_auto (daily cron) |
+  // sequence_manual (due-list "Send" button). Only sequence_auto counts
+  // against the daily sending cap (see LeadOutreachSettings) — a human
+  // clicking Send is already self-paced.
+  source String @default("manual")
+}
+
+// Controls the daily cap on fully-automated sequence sends (the cron),
+// so a large backlog of due leads doesn't all fire in one burst — that
+// pattern reads as automated/spammy and can hurt a sending domain's
+// reputation, especially a newer one. Singleton row, same pattern as
+// the other *Settings models.
+model LeadOutreachSettings {
+  id           String   @id @default(cuid())
+  dailySendCap Int      @default(25)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // A named, ordered set of outreach emails (e.g. "Roofers — 3 Touch") built
