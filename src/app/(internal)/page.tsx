@@ -5,6 +5,12 @@ import { markDelivered, markReturned, resolveServiceRequest } from "./bookings/a
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
 import { DirectionsButton } from "@/components/DirectionsButton";
+import {
+  DOCUMENT_EXPIRY_ALERT_DAYS,
+  DOCUMENT_TYPE_LABELS,
+  documentUrgency,
+  utcStartOfToday,
+} from "@/lib/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -92,46 +98,55 @@ function DispatchCard({
 export default async function DispatchPage() {
   const today = startOfToday();
   const weekEnd = daysFromNow(7);
+  const docToday = utcStartOfToday();
+  const docAlertCutoff = new Date(docToday);
+  docAlertCutoff.setUTCDate(docAlertCutoff.getUTCDate() + DOCUMENT_EXPIRY_ALERT_DAYS);
 
-  const [deliveries, pickups, activeBookings, pendingBookings, serviceRequests] = await Promise.all([
-    db.bookingItem.findMany({
-      where: {
-        deliveredAt: null,
-        startDate: { lte: weekEnd },
-        booking: { status: "confirmed" },
-      },
-      include: { equipmentItem: true, booking: { include: { customer: true } } },
-      orderBy: { startDate: "asc" },
-    }),
-    db.bookingItem.findMany({
-      where: {
-        actualReturnDate: null,
-        expectedReturnDate: { lte: weekEnd },
-        booking: { status: "confirmed" },
-      },
-      include: { equipmentItem: true, booking: { include: { customer: true } } },
-      orderBy: { expectedReturnDate: "asc" },
-    }),
-    db.booking.findMany({
-      where: {
-        status: "confirmed",
-        latitude: { not: null },
-        longitude: { not: null },
-        items: { some: { deliveredAt: { not: null }, actualReturnDate: null } },
-      },
-      include: { customer: true },
-    }),
-    db.booking.findMany({
-      where: { status: "pending" },
-      include: { customer: true, items: { include: { equipmentItem: true } } },
-      orderBy: { createdAt: "asc" },
-    }),
-    db.serviceRequest.findMany({
-      where: { status: "pending" },
-      include: { booking: { include: { customer: true } } },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const [deliveries, pickups, activeBookings, pendingBookings, serviceRequests, expiringDocuments] =
+    await Promise.all([
+      db.bookingItem.findMany({
+        where: {
+          deliveredAt: null,
+          startDate: { lte: weekEnd },
+          booking: { status: "confirmed" },
+        },
+        include: { equipmentItem: true, booking: { include: { customer: true } } },
+        orderBy: { startDate: "asc" },
+      }),
+      db.bookingItem.findMany({
+        where: {
+          actualReturnDate: null,
+          expectedReturnDate: { lte: weekEnd },
+          booking: { status: "confirmed" },
+        },
+        include: { equipmentItem: true, booking: { include: { customer: true } } },
+        orderBy: { expectedReturnDate: "asc" },
+      }),
+      db.booking.findMany({
+        where: {
+          status: "confirmed",
+          latitude: { not: null },
+          longitude: { not: null },
+          items: { some: { deliveredAt: { not: null }, actualReturnDate: null } },
+        },
+        include: { customer: true },
+      }),
+      db.booking.findMany({
+        where: { status: "pending" },
+        include: { customer: true, items: { include: { equipmentItem: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.serviceRequest.findMany({
+        where: { status: "pending" },
+        include: { booking: { include: { customer: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.document.findMany({
+        where: { expiresOn: { lte: docAlertCutoff } },
+        include: { vehicle: true },
+        orderBy: { expiresOn: "asc" },
+      }),
+    ]);
 
   // Pin both equipment that's already out at a site and deliveries that are
   // scheduled but haven't happened yet, so the map is useful for planning
@@ -231,6 +246,36 @@ export default async function DispatchPage() {
                 </form>
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {expiringDocuments.length > 0 && (
+        <section className="rounded-2xl border-2 border-red-300 bg-red-50 p-5 shadow-sm">
+          <h2 className="text-xl font-semibold text-ink">
+            {expiringDocuments.length} Document{expiringDocuments.length === 1 ? "" : "s"} Expiring
+            Soon
+          </h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {expiringDocuments.map((doc) => {
+              const u = documentUrgency(doc.expiresOn, docToday);
+              return (
+                <Link
+                  key={doc.id}
+                  href="/documents"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 shadow-sm hover:bg-red-50/50"
+                >
+                  <div>
+                    <span className="font-medium text-zinc-900">{doc.name}</span>
+                    <span className="ml-2 text-sm text-zinc-500">
+                      {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
+                      {doc.vehicle ? ` — ${doc.vehicle.label}` : ""}
+                    </span>
+                  </div>
+                  <span className={`text-sm ${u.className}`}>{u.text}</span>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

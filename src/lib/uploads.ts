@@ -29,6 +29,14 @@ export function saveExpenseReceiptFile(
   return saveUploadedFile("expenses", expenseId, file);
 }
 
+// Documents are created in a single step (no pre-existing record to hang
+// the folder name off of, unlike receipts/photos), so this just needs a
+// unique-enough namespace — the resulting URL is what actually gets
+// stored on the Document row, not this id.
+export function saveDocumentFile(file: File): Promise<string> {
+  return saveUploadedFile("documents", crypto.randomUUID(), file);
+}
+
 // Deletes a previously-uploaded file given the full URL stored on its
 // record. Safe to call even if the file is already gone.
 export async function deleteUploadedFile(url: string): Promise<void> {

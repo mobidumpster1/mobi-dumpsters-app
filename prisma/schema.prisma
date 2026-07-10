@@ -259,6 +259,25 @@ model Vehicle {
 
   mileageLogEntries MileageLogEntry[]
   bookings          Booking[]
+  documents         Document[]
+}
+
+// A compliance document with an expiry date — insurance policy, vehicle
+// registration, DOT filing, business license, etc. — optionally tied to a
+// specific truck (e.g. one registration per vehicle). No edit-in-place;
+// like ExpenseReceipt/EquipmentPhoto, correcting a mistake means deleting
+// and re-adding, which keeps the upload flow (and this model) simple.
+model Document {
+  id        String    @id @default(cuid())
+  type      String // insurance | vehicle_registration | dot_filing | business_license | other
+  name      String // e.g. "General Liability Policy" or "Truck 1 Registration"
+  fileUrl   String
+  expiresOn DateTime
+  notes     String?
+  vehicleId String?
+  vehicle   Vehicle?  @relation(fields: [vehicleId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 // A single trip's mileage — which truck drove it, and (optionally) which

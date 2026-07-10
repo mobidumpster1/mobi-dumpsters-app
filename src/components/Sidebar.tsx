@@ -19,6 +19,7 @@ const DEFAULT_LINKS = [
   { href: "/agreements", label: "Agreements" },
   { href: "/gallery", label: "Gallery" },
   { href: "/expenses", label: "Expenses" },
+  { href: "/documents", label: "Documents" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
 ];
@@ -42,6 +43,7 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
   return DEFAULT_LINKS.filter((link) => {
     if (link.href === "/settings") return false;
     if (link.href === "/reports") return user.canViewReports;
+    if (link.href === "/documents") return user.canViewReports;
     if (link.href === "/leads") return user.canManageLeads;
     if (link.href === "/expenses") return user.canManageExpenses;
     return true;
