@@ -140,9 +140,13 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
   const subject = template.subject.replaceAll("{{businessName}}", lead.name);
   const body = template.body.replaceAll("{{businessName}}", lead.name);
 
-  await sendCustomerEmail(lead.email, subject, body);
+  const resendEmailId = await sendCustomerEmail(lead.email, subject, body);
 
-  await db.lead.update({ where: { id: leadId }, data: { lastEmailSentAt: new Date() } });
+  const sentAt = new Date();
+  await db.lead.update({ where: { id: leadId }, data: { lastEmailSentAt: sentAt } });
+  await db.leadEmailSend.create({
+    data: { leadId, templateId, subject, sentAt, resendEmailId },
+  });
   await logAction("lead.email_sent", "Lead", leadId);
   revalidatePath("/leads");
 }

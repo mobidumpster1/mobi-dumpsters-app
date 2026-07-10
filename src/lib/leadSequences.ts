@@ -105,8 +105,9 @@ export async function sendSequenceStep(enrollmentId: string): Promise<
     ? `lead-${lead.id}@${process.env.LEAD_REPLY_DOMAIN}`
     : undefined;
 
+  let resendEmailId: string | undefined;
   try {
-    await sendCustomerEmail(lead.email, subject, body, replyTo);
+    resendEmailId = await sendCustomerEmail(lead.email, subject, body, replyTo);
   } catch (error) {
     console.error(`Failed to send sequence step for enrollment ${enrollmentId}:`, error);
     return { ok: false, reason: "The email failed to send — try again shortly." };
@@ -126,6 +127,9 @@ export async function sendSequenceStep(enrollmentId: string): Promise<
       },
     }),
     db.lead.update({ where: { id: lead.id }, data: { lastEmailSentAt: now } }),
+    db.leadEmailSend.create({
+      data: { leadId: lead.id, templateId: template.id, subject, sentAt: now, resendEmailId },
+    }),
   ]);
 
   await logAction("lead.sequence_step_sent", "LeadSequenceEnrollment", enrollmentId);

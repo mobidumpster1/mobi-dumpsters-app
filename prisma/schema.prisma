@@ -705,6 +705,29 @@ model Lead {
   updatedAt   DateTime  @updatedAt
 
   sequenceEnrollments LeadSequenceEnrollment[]
+  emailSends          LeadEmailSend[]
+}
+
+// A full history of every outreach email actually sent to a lead — one
+// row per send, whether triggered by the one-click "Send" button or a
+// sequence step. Unlike Lead.lastEmailSentAt (which only remembers the
+// most recent one), this is a real log. Status starts at "sent" and
+// moves to "replied" when the inbound webhook matches a reply to this
+// send (the most recent still-"sent" row for that lead). "bounced" is
+// reserved for a future bounce webhook, not wired up yet.
+model LeadEmailSend {
+  id         String             @id @default(cuid())
+  leadId     String
+  lead       Lead               @relation(fields: [leadId], references: [id])
+  templateId String?
+  template   LeadEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  subject    String
+  status     String             @default("sent") // sent | replied | bounced
+  sentAt     DateTime           @default(now())
+  // Resend's own id for this send, returned when the email is submitted
+  // — lets the bounce webhook (src/app/api/webhooks/resend-events) match
+  // a bounce to exactly this send instead of guessing "the latest one."
+  resendEmailId String?
 }
 
 // A named, ordered set of outreach emails (e.g. "Roofers — 3 Touch") built
@@ -754,7 +777,7 @@ model LeadSequenceEnrollment {
   sequence      EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
   currentStep   Int           @default(0)
   status        String        @default("active") // active | completed | stopped
-  stoppedReason String? // status_changed | unsubscribed | no_email | manual
+  stoppedReason String? // status_changed | unsubscribed | no_email | manual | replied | bounced
   enrolledAt    DateTime      @default(now())
   lastSentAt    DateTime?
   nextDueAt     DateTime?
@@ -777,6 +800,7 @@ model LeadEmailTemplate {
   updatedAt DateTime @updatedAt
 
   sequenceSteps SequenceStep[]
+  emailSends    LeadEmailSend[]
 }
 
 // A reusable outreach message for the Win-Back page — e.g. "we miss you"

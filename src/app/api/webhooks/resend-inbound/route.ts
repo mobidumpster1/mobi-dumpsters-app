@@ -82,6 +82,16 @@ export async function POST(request: Request) {
     data: { status: "interested", repliedAt: new Date() },
   });
 
+  // Tags the specific email that got the reply, not just the lead as a
+  // whole — this is what makes the send log worth having.
+  const lastSend = await db.leadEmailSend.findFirst({
+    where: { leadId, status: "sent" },
+    orderBy: { sentAt: "desc" },
+  });
+  if (lastSend) {
+    await db.leadEmailSend.update({ where: { id: lastSend.id }, data: { status: "replied" } });
+  }
+
   await stopAllActiveEnrollmentsForLead(leadId, "replied");
   await logAction("lead.replied", "Lead", leadId);
 

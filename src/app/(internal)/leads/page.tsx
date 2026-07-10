@@ -72,6 +72,7 @@ export default async function LeadsPage({
         orderBy: { createdAt: "desc" },
         include: {
           sequenceEnrollments: { where: { status: "active" }, include: { sequence: true } },
+          _count: { select: { emailSends: true } },
         },
       }),
       db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
@@ -347,7 +348,8 @@ export default async function LeadsPage({
             )}
             {lead.lastEmailSentAt && (
               <p className="mt-1 text-xs text-zinc-400">
-                Last emailed {lead.lastEmailSentAt.toLocaleDateString()}
+                Last emailed {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
+                email{lead._count.emailSends === 1 ? "" : "s"} sent
               </p>
             )}
             <div className="mt-2 flex items-center gap-2">
@@ -450,7 +452,8 @@ export default async function LeadsPage({
                   </div>
                   {lead.lastEmailSentAt && (
                     <p className="mt-1 text-xs text-zinc-400">
-                      Sent {lead.lastEmailSentAt.toLocaleDateString()}
+                      Sent {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
+                      total
                     </p>
                   )}
                 </td>

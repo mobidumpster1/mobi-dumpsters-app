@@ -102,8 +102,15 @@ export async function sendNotificationEmail(subject: string, body: string) {
 // sendNotificationEmail this goes to an arbitrary address, not the fixed
 // business inbox. Throws on failure — callers use this to show a real
 // success/failure result to the staff member sending it, unlike the silent
-// best-effort business notifications above.
-export async function sendCustomerEmail(to: string, subject: string, body: string, replyTo?: string) {
+// best-effort business notifications above. Returns Resend's own id for
+// the send, so a later bounce webhook can be matched back to exactly
+// this email instead of just guessing "the most recent one."
+export async function sendCustomerEmail(
+  to: string,
+  subject: string,
+  body: string,
+  replyTo?: string
+): Promise<string | undefined> {
   if (!RESEND_API_KEY) {
     throw new Error("Email isn't set up yet — add RESEND_API_KEY to send customer emails.");
   }
@@ -137,4 +144,7 @@ export async function sendCustomerEmail(to: string, subject: string, body: strin
     console.error("Resend email failed:", detail);
     throw new Error("Failed to send the email — check the Resend setup.");
   }
+
+  const result = await response.json().catch(() => null);
+  return typeof result?.id === "string" ? result.id : undefined;
 }
