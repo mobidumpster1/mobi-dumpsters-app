@@ -120,6 +120,10 @@ export async function sendCustomerEmail(to: string, subject: string, body: strin
       subject,
       text: body,
       html: wrapEmailHtml(body),
+      // FROM_EMAIL is a branded sending address with no real inbox behind
+      // it — this makes a customer/lead's "Reply" land in the actual
+      // monitored business inbox instead of bouncing.
+      ...(NOTIFICATION_EMAIL ? { reply_to: NOTIFICATION_EMAIL } : {}),
     }),
   });
 
