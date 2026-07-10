@@ -7,6 +7,9 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { LeadSearchForm } from "@/components/LeadSearchForm";
 import { LeadStatusSelect } from "@/components/LeadStatusSelect";
 import { LeadNotesField } from "@/components/LeadNotesField";
+import { LeadEmailField } from "@/components/LeadEmailField";
+import { SendLeadEmailButton } from "@/components/SendLeadEmailButton";
+import { LeadEmailTemplateManager } from "@/components/LeadEmailTemplateManager";
 import { ServiceAreaManager } from "@/components/ServiceAreaManager";
 import { LocationMap } from "@/components/LocationMap";
 import { LEAD_STATUS_LABELS } from "@/lib/leadStatus";
@@ -14,6 +17,10 @@ import {
   searchAndSaveLeads,
   updateLeadStatus,
   updateLeadNotes,
+  updateLeadEmail,
+  sendLeadEmail,
+  createLeadEmailTemplate,
+  deleteLeadEmailTemplate,
   deleteLead,
   convertLeadToCustomer,
   addServiceArea,
@@ -48,7 +55,7 @@ export default async function LeadsPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [leads, searchesUsed, serviceAreas, tradeRows] = await Promise.all([
+  const [leads, searchesUsed, serviceAreas, tradeRows, emailTemplates] = await Promise.all([
     db.lead.findMany({
       where: {
         status: activeStatus === "All" ? undefined : activeStatus,
@@ -64,6 +71,7 @@ export default async function LeadsPage({
       select: { tradeCategory: true },
       orderBy: { tradeCategory: "asc" },
     }),
+    db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const tradeFilters = tradeRows.map((r) => r.tradeCategory as string);
@@ -105,11 +113,16 @@ export default async function LeadsPage({
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
         <ServiceAreaManager
           areas={serviceAreas}
           addAction={addServiceArea}
           removeAction={removeServiceArea}
+        />
+        <LeadEmailTemplateManager
+          templates={emailTemplates}
+          addAction={createLeadEmailTemplate}
+          removeAction={deleteLeadEmailTemplate}
         />
       </div>
 
@@ -227,6 +240,15 @@ export default async function LeadsPage({
               </div>
             </dl>
             <div className="mt-2 flex items-center gap-2">
+              <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
+              <SendLeadEmailButton leadId={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+            </div>
+            {lead.lastEmailSentAt && (
+              <p className="mt-1 text-xs text-zinc-400">
+                Last emailed {lead.lastEmailSentAt.toLocaleDateString()}
+              </p>
+            )}
+            <div className="mt-2 flex items-center gap-2">
               <LeadNotesField
                 leadId={lead.id}
                 currentNotes={lead.notes}
@@ -273,6 +295,7 @@ export default async function LeadsPage({
               <th className="px-5 py-3.5 font-semibold">Phone</th>
               <th className="px-5 py-3.5 font-semibold">Address</th>
               <th className="px-5 py-3.5 font-semibold">Website</th>
+              <th className="px-5 py-3.5 font-semibold">Email</th>
               <th className="px-5 py-3.5 font-semibold">Notes</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
               <th className="px-5 py-3.5 font-semibold"></th>
@@ -311,6 +334,17 @@ export default async function LeadsPage({
                     </a>
                   ) : (
                     "—"
+                  )}
+                </td>
+                <td className="min-w-[180px] px-5 py-4">
+                  <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
+                  <div className="mt-1">
+                    <SendLeadEmailButton leadId={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                  </div>
+                  {lead.lastEmailSentAt && (
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Sent {lead.lastEmailSentAt.toLocaleDateString()}
+                    </p>
                   )}
                 </td>
                 <td className="px-5 py-4">
@@ -355,7 +389,7 @@ export default async function LeadsPage({
             ))}
             {leads.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
                   {activeStatus === "All"
                     ? "No leads yet — search above to find local businesses."
                     : "No leads with this status."}

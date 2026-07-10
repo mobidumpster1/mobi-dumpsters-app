@@ -659,8 +659,27 @@ model Lead {
   status      String    @default("new") // new | contacted | interested | not_interested | customer
   notes       String?
   contactedAt DateTime?
+  // Google Places doesn't return email addresses, so this is filled in by
+  // hand (usually found on the business's own website) before an outreach
+  // email can be sent.
+  email           String?
+  lastEmailSentAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// A reusable outreach message for the Leads page — e.g. one for roofers,
+// one for general contractors. {{businessName}} in the subject/body gets
+// swapped for the lead's name when sent. Kept separate from EmailTemplate
+// (which covers fixed system events like delivery/pickup) since these are
+// freeform, user-created, and there can be any number of them.
+model LeadEmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // A saved city/area (e.g. "Byron, GA") that Lead searches run against

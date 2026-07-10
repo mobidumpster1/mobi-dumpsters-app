@@ -7,6 +7,7 @@ import { str } from "@/lib/formData";
 import { searchPlaces } from "@/lib/places";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
+import { sendCustomerEmail } from "@/lib/email";
 
 // Runs a Places search and upserts each match into the saved lead list.
 // Upsert-by-placeId means re-running the same (or an overlapping) search
@@ -96,6 +97,64 @@ export async function updateLeadNotes(leadId: string, formData: FormData) {
     data: { notes: str(formData, "notes") },
   });
 
+  revalidatePath("/leads");
+}
+
+export async function updateLeadEmail(leadId: string, formData: FormData) {
+  await requirePermission("canManageLeads");
+
+  await db.lead.update({
+    where: { id: leadId },
+    data: { email: str(formData, "email") },
+  });
+
+  revalidatePath("/leads");
+}
+
+// Sends a saved template to a lead, swapping {{businessName}} for their
+// name. Throws (surfaced to the button that triggered it) if there's no
+// email on file yet or the send itself fails — nothing silent here, since
+// the whole point is a staff member clicking "Send" and knowing it worked.
+export async function sendLeadEmail(leadId: string, templateId: string) {
+  await requirePermission("canManageLeads");
+
+  const [lead, template] = await Promise.all([
+    db.lead.findUniqueOrThrow({ where: { id: leadId } }),
+    db.leadEmailTemplate.findUniqueOrThrow({ where: { id: templateId } }),
+  ]);
+
+  if (!lead.email) {
+    throw new Error("Add an email address for this lead before sending.");
+  }
+
+  const subject = template.subject.replaceAll("{{businessName}}", lead.name);
+  const body = template.body.replaceAll("{{businessName}}", lead.name);
+
+  await sendCustomerEmail(lead.email, subject, body);
+
+  await db.lead.update({ where: { id: leadId }, data: { lastEmailSentAt: new Date() } });
+  await logAction("lead.email_sent", "Lead", leadId);
+  revalidatePath("/leads");
+}
+
+export async function createLeadEmailTemplate(formData: FormData) {
+  await requirePermission("canManageLeads");
+
+  const name = str(formData, "name");
+  const subject = str(formData, "subject");
+  const body = str(formData, "body");
+  if (!name || !subject || !body) {
+    throw new Error("Name, subject, and body are all required.");
+  }
+
+  await db.leadEmailTemplate.create({ data: { name, subject, body } });
+  revalidatePath("/leads");
+}
+
+export async function deleteLeadEmailTemplate(templateId: string) {
+  await requirePermission("canManageLeads");
+
+  await db.leadEmailTemplate.delete({ where: { id: templateId } });
   revalidatePath("/leads");
 }
 
