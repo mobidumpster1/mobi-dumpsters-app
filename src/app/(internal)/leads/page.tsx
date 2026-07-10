@@ -11,6 +11,7 @@ import { LeadEmailField } from "@/components/LeadEmailField";
 import { SendTemplatedEmailButton } from "@/components/SendTemplatedEmailButton";
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { ServiceAreaManager } from "@/components/ServiceAreaManager";
+import { EnrollAllButton } from "@/components/EnrollAllButton";
 import { LocationMap } from "@/components/LocationMap";
 import { LEAD_STATUS_LABELS } from "@/lib/leadStatus";
 import {
@@ -26,6 +27,12 @@ import {
   addServiceArea,
   removeServiceArea,
 } from "./actions";
+import {
+  enrollLeadAction,
+  enrollAllVisibleAction,
+  stopEnrollmentAction,
+  sendDueNowAction,
+} from "./sequenceActions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,24 +62,38 @@ export default async function LeadsPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [leads, searchesUsed, serviceAreas, tradeRows, emailTemplates] = await Promise.all([
-    db.lead.findMany({
-      where: {
-        status: activeStatus === "All" ? undefined : activeStatus,
-        tradeCategory: trade ? trade : undefined,
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
-    db.serviceArea.findMany({ orderBy: { name: "asc" } }),
-    db.lead.findMany({
-      where: { tradeCategory: { not: null } },
-      distinct: ["tradeCategory"],
-      select: { tradeCategory: true },
-      orderBy: { tradeCategory: "asc" },
-    }),
-    db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
-  ]);
+  const [leads, searchesUsed, serviceAreas, tradeRows, emailTemplates, sequences, dueFollowUps] =
+    await Promise.all([
+      db.lead.findMany({
+        where: {
+          status: activeStatus === "All" ? undefined : activeStatus,
+          tradeCategory: trade ? trade : undefined,
+        },
+        orderBy: { createdAt: "desc" },
+        include: {
+          sequenceEnrollments: { where: { status: "active" }, include: { sequence: true } },
+        },
+      }),
+      db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
+      db.serviceArea.findMany({ orderBy: { name: "asc" } }),
+      db.lead.findMany({
+        where: { tradeCategory: { not: null } },
+        distinct: ["tradeCategory"],
+        select: { tradeCategory: true },
+        orderBy: { tradeCategory: "asc" },
+      }),
+      db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
+      db.emailSequence.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+      db.leadSequenceEnrollment.findMany({
+        where: {
+          status: "active",
+          nextDueAt: { lte: new Date() },
+          sequence: { autoSend: false, active: true },
+        },
+        include: { lead: true, sequence: true },
+        orderBy: { nextDueAt: "asc" },
+      }),
+    ]);
 
   const tradeFilters = tradeRows.map((r) => r.tradeCategory as string);
   const activeTrade = trade && tradeFilters.includes(trade) ? trade : "All";
@@ -98,20 +119,59 @@ export default async function LeadsPage({
             Find local businesses on Google Maps and keep track of outreach.
           </p>
         </div>
-        <div
-          className={`rounded-xl border px-4 py-2 text-sm font-medium ${
-            searchesLeft === 0
-              ? "border-red-200 bg-red-50 text-red-700"
-              : searchesLeft <= 100
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : "border-zinc-200 bg-zinc-50 text-zinc-600"
-          }`}
-        >
-          {searchesLeft === 0
-            ? "Free searches used up this month"
-            : `${searchesLeft.toLocaleString()} of ${FREE_SEARCHES_PER_MONTH.toLocaleString()} free searches left this month`}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/leads/sequences"
+            className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Manage Sequences
+          </Link>
+          <div
+            className={`rounded-xl border px-4 py-2 text-sm font-medium ${
+              searchesLeft === 0
+                ? "border-red-200 bg-red-50 text-red-700"
+                : searchesLeft <= 100
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-600"
+            }`}
+          >
+            {searchesLeft === 0
+              ? "Free searches used up this month"
+              : `${searchesLeft.toLocaleString()} of ${FREE_SEARCHES_PER_MONTH.toLocaleString()} free searches left this month`}
+          </div>
         </div>
       </div>
+
+      {dueFollowUps.length > 0 && (
+        <div className="mt-6 rounded-2xl border-2 border-blue-300 bg-blue-50 p-5 shadow-sm">
+          <h2 className="text-xl font-semibold text-ink">
+            {dueFollowUps.length} Follow-Up{dueFollowUps.length === 1 ? "" : "s"} Due
+          </h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {dueFollowUps.map((enrollment) => (
+              <div
+                key={enrollment.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm"
+              >
+                <div>
+                  <span className="font-medium text-zinc-900">{enrollment.lead.name}</span>
+                  <span className="ml-2 text-sm text-zinc-500">
+                    {enrollment.sequence.name} — step {enrollment.currentStep + 1}
+                  </span>
+                </div>
+                <form action={sendDueNowAction.bind(null, enrollment.id)}>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-dark"
+                  >
+                    Send
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <ServiceAreaManager
@@ -134,6 +194,16 @@ export default async function LeadsPage({
       {pins.length > 0 && (
         <div className="mt-6">
           <LocationMap pins={pins} />
+        </div>
+      )}
+
+      {sequences.length > 0 && leads.length > 0 && (
+        <div className="mt-6">
+          <EnrollAllButton
+            leadIds={leads.map((l) => l.id)}
+            sequences={sequences}
+            action={enrollAllVisibleAction}
+          />
         </div>
       )}
 
@@ -244,6 +314,32 @@ export default async function LeadsPage({
               <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
               <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
             </div>
+            {lead.sequenceEnrollments.length > 0 ? (
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                <span>
+                  In {lead.sequenceEnrollments[0].sequence.name} — step{" "}
+                  {lead.sequenceEnrollments[0].currentStep + 1}
+                </span>
+                <form action={stopEnrollmentAction.bind(null, lead.sequenceEnrollments[0].id)}>
+                  <button type="submit" className="font-semibold text-red-600 hover:underline">
+                    Stop
+                  </button>
+                </form>
+              </div>
+            ) : (
+              sequences.length > 0 && (
+                <div className="mt-1">
+                  <SendTemplatedEmailButton
+                    id={lead.id}
+                    templates={sequences}
+                    action={enrollLeadAction}
+                    idleLabel="Enroll"
+                    busyLabel="Enrolling…"
+                    errorFallback="Couldn't enroll this lead"
+                  />
+                </div>
+              )
+            )}
             {lead.lastEmailSentAt && (
               <p className="mt-1 text-xs text-zinc-400">
                 Last emailed {lead.lastEmailSentAt.toLocaleDateString()}
@@ -297,6 +393,7 @@ export default async function LeadsPage({
               <th className="px-5 py-3.5 font-semibold">Address</th>
               <th className="px-5 py-3.5 font-semibold">Website</th>
               <th className="px-5 py-3.5 font-semibold">Email</th>
+              <th className="px-5 py-3.5 font-semibold">Sequence</th>
               <th className="px-5 py-3.5 font-semibold">Notes</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
               <th className="px-5 py-3.5 font-semibold"></th>
@@ -348,6 +445,32 @@ export default async function LeadsPage({
                     </p>
                   )}
                 </td>
+                <td className="min-w-[160px] px-5 py-4">
+                  {lead.sequenceEnrollments.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-zinc-600">
+                        {lead.sequenceEnrollments[0].sequence.name} — step{" "}
+                        {lead.sequenceEnrollments[0].currentStep + 1}
+                      </span>
+                      <form action={stopEnrollmentAction.bind(null, lead.sequenceEnrollments[0].id)}>
+                        <button type="submit" className="text-xs font-semibold text-red-600 hover:underline">
+                          Stop
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    sequences.length > 0 && (
+                      <SendTemplatedEmailButton
+                        id={lead.id}
+                        templates={sequences}
+                        action={enrollLeadAction}
+                        idleLabel="Enroll"
+                        busyLabel="Enrolling…"
+                        errorFallback="Couldn't enroll this lead"
+                      />
+                    )
+                  )}
+                </td>
                 <td className="px-5 py-4">
                   <LeadNotesField
                     leadId={lead.id}
@@ -390,7 +513,7 @@ export default async function LeadsPage({
             ))}
             {leads.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
                   {activeStatus === "All"
                     ? "No leads yet — search above to find local businesses."
                     : "No leads with this status."}

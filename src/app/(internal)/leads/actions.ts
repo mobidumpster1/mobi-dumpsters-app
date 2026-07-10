@@ -8,6 +8,7 @@ import { searchPlaces } from "@/lib/places";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { sendCustomerEmail } from "@/lib/email";
+import { stopEnrollment } from "@/lib/leadSequences";
 
 // Runs a Places search and upserts each match into the saved lead list.
 // Upsert-by-placeId means re-running the same (or an overlapping) search
@@ -85,6 +86,19 @@ export async function updateLeadStatus(leadId: string, status: string) {
       contactedAt: status === "contacted" ? new Date() : undefined,
     },
   });
+
+  // Status is the only reliable "this lead is being handled" signal
+  // available without inbound-reply detection — moving off "new" stops
+  // any sequence from advancing further, auto or manual.
+  if (status !== "new") {
+    const activeEnrollments = await db.leadSequenceEnrollment.findMany({
+      where: { leadId, status: "active" },
+      select: { id: true },
+    });
+    for (const { id } of activeEnrollments) {
+      await stopEnrollment(id);
+    }
+  }
 
   revalidatePath("/leads");
 }

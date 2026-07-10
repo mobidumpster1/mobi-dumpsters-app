@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/terms",
   "/dumpster-rental",
   "/booking",
+  "/leads-unsubscribe",
 ];
 
 // Static assets (logo, icons, manifest, etc.) — these need to load for

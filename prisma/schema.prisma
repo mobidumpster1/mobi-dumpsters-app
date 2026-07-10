@@ -693,8 +693,72 @@ model Lead {
   // email can be sent.
   email           String?
   lastEmailSentAt DateTime?
+  // Set via the unsubscribe link in a sequence email (see
+  // LeadSequenceEnrollment) — once true, no sequence email, auto or
+  // manual, sends to this lead again. Doesn't block the one-off "Send"
+  // button on the Leads page, which is a person actively choosing to
+  // reach out, not automation.
+  emailOptOut Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  sequenceEnrollments LeadSequenceEnrollment[]
+}
+
+// A named, ordered set of outreach emails (e.g. "Roofers — 3 Touch") built
+// from existing LeadEmailTemplate rows. `autoSend` decides whether the
+// daily cron sends each step by itself once due, or whether it just
+// becomes a "due" item a staff member sends with one click — same
+// mechanism either way, just who pulls the trigger.
+model EmailSequence {
+  id        String   @id @default(cuid())
+  name      String
+  autoSend  Boolean  @default(false)
+  // Master switch — an inactive sequence stops advancing every
+  // enrollment (auto or manual) and can't take new enrollments, without
+  // deleting its history.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps       SequenceStep[]
+  enrollments LeadSequenceEnrollment[]
+}
+
+// One email in a sequence. delayDays counts from enrollment for step 1,
+// or from the previous step's send for step 2+.
+model SequenceStep {
+  id         String            @id @default(cuid())
+  sequenceId String
+  sequence   EmailSequence     @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  order      Int
+  delayDays  Int
+  templateId String
+  template   LeadEmailTemplate @relation(fields: [templateId], references: [id])
+  createdAt  DateTime          @default(now())
+
+  @@unique([sequenceId, order])
+}
+
+// One lead's progress through one sequence. currentStep is the order of
+// the last step actually sent (0 = none sent yet). Stops advancing the
+// moment the lead's status moves off "new" — the only reliable signal
+// available without inbound-reply detection — or on unsubscribe.
+model LeadSequenceEnrollment {
+  id            String        @id @default(cuid())
+  leadId        String
+  lead          Lead          @relation(fields: [leadId], references: [id])
+  sequenceId    String
+  sequence      EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  currentStep   Int           @default(0)
+  status        String        @default("active") // active | completed | stopped
+  stoppedReason String? // status_changed | unsubscribed | no_email | manual
+  enrolledAt    DateTime      @default(now())
+  lastSentAt    DateTime?
+  nextDueAt     DateTime?
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([leadId, sequenceId])
 }
 
 // A reusable outreach message for the Leads page — e.g. one for roofers,
@@ -709,6 +773,8 @@ model LeadEmailTemplate {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  sequenceSteps SequenceStep[]
 }
 
 // A reusable outreach message for the Win-Back page — e.g. "we miss you"
