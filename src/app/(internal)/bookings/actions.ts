@@ -309,12 +309,16 @@ export async function notifyOnTheWay(bookingId: string) {
   }
 
   try {
-    const { subject, body } = await renderEmailTemplate("on_my_way", {
-      customerName: booking.customer.name,
-      address: booking.deliveryAddress,
-      phone: branding.smsPhone,
-      businessName: branding.businessName,
-    });
+    const { subject, body } = await renderEmailTemplate(
+      "on_my_way",
+      {
+        customerName: booking.customer.name,
+        address: booking.deliveryAddress,
+        phone: branding.smsPhone,
+        businessName: branding.businessName,
+      },
+      user.effectiveOrganizationId
+    );
     await sendCustomerEmail(booking.customer.email, subject, body);
   } catch (error) {
     console.error("Failed to send on-the-way email:", error);
@@ -367,20 +371,24 @@ export async function markDelivered(bookingItemId: string) {
   const customer = bookingItem.booking.customer;
   if (customer.email) {
     try {
-      const notifySettings = await getJobNotificationSettings();
+      const notifySettings = await getJobNotificationSettings(user.effectiveOrganizationId);
       if (notifySettings.enabled) {
         const host = (await headers()).get("host");
         const manageLink = host
           ? `https://${host}/booking/${bookingItem.bookingId}/manage`
           : "";
-        const { subject, body } = await renderEmailTemplate("delivered", {
-          customerName: customer.name,
-          equipmentLabel: bookingItem.equipmentItem.label,
-          address: bookingItem.booking.deliveryAddress,
-          phone: branding.smsPhone,
-          businessName: branding.businessName,
-          manageLink,
-        });
+        const { subject, body } = await renderEmailTemplate(
+          "delivered",
+          {
+            customerName: customer.name,
+            equipmentLabel: bookingItem.equipmentItem.label,
+            address: bookingItem.booking.deliveryAddress,
+            phone: branding.smsPhone,
+            businessName: branding.businessName,
+            manageLink,
+          },
+          user.effectiveOrganizationId
+        );
         await sendCustomerEmail(customer.email, subject, body);
       }
     } catch (error) {
@@ -467,18 +475,22 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   const pickupCustomer = bookingItem.booking.customer;
   if (pickupCustomer.email) {
     try {
-      const notifySettings = await getJobNotificationSettings();
+      const notifySettings = await getJobNotificationSettings(user.effectiveOrganizationId);
       if (notifySettings.enabled) {
-        const { subject, body } = await renderEmailTemplate("picked_up", {
-          customerName: pickupCustomer.name,
-          equipmentLabel: bookingItem.equipmentItem.label,
-          address: bookingItem.booking.deliveryAddress,
-          weightLine:
-            bookingItem.actualTonnage != null
-              ? `\nTotal weight: ${bookingItem.actualTonnage.toFixed(2)} tons.\n`
-              : "",
-          businessName: branding.businessName,
-        });
+        const { subject, body } = await renderEmailTemplate(
+          "picked_up",
+          {
+            customerName: pickupCustomer.name,
+            equipmentLabel: bookingItem.equipmentItem.label,
+            address: bookingItem.booking.deliveryAddress,
+            weightLine:
+              bookingItem.actualTonnage != null
+                ? `\nTotal weight: ${bookingItem.actualTonnage.toFixed(2)} tons.\n`
+                : "",
+            businessName: branding.businessName,
+          },
+          user.effectiveOrganizationId
+        );
         await sendCustomerEmail(pickupCustomer.email, subject, body);
       }
     } catch (error) {
@@ -555,16 +567,20 @@ export async function sendReviewRequestNow(bookingId: string) {
     throw new Error("This customer has no email on file.");
   }
 
-  const settings = await getReviewRequestSettings();
+  const settings = await getReviewRequestSettings(user.effectiveOrganizationId);
   if (!settings.googleReviewUrl) {
     throw new Error("Add a Google review link in Settings first.");
   }
 
-  const { subject, body } = await renderEmailTemplate("review_request", {
-    customerName: booking.customer.name,
-    businessName: branding.businessName,
-    reviewUrl: settings.googleReviewUrl,
-  });
+  const { subject, body } = await renderEmailTemplate(
+    "review_request",
+    {
+      customerName: booking.customer.name,
+      businessName: branding.businessName,
+      reviewUrl: settings.googleReviewUrl,
+    },
+    user.effectiveOrganizationId
+  );
   await sendCustomerEmail(booking.customer.email, subject, body);
 
   await db.$transaction([

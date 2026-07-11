@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { exchangeCodeForTokens } from "@/lib/quickbooks";
+import { getCurrentUser } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const realmId = searchParams.get("realmId");
@@ -20,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await exchangeCodeForTokens(code, realmId);
+    await exchangeCodeForTokens(code, realmId, user.effectiveOrganizationId);
   } catch (error) {
     console.error("QuickBooks OAuth callback failed:", error);
     return NextResponse.redirect(new URL("/settings?qb_error=exchange_failed", request.url));

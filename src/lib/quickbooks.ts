@@ -50,7 +50,7 @@ function basicAuthHeader() {
   return "Basic " + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
 }
 
-export async function exchangeCodeForTokens(code: string, realmId: string) {
+export async function exchangeCodeForTokens(code: string, realmId: string, organizationId: string) {
   const response = await fetch(TOKEN_URL, {
     method: "POST",
     headers: {
@@ -71,12 +71,13 @@ export async function exchangeCodeForTokens(code: string, realmId: string) {
 
   const data = await response.json();
 
-  // Only one QuickBooks company is supported at a time; replace any
-  // existing connection with the new one.
-  await db.quickBooksConnection.deleteMany();
+  // Only one QuickBooks company is supported per organization at a time;
+  // replace any existing connection for this org with the new one.
+  await db.quickBooksConnection.deleteMany({ where: { organizationId } });
 
   return db.quickBooksConnection.create({
     data: {
+      organizationId,
       realmId,
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -124,8 +125,8 @@ async function refreshAccessToken(connection: QuickBooksConnection) {
 // Returns the current connection with a valid (non-expired) access token,
 // refreshing it first if needed. Returns null if QuickBooks isn't connected
 // yet — callers should treat that as "skip the sync", not an error.
-export async function getValidConnection(): Promise<QuickBooksConnection | null> {
-  const connection = await db.quickBooksConnection.findFirst();
+export async function getValidConnection(organizationId: string): Promise<QuickBooksConnection | null> {
+  const connection = await db.quickBooksConnection.findUnique({ where: { organizationId } });
   if (!connection) return null;
 
   const expiresInMs = connection.accessTokenExpiresAt.getTime() - Date.now();
@@ -337,8 +338,9 @@ export async function createOnlinePaymentLink(input: {
   description: string;
   billEmail: string;
   existingQboInvoiceId?: string | null;
+  organizationId: string;
 }): Promise<{ qboInvoiceId: string; invoiceLink: string } | null> {
-  const connection = await getValidConnection();
+  const connection = await getValidConnection(input.organizationId);
   if (!connection) return null;
 
   const qboInvoiceId =
@@ -360,8 +362,11 @@ export async function createOnlinePaymentLink(input: {
 
 // Returns the current balance on a QuickBooks invoice (0 once fully paid),
 // or null if QuickBooks isn't connected.
-export async function getQboInvoiceBalance(qboInvoiceId: string): Promise<number | null> {
-  const connection = await getValidConnection();
+export async function getQboInvoiceBalance(
+  qboInvoiceId: string,
+  organizationId: string
+): Promise<number | null> {
+  const connection = await getValidConnection(organizationId);
   if (!connection) return null;
   const data = await qboFetch(connection, `/invoice/${qboInvoiceId}`);
   return data.Invoice.Balance as number;
@@ -385,8 +390,9 @@ export async function pushInvoicePayment(input: {
   issueDate: Date;
   description: string;
   existingQboInvoiceId?: string | null;
+  organizationId: string;
 }): Promise<{ invoiceId: string; paymentId: string } | null> {
-  const connection = await getValidConnection();
+  const connection = await getValidConnection(input.organizationId);
   if (!connection) return null;
   if (!connection.defaultDepositAccountId) {
     throw new Error(
@@ -428,8 +434,9 @@ export async function pushExpensePurchase(input: {
   category: string;
   amount: number;
   date: Date;
+  organizationId: string;
 }): Promise<string | null> {
-  const connection = await getValidConnection();
+  const connection = await getValidConnection(input.organizationId);
   if (!connection) return null;
   if (!connection.defaultDepositAccountId || !connection.defaultExpenseAccountId) {
     throw new Error(

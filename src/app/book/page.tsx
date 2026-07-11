@@ -3,12 +3,14 @@ import { BookingForm } from "./BookingForm";
 import { branding } from "@/lib/branding";
 import { getAgreementSettings } from "@/lib/agreement";
 import { UtmCapture } from "@/components/UtmCapture";
+import { getPublicOrganizationId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicBookingPage() {
   const categories = await listBookableCategories();
-  const agreement = await getAgreementSettings();
+  const organizationId = await getPublicOrganizationId();
+  const agreement = await getAgreementSettings(organizationId);
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">

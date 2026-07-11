@@ -236,49 +236,66 @@ export async function stopAllActiveEnrollmentsForLead(leadId: string, reason: st
 // newest leads winning the cap every time. Only counts sends this cron
 // itself made today (source: "sequence_auto") — a human clicking Send
 // on a manual sequence doesn't eat into this budget.
-// Settings (dailySendCap) are still a single global row, not per
-// organization, so the cap and the due-enrollment scan both span every
-// organization's leads together. Not a data leak — each send still goes
-// to that lead's own address via the org-scoped Lead row — but every org
-// shares one daily budget until settings themselves become per-organization.
+// dailySendCap is now per-organization (LeadOutreachSettings), so this
+// loops every organization and applies its own cap and its own due
+// enrollments — one org's backlog can never eat into another's daily
+// budget or vice versa.
 export async function sendDueAutomatedSequenceSteps() {
-  const settings = await getLeadOutreachSettings();
+  const organizations = await db.organization.findMany({ select: { id: true } });
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const sentToday = await db.leadEmailSend.count({
-    where: { source: "sequence_auto", sentAt: { gte: startOfDay } },
-  });
-  const remaining = Math.max(0, settings.dailySendCap - sentToday);
-
-  if (remaining === 0) {
-    return { checked: 0, sent: 0, stopped: 0, errors: [] as string[], cappedForToday: true };
-  }
-
-  const due = await db.leadSequenceEnrollment.findMany({
-    where: {
-      status: "active",
-      nextDueAt: { lte: new Date() },
-      sequence: { autoSend: true, active: true },
-    },
-    orderBy: { nextDueAt: "asc" },
-    take: remaining,
-    select: { id: true },
-  });
-
+  let checked = 0;
   let sent = 0;
   let stopped = 0;
   const errors: string[] = [];
+  let cappedOrgCount = 0;
 
-  for (const { id } of due) {
-    const result = await sendSequenceStep(id);
-    if (result.ok) {
-      sent++;
-    } else {
-      stopped++;
-      errors.push(`${id}: ${result.reason}`);
+  for (const org of organizations) {
+    const settings = await getLeadOutreachSettings(org.id);
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const sentToday = await db.leadEmailSend.count({
+      where: {
+        source: "sequence_auto",
+        sentAt: { gte: startOfDay },
+        lead: { organizationId: org.id },
+      },
+    });
+    const remaining = Math.max(0, settings.dailySendCap - sentToday);
+
+    if (remaining === 0) {
+      cappedOrgCount++;
+      continue;
     }
+
+    const due = await db.leadSequenceEnrollment.findMany({
+      where: {
+        status: "active",
+        nextDueAt: { lte: new Date() },
+        sequence: { autoSend: true, active: true, organizationId: org.id },
+      },
+      orderBy: { nextDueAt: "asc" },
+      take: remaining,
+      select: { id: true },
+    });
+
+    for (const { id } of due) {
+      const result = await sendSequenceStep(id, org.id);
+      if (result.ok) {
+        sent++;
+      } else {
+        stopped++;
+        errors.push(`${id}: ${result.reason}`);
+      }
+    }
+    checked += due.length;
   }
 
-  return { checked: due.length, sent, stopped, errors, cappedForToday: false };
+  return {
+    checked,
+    sent,
+    stopped,
+    errors,
+    cappedForToday: organizations.length > 0 && cappedOrgCount === organizations.length,
+  };
 }

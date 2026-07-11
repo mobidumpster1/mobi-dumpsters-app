@@ -22,7 +22,7 @@ export async function submitSignature(formData: FormData) {
   if (!agreed) throw new Error("You must check the box to agree before submitting");
 
   const organizationId = await getPublicOrganizationId();
-  const agreement = await getAgreementSettings();
+  const agreement = await getAgreementSettings(organizationId);
 
   let customer = await db.customer.findFirst({ where: { email, organizationId } });
   if (!customer) {

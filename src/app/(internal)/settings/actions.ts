@@ -29,7 +29,10 @@ function parsePick(formData: FormData, key: string) {
 }
 
 export async function saveAccountMappings(formData: FormData) {
-  const connection = await db.quickBooksConnection.findFirst();
+  const user = await requireUser();
+  const connection = await db.quickBooksConnection.findUnique({
+    where: { organizationId: user.effectiveOrganizationId },
+  });
   if (!connection) throw new Error("Not connected to QuickBooks");
 
   const deposit = parsePick(formData, "depositAccount");
@@ -52,13 +55,14 @@ export async function saveAccountMappings(formData: FormData) {
 }
 
 export async function disconnectQuickBooks() {
-  await db.quickBooksConnection.deleteMany();
+  const user = await requireUser();
+  await db.quickBooksConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }
 
 export async function importCustomersFromQuickBooks() {
   const user = await requireUser();
-  const connection = await getValidConnection();
+  const connection = await getValidConnection(user.effectiveOrganizationId);
   if (!connection) throw new Error("Not connected to QuickBooks");
 
   const qboCustomers = await listCustomers(connection);
@@ -104,7 +108,8 @@ export async function importCustomersFromQuickBooks() {
 }
 
 export async function updateAgreementSettings(formData: FormData) {
-  const settings = await getAgreementSettings();
+  const user = await requireUser();
+  const settings = await getAgreementSettings(user.effectiveOrganizationId);
   const title = str(formData, "title") || "Service & Rental Agreement";
   const content = str(formData, "content") || "";
 
@@ -117,7 +122,8 @@ export async function updateAgreementSettings(formData: FormData) {
 }
 
 export async function updateReviewRequestSettings(formData: FormData) {
-  const settings = await getReviewRequestSettings();
+  const user = await requireUser();
+  const settings = await getReviewRequestSettings(user.effectiveOrganizationId);
   const googleReviewUrl = str(formData, "googleReviewUrl") || null;
   const delayDaysStr = str(formData, "delayDays");
   const delayDays = delayDaysStr ? Math.max(0, Number(delayDaysStr) || 0) : 2;
@@ -132,13 +138,15 @@ export async function updateReviewRequestSettings(formData: FormData) {
 }
 
 export async function sendReviewRequestsNow() {
+  await requireUser();
   const result = await sendPendingReviewRequests();
   revalidatePath("/settings");
   redirect(`/settings?reviews_sent=${result.sent}&reviews_checked=${result.checked ?? 0}`);
 }
 
 export async function updateInvoiceReminderSettings(formData: FormData) {
-  const settings = await getInvoiceReminderSettings();
+  const user = await requireUser();
+  const settings = await getInvoiceReminderSettings(user.effectiveOrganizationId);
   const delayDaysStr = str(formData, "delayDays");
   const repeatDaysStr = str(formData, "repeatDays");
   const delayDays = delayDaysStr ? Math.max(0, Number(delayDaysStr) || 0) : 7;
@@ -154,7 +162,8 @@ export async function updateInvoiceReminderSettings(formData: FormData) {
 }
 
 export async function updateWinBackSettings(formData: FormData) {
-  const settings = await getWinBackSettings();
+  const user = await requireUser();
+  const settings = await getWinBackSettings(user.effectiveOrganizationId);
   const lapsedDaysStr = str(formData, "lapsedDays");
   const lapsedDays = lapsedDaysStr ? Math.max(1, Number(lapsedDaysStr) || 0) : 90;
 
@@ -190,13 +199,15 @@ export async function removePermitArea(areaId: string) {
 }
 
 export async function sendInvoiceRemindersNow() {
+  await requireUser();
   const result = await sendPendingInvoiceReminders();
   revalidatePath("/settings");
   redirect(`/settings?invoices_sent=${result.sent}&invoices_checked=${result.checked ?? 0}`);
 }
 
 export async function updateJobNotificationSettings(formData: FormData) {
-  const settings = await getJobNotificationSettings();
+  const user = await requireUser();
+  const settings = await getJobNotificationSettings(user.effectiveOrganizationId);
   const enabled = formData.get("enabled") === "on";
 
   await db.jobNotificationSettings.update({
@@ -208,7 +219,8 @@ export async function updateJobNotificationSettings(formData: FormData) {
 }
 
 export async function updateDeliveryReminderSettings(formData: FormData) {
-  const settings = await getDeliveryReminderSettings();
+  const user = await requireUser();
+  const settings = await getDeliveryReminderSettings(user.effectiveOrganizationId);
   const hoursBeforeStr = str(formData, "hoursBefore");
   const hoursBefore = hoursBeforeStr ? Math.max(1, Number(hoursBeforeStr) || 0) : 24;
   const enabled = formData.get("enabled") === "on";
@@ -222,19 +234,22 @@ export async function updateDeliveryReminderSettings(formData: FormData) {
 }
 
 export async function sendDeliveryRemindersNow() {
+  await requireUser();
   const result = await sendPendingDeliveryReminders();
   revalidatePath("/settings");
   redirect(`/settings?deliveries_sent=${result.sent}&deliveries_checked=${result.checked ?? 0}`);
 }
 
 export async function saveEmailTemplate(key: EmailTemplateKey, formData: FormData) {
+  const user = await requireUser();
   const subject = str(formData, "subject") || "";
   const body = str(formData, "body") || "";
-  await updateEmailTemplate(key, subject, body);
+  await updateEmailTemplate(key, subject, body, user.effectiveOrganizationId);
   revalidatePath("/settings");
 }
 
 export async function resetEmailTemplateToDefault(key: EmailTemplateKey) {
-  await resetEmailTemplate(key);
+  const user = await requireUser();
+  await resetEmailTemplate(key, user.effectiveOrganizationId);
   revalidatePath("/settings");
 }

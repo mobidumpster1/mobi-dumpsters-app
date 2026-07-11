@@ -10,80 +10,91 @@ const MS_PER_DAY = 86_400_000;
 // `delayDays`, and haven't been nagged again within the last `repeatDays`,
 // then emails the customer a reminder. Never throws — see
 // sendPendingReviewRequests for why (daily cron, no one watching).
+//
+// Settings are per-organization, so this loops every organization and
+// applies its own enabled/delayDays/repeatDays — one org turning this off
+// never affects another's.
 export async function sendPendingInvoiceReminders() {
-  const settings = await getInvoiceReminderSettings();
-  if (!settings.enabled) {
-    return {
-      sent: 0,
-      checked: 0,
-      errors: [] as string[],
-      skipped: "Invoice reminders aren't enabled yet — set this up in Settings.",
-    };
-  }
+  const organizations = await db.organization.findMany({ select: { id: true } });
 
-  const now = new Date();
-  const cutoffFirst = new Date(now.getTime() - settings.delayDays * MS_PER_DAY);
-  const cutoffRepeat = new Date(now.getTime() - settings.repeatDays * MS_PER_DAY);
-
-  // Settings are still a single global row (not per-organization yet), so
-  // this applies one on/off switch and one delay schedule to every
-  // organization's invoices. Not a data leak — each candidate's own
-  // customer gets emailed about their own invoice — but every org shares
-  // one configuration until settings themselves become per-organization.
-  const candidates = await db.$allowUnscoped(
-    "daily cron applies one global settings row to every organization's invoices",
-    () =>
-      db.invoice.findMany({
-        where: {
-          status: { not: "paid" },
-          dueDate: { not: null, lte: cutoffFirst },
-          OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }],
-        },
-        include: {
-          booking: { include: { customer: true } },
-          customer: true,
-        },
-      })
-  );
-
-  const eligible = candidates
-    .map((invoice) => ({ invoice, customer: invoice.booking?.customer ?? invoice.customer }))
-    .filter((row) => row.customer?.email);
-
+  let checked = 0;
   let sent = 0;
   const errors: string[] = [];
+  const skippedOrgs: string[] = [];
 
-  for (const { invoice, customer } of eligible) {
-    const daysOverdue = Math.floor((now.getTime() - invoice.dueDate!.getTime()) / MS_PER_DAY);
-    try {
-      const { subject, body } = await renderEmailTemplate("invoice_reminder", {
-        customerName: customer!.name,
-        invoiceNumber: invoice.invoiceNumber,
-        amount: invoice.amount.toFixed(2),
-        daysOverdue: `${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`,
-        businessName: branding.businessName,
-      });
-      await sendCustomerEmail(customer!.email!, subject, body);
+  for (const org of organizations) {
+    const settings = await getInvoiceReminderSettings(org.id);
+    if (!settings.enabled) {
+      skippedOrgs.push(org.id);
+      continue;
+    }
 
-      await db.$transaction([
-        db.invoice.update({
-          where: { id: invoice.id },
-          data: { lastReminderSentAt: now },
-        }),
-        db.customerNote.create({
-          data: {
-            customerId: customer!.id,
-            type: "email",
-            content: `Auto-sent overdue reminder for invoice ${invoice.invoiceNumber}`,
+    const now = new Date();
+    const cutoffFirst = new Date(now.getTime() - settings.delayDays * MS_PER_DAY);
+    const cutoffRepeat = new Date(now.getTime() - settings.repeatDays * MS_PER_DAY);
+
+    const candidates = await db.invoice.findMany({
+      where: {
+        organizationId: org.id,
+        status: { not: "paid" },
+        dueDate: { not: null, lte: cutoffFirst },
+        OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }],
+      },
+      include: {
+        booking: { include: { customer: true } },
+        customer: true,
+      },
+    });
+
+    const eligible = candidates
+      .map((invoice) => ({ invoice, customer: invoice.booking?.customer ?? invoice.customer }))
+      .filter((row) => row.customer?.email);
+    checked += eligible.length;
+
+    for (const { invoice, customer } of eligible) {
+      const daysOverdue = Math.floor((now.getTime() - invoice.dueDate!.getTime()) / MS_PER_DAY);
+      try {
+        const { subject, body } = await renderEmailTemplate(
+          "invoice_reminder",
+          {
+            customerName: customer!.name,
+            invoiceNumber: invoice.invoiceNumber,
+            amount: invoice.amount.toFixed(2),
+            daysOverdue: `${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`,
+            businessName: branding.businessName,
           },
-        }),
-      ]);
-      sent++;
-    } catch (error) {
-      console.error(`Failed to send invoice reminder for ${invoice.id}:`, error);
-      errors.push(invoice.id);
+          org.id
+        );
+        await sendCustomerEmail(customer!.email!, subject, body);
+
+        await db.$transaction([
+          db.invoice.update({
+            where: { id: invoice.id },
+            data: { lastReminderSentAt: now },
+          }),
+          db.customerNote.create({
+            data: {
+              customerId: customer!.id,
+              type: "email",
+              content: `Auto-sent overdue reminder for invoice ${invoice.invoiceNumber}`,
+            },
+          }),
+        ]);
+        sent++;
+      } catch (error) {
+        console.error(`Failed to send invoice reminder for ${invoice.id}:`, error);
+        errors.push(invoice.id);
+      }
     }
   }
 
-  return { sent, checked: eligible.length, errors, skipped: null as string | null };
+  return {
+    sent,
+    checked,
+    errors,
+    skipped:
+      skippedOrgs.length === organizations.length
+        ? "Invoice reminders aren't enabled yet — set this up in Settings."
+        : null,
+  };
 }

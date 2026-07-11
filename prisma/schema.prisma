@@ -23,25 +23,34 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users              User[]
-  customers          Customer[]
-  bookings           Booking[]
-  invoices           Invoice[]
-  expenses           Expense[]
-  recurringBills     RecurringBill[]
-  equipmentCategories EquipmentCategory[]
-  equipmentItems     EquipmentItem[]
-  vehicles           Vehicle[]
-  documents          Document[]
-  mileageLogEntries  MileageLogEntry[]
-  leads              Lead[]
-  galleryPhotos      GalleryPhoto[]
-  serviceAreas       ServiceArea[]
-  permitAreas        PermitArea[]
-  emailSequences     EmailSequence[]
-  leadEmailTemplates LeadEmailTemplate[]
-  winBackEmailTemplates WinBackEmailTemplate[]
-  placesSearchLogs   PlacesSearchLog[]
+  users                    User[]
+  customers                Customer[]
+  bookings                 Booking[]
+  invoices                 Invoice[]
+  expenses                 Expense[]
+  recurringBills           RecurringBill[]
+  equipmentCategories      EquipmentCategory[]
+  equipmentItems           EquipmentItem[]
+  vehicles                 Vehicle[]
+  documents                Document[]
+  mileageLogEntries        MileageLogEntry[]
+  leads                    Lead[]
+  galleryPhotos            GalleryPhoto[]
+  serviceAreas             ServiceArea[]
+  permitAreas              PermitArea[]
+  emailSequences           EmailSequence[]
+  leadEmailTemplates       LeadEmailTemplate[]
+  winBackEmailTemplates    WinBackEmailTemplate[]
+  placesSearchLogs         PlacesSearchLog[]
+  emailTemplates           EmailTemplate[]
+  quickBooksConnection     QuickBooksConnection?
+  serviceAgreementSettings ServiceAgreementSettings?
+  reviewRequestSettings    ReviewRequestSettings?
+  invoiceReminderSettings  InvoiceReminderSettings?
+  jobNotificationSettings  JobNotificationSettings?
+  deliveryReminderSettings DeliveryReminderSettings?
+  leadOutreachSettings     LeadOutreachSettings?
+  winBackSettings          WinBackSettings?
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -52,12 +61,12 @@ model Organization {
 // a user out immediately (checked on every request, not just at login)
 // without touching their historical AuditLog entries.
 model User {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String  @unique
   passwordHash String
-  role         String   @default("staff") // owner | staff
-  active       Boolean  @default(true)
+  role         String  @default("staff") // owner | staff
+  active       Boolean @default(true)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
@@ -93,8 +102,8 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  action    String   // e.g. "invoice.marked_paid", "booking.deleted"
-  entity    String   // e.g. "Invoice", "Booking"
+  action    String // e.g. "invoice.marked_paid", "booking.deleted"
+  entity    String // e.g. "Invoice", "Booking"
   entityId  String?
   createdAt DateTime @default(now())
 }
@@ -104,53 +113,57 @@ model AuditLog {
 // keys defined in src/lib/emailTemplates.ts — if no row exists for a key,
 // the hardcoded default in that file is used instead.
 model EmailTemplate {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  subject   String
-  body      String
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  key            String
+  subject        String
+  body           String
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, key])
 }
 
 // A customer of the business. Kept simple for v1: one address per
 // customer. Per-booking delivery addresses can differ from this.
 model Customer {
-  id          String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  name        String
-  companyName String?
-  phone       String?
-  email       String?
-  address     String?
+  id                   String       @id @default(cuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  name                 String
+  companyName          String?
+  phone                String?
+  email                String?
+  address              String?
   // Geocoded from address for the all-customers map view. Null until
   // geocoding succeeds (e.g. no address on file, or no Maps API key yet).
-  latitude    Float?
-  longitude   Float?
-  notes       String?
+  latitude             Float?
+  longitude            Float?
+  notes                String?
   // Comma-separated labels (e.g. "Residential,Repeat") shown as pills in the UI.
-  tags        String   @default("")
+  tags                 String       @default("")
   // How this customer found us — google_ads | meta_ads | b2b_outreach |
   // referral | organic_search | repeat | other. Null means not specified
   // rather than forcing a guess. Set automatically to "b2b_outreach" when
   // converted from a Lead; otherwise picked from a dropdown at creation.
-  leadSource  String?
+  leadSource           String?
   // Set once this customer exists in QuickBooks (created here, imported
   // from QuickBooks, or matched during a sync), so we don't create dupes.
   quickbooksCustomerId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  bookings        Booking[]
-  equipmentOnHand EquipmentItem[]
-  communications  CustomerNote[]
-  locationEvents  EquipmentLocationEvent[]
-  invoices        Invoice[]
-  photos          CustomerPhoto[]
+  bookings         Booking[]
+  equipmentOnHand  EquipmentItem[]
+  communications   CustomerNote[]
+  locationEvents   EquipmentLocationEvent[]
+  invoices         Invoice[]
+  photos           CustomerPhoto[]
   signedAgreements SignedAgreement[]
-  dumpLogEntries  DumpLogEntry[]
-  creditEntries   CustomerCreditEntry[]
-  winBackSends    WinBackSend[]
+  dumpLogEntries   DumpLogEntry[]
+  creditEntries    CustomerCreditEntry[]
+  winBackSends     WinBackSend[]
 }
 
 // One dump event for a customer's rental — a customer can request more
@@ -210,18 +223,18 @@ model CustomerPhoto {
 // New equipment types are added by creating a new category here, not by
 // changing this schema.
 model EquipmentCategory {
-  id               String   @id @default(cuid())
-  organizationId   String
-  organization     Organization @relation(fields: [organizationId], references: [id])
-  name             String   @unique
-  description      String?
+  id                 String       @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  name               String       @unique
+  description        String?
   // Shown next to this category on the public booking page, so customers
   // can see what they're actually renting.
-  imageUrl         String?
-  fieldDefinitions String   @default("[]")
+  imageUrl           String?
+  fieldDefinitions   String       @default("[]")
   // How many days an item of this category can sit at one site before it's
   // flagged as "sitting too long" on the equipment dashboard.
-  agingThresholdDays Int    @default(14)
+  agingThresholdDays Int          @default(14)
 
   // Pricing rules used to auto-generate invoice line items. All optional —
   // a category only needs the rules relevant to it (e.g. an excavator may
@@ -234,8 +247,8 @@ model EquipmentCategory {
   includedMileage    Float?
   overageMileageRate Float?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Lets a category be a "bundle" that books multiple units of another
   // category instead of owning equipment itself — e.g. a public listing for
@@ -261,8 +274,8 @@ model PricingTier {
   days       Int // rental length used to compute the pickup date
   // Null means "Call for pricing" — shown but not selectable online.
   price      Float?
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
+  sortOrder  Int               @default(0)
+  createdAt  DateTime          @default(now())
 }
 
 // A single physical unit you own (e.g. "Dumpster #1"). `attributes` holds
@@ -270,11 +283,11 @@ model PricingTier {
 // (e.g. {"sizeYards": 20, "maxWeightTons": 3} for a dumpster, or
 // {"hourMeter": 812.5, "attachments": ["bucket","breaker"]} for an excavator).
 model EquipmentItem {
-  id         String            @id @default(cuid())
+  id             String            @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  categoryId String
-  category   EquipmentCategory @relation(fields: [categoryId], references: [id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  categoryId     String
+  category       EquipmentCategory @relation(fields: [categoryId], references: [id])
 
   label      String
   assetTag   String?
@@ -302,14 +315,14 @@ model EquipmentItem {
 // distinct from EquipmentItem, which is customer-rentable inventory shown
 // on the public booking form. Vehicles are never bookable by customers.
 model Vehicle {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  label     String // e.g. "2004 F250"
-  active    Boolean  @default(true)
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  label          String // e.g. "2004 F250"
+  active         Boolean      @default(true)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   mileageLogEntries MileageLogEntry[]
   bookings          Booking[]
@@ -322,18 +335,18 @@ model Vehicle {
 // like ExpenseReceipt/EquipmentPhoto, correcting a mistake means deleting
 // and re-adding, which keeps the upload flow (and this model) simple.
 model Document {
-  id        String    @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  type      String // insurance | vehicle_registration | dot_filing | business_license | other
-  name      String // e.g. "General Liability Policy" or "Truck 1 Registration"
-  fileUrl   String
-  expiresOn DateTime
-  notes     String?
-  vehicleId String?
-  vehicle   Vehicle?  @relation(fields: [vehicleId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  type           String // insurance | vehicle_registration | dot_filing | business_license | other
+  name           String // e.g. "General Liability Policy" or "Truck 1 Registration"
+  fileUrl        String
+  expiresOn      DateTime
+  notes          String?
+  vehicleId      String?
+  vehicle        Vehicle?     @relation(fields: [vehicleId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 // A single trip's mileage — which truck drove it, and (optionally) which
@@ -345,7 +358,7 @@ model Document {
 model MileageLogEntry {
   id              String         @id @default(cuid())
   organizationId  String
-  organization    Organization  @relation(fields: [organizationId], references: [id])
+  organization    Organization   @relation(fields: [organizationId], references: [id])
   vehicleId       String?
   vehicle         Vehicle?       @relation(fields: [vehicleId], references: [id])
   equipmentItemId String?
@@ -395,61 +408,61 @@ model EquipmentPhoto {
 // tied to a job, piece of equipment, or customer. For general shots
 // (marketing, category photos, anything without an obvious home).
 model GalleryPhoto {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  mediaType String   @default("photo") // photo | video
-  caption   String?
-  filePath  String
-  createdAt DateTime @default(now())
+  mediaType      String       @default("photo") // photo | video
+  caption        String?
+  filePath       String
+  createdAt      DateTime     @default(now())
 }
 
 // A rental transaction for one customer. May include multiple pieces of
 // equipment, each tracked independently via BookingItem.
 model Booking {
-  id              String   @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id])
-  status          String   @default("confirmed") // quoted | confirmed | in_progress | completed | cancelled
-  deliveryAddress String
+  id                    String       @id @default(cuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
+  customerId            String
+  customer              Customer     @relation(fields: [customerId], references: [id])
+  status                String       @default("confirmed") // quoted | confirmed | in_progress | completed | cancelled
+  deliveryAddress       String
   // Geocoded from deliveryAddress so it can be pinned on the dispatch map.
   // Null until geocoding succeeds (e.g. before a Maps API key is configured).
-  latitude        Float?
-  longitude       Float?
-  notes           String?
+  latitude              Float?
+  longitude             Float?
+  notes                 String?
   // Set once a Google Calendar event has been created for this booking, so
   // we don't create duplicates if the push is ever retried.
   googleCalendarEventId String?
   // Which truck handled this job — used to log its mileage once, instead of
   // per equipment item, when the job is closed out.
-  vehicleId String?
-  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+  vehicleId             String?
+  vehicle               Vehicle?     @relation(fields: [vehicleId], references: [id])
   // Set once the daily review-request cron has emailed this customer, so a
   // booking never gets asked for a review twice.
-  reviewRequestSentAt DateTime?
+  reviewRequestSentAt   DateTime?
   // Permit tracking for street placement — only relevant in certain
   // cities/counties (configured in Settings as PermitArea rows). Auto-set
   // true at creation when deliveryAddress matches one, but always
   // manually toggleable too, since address matching is a suggestion, not
   // the final word. A simple checklist, not a workflow: no approval
   // routing, no reminders.
-  permitRequired Boolean @default(false)
-  permitNumber   String?
-  permitStatus   String? // requested | approved | denied
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  permitRequired        Boolean      @default(false)
+  permitNumber          String?
+  permitStatus          String? // requested | approved | denied
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  items    BookingItem[]
-  invoices Invoice[]
-  expenses Expense[]
-  photos   Photo[]
-  signedAgreements SignedAgreement[]
+  items             BookingItem[]
+  invoices          Invoice[]
+  expenses          Expense[]
+  photos            Photo[]
+  signedAgreements  SignedAgreement[]
   mileageLogEntries MileageLogEntry[]
-  dumpLogEntries DumpLogEntry[]
-  damageReports DamageReport[]
-  serviceRequests ServiceRequest[]
+  dumpLogEntries    DumpLogEntry[]
+  damageReports     DamageReport[]
+  serviceRequests   ServiceRequest[]
 }
 
 // A customer-initiated request against an active booking, made from the
@@ -461,7 +474,7 @@ model ServiceRequest {
   id         String    @id @default(cuid())
   bookingId  String
   booking    Booking   @relation(fields: [bookingId], references: [id])
-  type       String    // extension | dump_and_return
+  type       String // extension | dump_and_return
   details    String?
   status     String    @default("pending") // pending | resolved
   resolvedAt DateTime?
@@ -510,11 +523,11 @@ model BookingItem {
   equipmentItemId String
   equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
 
-  startDate          DateTime
-  expectedReturnDate DateTime
-  actualReturnDate   DateTime?
-  deliveredAt        DateTime?
-  pickedUpAt         DateTime?
+  startDate              DateTime
+  expectedReturnDate     DateTime
+  actualReturnDate       DateTime?
+  deliveredAt            DateTime?
+  pickedUpAt             DateTime?
   // Set once the daily reminder cron has emailed the customer about this
   // item's upcoming delivery, so it's never sent twice.
   deliveryReminderSentAt DateTime?
@@ -524,7 +537,7 @@ model BookingItem {
   actualTonnage Float?
   actualMileage Float?
 
-  price     Float   @default(0)
+  price     Float    @default(0)
   notes     String?
   createdAt DateTime @default(now())
 }
@@ -533,23 +546,23 @@ model BookingItem {
 // so standalone historical invoices (e.g. imported from old records that
 // predate this app) can exist with just a customer, no full booking.
 model Invoice {
-  id            String    @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  bookingId     String?
-  booking       Booking?  @relation(fields: [bookingId], references: [id])
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  bookingId           String?
+  booking             Booking?     @relation(fields: [bookingId], references: [id])
   // Used when there's no booking — set on every invoice for convenience,
   // but especially load-bearing when bookingId is null.
-  customerId    String?
-  customer      Customer? @relation(fields: [customerId], references: [id])
-  invoiceNumber String    @unique
-  issueDate     DateTime  @default(now())
-  dueDate       DateTime?
-  amount        Float
-  status        String    @default("unpaid") // unpaid | paid | partial
-  paidDate      DateTime?
-  paymentMethod String?
-  notes         String?
+  customerId          String?
+  customer            Customer?    @relation(fields: [customerId], references: [id])
+  invoiceNumber       String       @unique
+  issueDate           DateTime     @default(now())
+  dueDate             DateTime?
+  amount              Float
+  status              String       @default("unpaid") // unpaid | paid | partial
+  paidDate            DateTime?
+  paymentMethod       String?
+  notes               String?
   // Set once pushed to QuickBooks — either on marking paid, or earlier if
   // sent for online payment (see onlinePaymentUrl), in which case markPaid
   // reuses this same QBO invoice instead of creating a second one.
@@ -562,8 +575,8 @@ model Invoice {
   onlinePaymentSentAt DateTime?
   // Tracks the most recent automated overdue-payment reminder, so the daily
   // cron can space repeat nags out instead of re-sending every run.
-  lastReminderSentAt DateTime?
-  createdAt     DateTime  @default(now())
+  lastReminderSentAt  DateTime?
+  createdAt           DateTime     @default(now())
 
   lineItems InvoiceLineItem[]
 }
@@ -585,17 +598,17 @@ model InvoiceLineItem {
 // maintenance, etc. Optionally tied to the job or piece of equipment it
 // was incurred for, so profit can be broken down by booking or equipment.
 model Expense {
-  id       String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  vendor   String
-  category String
-  amount   Float
-  date     DateTime
-  dueDate  DateTime?
-  status   String    @default("unpaid") // unpaid | paid
-  paidDate DateTime?
-  notes    String?
+  vendor         String
+  category       String
+  amount         Float
+  date           DateTime
+  dueDate        DateTime?
+  status         String       @default("unpaid") // unpaid | paid
+  paidDate       DateTime?
+  notes          String?
 
   bookingId String?
   booking   Booking? @relation(fields: [bookingId], references: [id])
@@ -625,32 +638,34 @@ model ExpenseReceipt {
 // staff use "Log as Expense" here to record it as a real Expense once it's
 // actually paid, so recordkeeping stays accurate without manual re-entry.
 model RecurringBill {
-  id            String    @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name          String // e.g. "Truck", "Google Ads"
-  category      String // e.g. "Vehicle Payment", "Advertising"
-  amount        Float? // null when variable (e.g. a credit card balance)
-  frequency     String // monthly | yearly
-  dueDay        Int? // day of month (1-31), for monthly bills
-  dueDate       DateTime? // specific annual date, for yearly bills
-  paymentMethod String?
-  active        Boolean   @default(true)
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  name           String // e.g. "Truck", "Google Ads"
+  category       String // e.g. "Vehicle Payment", "Advertising"
+  amount         Float? // null when variable (e.g. a credit card balance)
+  frequency      String // monthly | yearly
+  dueDay         Int? // day of month (1-31), for monthly bills
+  dueDate        DateTime? // specific annual date, for yearly bills
+  paymentMethod  String?
+  active         Boolean      @default(true)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 // A single row holding the connection to the business's QuickBooks Online
 // company, including which account/item new transactions should post to.
 // Only exists once a "Connect to QuickBooks" flow has completed.
 model QuickBooksConnection {
-  id                        String   @id @default(cuid())
+  id                        String       @id @default(cuid())
+  organizationId            String       @unique
+  organization              Organization @relation(fields: [organizationId], references: [id])
   realmId                   String
   accessToken               String
   refreshToken              String
   accessTokenExpiresAt      DateTime
-  environment               String   @default("sandbox") // sandbox | production
+  environment               String       @default("sandbox") // sandbox | production
   defaultDepositAccountId   String?
   defaultDepositAccountName String?
   defaultIncomeAccountId    String?
@@ -658,43 +673,49 @@ model QuickBooksConnection {
   defaultExpenseAccountId   String?
   defaultExpenseAccountName String?
   defaultItemId             String?
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
 }
 
 // A single row holding the current service agreement text. Edited from
 // Settings. Signing snapshots this text so historical signatures stay
 // accurate even if the wording changes later.
 model ServiceAgreementSettings {
-  id        String   @id @default(cuid())
-  title     String   @default("Service & Rental Agreement")
-  content   String   @default("[Placeholder — replace this with your real service agreement text in Settings before sharing with customers. Consider having a lawyer review it.]")
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  title          String       @default("Service & Rental Agreement")
+  content        String       @default("[Placeholder — replace this with your real service agreement text in Settings before sharing with customers. Consider having a lawyer review it.]")
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // Controls the automated "please leave us a review" email sent a few days
 // after a job is fully closed out. Singleton row, same pattern as
 // ServiceAgreementSettings — created with defaults on first Settings visit.
 model ReviewRequestSettings {
-  id             String   @id @default(cuid())
-  enabled        Boolean  @default(false)
+  id              String       @id @default(cuid())
+  organizationId  String       @unique
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  enabled         Boolean      @default(false)
   googleReviewUrl String?
-  delayDays      Int      @default(2)
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
+  delayDays       Int          @default(2)
+  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime     @default(now())
 }
 
 // Controls the automated overdue-invoice reminder email. Singleton row,
 // same pattern as ReviewRequestSettings — created with defaults on first
 // Settings visit.
 model InvoiceReminderSettings {
-  id         String   @id @default(cuid())
-  enabled    Boolean  @default(false)
-  delayDays  Int      @default(7) // days past due before the first reminder
-  repeatDays Int      @default(14) // days between repeat reminders while still unpaid
-  updatedAt  DateTime @updatedAt
-  createdAt  DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  enabled        Boolean      @default(false)
+  delayDays      Int          @default(7) // days past due before the first reminder
+  repeatDays     Int          @default(14) // days between repeat reminders while still unpaid
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // Controls whether marking equipment delivered or picked up automatically
@@ -702,21 +723,25 @@ model InvoiceReminderSettings {
 // recorded). Singleton row, same pattern as the other *Settings models —
 // created with defaults on first Settings visit.
 model JobNotificationSettings {
-  id        String   @id @default(cuid())
-  enabled   Boolean  @default(false)
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  enabled        Boolean      @default(false)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // Controls the automated "your delivery is coming up" reminder email, sent
 // a configurable number of hours before a booking item's scheduled start.
 // Singleton row, same pattern as ReviewRequestSettings.
 model DeliveryReminderSettings {
-  id          String   @id @default(cuid())
-  enabled     Boolean  @default(false)
-  hoursBefore Int      @default(24)
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  enabled        Boolean      @default(false)
+  hoursBefore    Int          @default(24)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // One "search" click on the Leads page — logged purely so we can show how
@@ -725,11 +750,11 @@ model DeliveryReminderSettings {
 // always auditable and naturally resets when a new calendar month's
 // entries are counted.
 model PlacesSearchLog {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  query     String
-  createdAt DateTime @default(now())
+  query          String
+  createdAt      DateTime     @default(now())
 }
 
 // A local business found via a Google Places search, tracked for sales
@@ -737,29 +762,29 @@ model PlacesSearchLog {
 // over the same area doesn't create copies; a repeat search just leaves an
 // existing lead's status/notes alone and refreshes its basic details.
 model Lead {
-  id          String    @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  placeId     String    @unique
-  name        String
-  phone       String?
-  address     String?
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  placeId         String       @unique
+  name            String
+  phone           String?
+  address         String?
   // Returned directly by the Places search itself (no separate geocoding
   // call needed) — used to plot leads on the map.
-  latitude    Float?
-  longitude   Float?
-  website     String?
-  category    String?
+  latitude        Float?
+  longitude       Float?
+  website         String?
+  category        String?
   // The business type as typed into the search box (e.g. "roofers"),
   // before any service area gets appended — kept separate from `category`
   // (Google's own, much noisier classification) so the filter tabs on the
   // Leads page can group by what the business actually searched for.
-  tradeCategory String?
-  rating      Float?
-  searchQuery String?
-  status      String    @default("new") // new | contacted | interested | not_interested | customer
-  notes       String?
-  contactedAt DateTime?
+  tradeCategory   String?
+  rating          Float?
+  searchQuery     String?
+  status          String       @default("new") // new | contacted | interested | not_interested | customer
+  notes           String?
+  contactedAt     DateTime?
   // Google Places doesn't return email addresses, so this is filled in by
   // hand (usually found on the business's own website) before an outreach
   // email can be sent.
@@ -768,13 +793,13 @@ model Lead {
   // Set via the unsubscribe link in a sequence email (see
   // LeadSequenceEnrollment) — once true, no email sends to this lead
   // again, one-click or automated.
-  emailOptOut Boolean   @default(false)
+  emailOptOut     Boolean      @default(false)
   // Set by the inbound-reply webhook (src/app/api/webhooks/resend-inbound)
   // when a lead actually replies to a sequence email — distinct from
   // contactedAt, which is set when staff manually mark a lead contacted.
-  repliedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  repliedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   sequenceEnrollments LeadSequenceEnrollment[]
   emailSends          LeadEmailSend[]
@@ -788,14 +813,14 @@ model Lead {
 // send (the most recent still-"sent" row for that lead). "bounced" is
 // reserved for a future bounce webhook, not wired up yet.
 model LeadEmailSend {
-  id         String             @id @default(cuid())
-  leadId     String
-  lead       Lead               @relation(fields: [leadId], references: [id])
-  templateId String?
-  template   LeadEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  subject    String
-  status     String             @default("sent") // sent | replied | bounced
-  sentAt     DateTime           @default(now())
+  id            String             @id @default(cuid())
+  leadId        String
+  lead          Lead               @relation(fields: [leadId], references: [id])
+  templateId    String?
+  template      LeadEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  subject       String
+  status        String             @default("sent") // sent | replied | bounced
+  sentAt        DateTime           @default(now())
   // Resend's own id for this send, returned when the email is submitted
   // — lets the bounce webhook (src/app/api/webhooks/resend-events) match
   // a bounce to exactly this send instead of guessing "the latest one."
@@ -804,7 +829,7 @@ model LeadEmailSend {
   // sequence_manual (due-list "Send" button). Only sequence_auto counts
   // against the daily sending cap (see LeadOutreachSettings) — a human
   // clicking Send is already self-paced.
-  source String @default("manual")
+  source        String             @default("manual")
 }
 
 // Controls the daily cap on fully-automated sequence sends (the cron),
@@ -813,10 +838,12 @@ model LeadEmailSend {
 // reputation, especially a newer one. Singleton row, same pattern as
 // the other *Settings models.
 model LeadOutreachSettings {
-  id           String   @id @default(cuid())
-  dailySendCap Int      @default(25)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  dailySendCap   Int          @default(25)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 // A named, ordered set of outreach emails (e.g. "Roofers — 3 Touch") built
@@ -825,17 +852,17 @@ model LeadOutreachSettings {
 // becomes a "due" item a staff member sends with one click — same
 // mechanism either way, just who pulls the trigger.
 model EmailSequence {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name      String
-  autoSend  Boolean  @default(false)
+  name           String
+  autoSend       Boolean      @default(false)
   // Master switch — an inactive sequence stops advancing every
   // enrollment (auto or manual) and can't take new enrollments, without
   // deleting its history.
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   steps       SequenceStep[]
   enrollments LeadSequenceEnrollment[]
@@ -883,14 +910,14 @@ model LeadSequenceEnrollment {
 // (which covers fixed system events like delivery/pickup) since these are
 // freeform, user-created, and there can be any number of them.
 model LeadEmailTemplate {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name      String
-  subject   String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name           String
+  subject        String
+  body           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   sequenceSteps SequenceStep[]
   emailSends    LeadEmailSend[]
@@ -902,14 +929,14 @@ model LeadEmailTemplate {
 // LeadEmailTemplate, since cold-outreach messaging and win-back messaging
 // read very differently even though the sending mechanism is identical.
 model WinBackEmailTemplate {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name      String
-  subject   String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name           String
+  subject        String
+  body           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   sends WinBackSend[]
 }
@@ -921,14 +948,14 @@ model WinBackEmailTemplate {
 // scoped per send instead of per customer, so a customer can have more
 // than one campaign wave in their history.
 model WinBackSend {
-  id         String   @id @default(cuid())
+  id         String                @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer              @relation(fields: [customerId], references: [id])
   templateId String?
   template   WinBackEmailTemplate? @relation(fields: [templateId], references: [id])
-  status     String   @default("sent") // sent | responded | booked | not_interested
-  sentAt     DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status     String                @default("sent") // sent | responded | booked | not_interested
+  sentAt     DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
 }
 
 // Controls what counts as "lapsed" on the Win-Back page. Singleton row,
@@ -936,10 +963,12 @@ model WinBackSend {
 // Settings visit. No enabled/automation flag: win-back is always a
 // staff-triggered one-click send, never an automated cron.
 model WinBackSettings {
-  id         String   @id @default(cuid())
-  lapsedDays Int      @default(90)
-  updatedAt  DateTime @updatedAt
-  createdAt  DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  lapsedDays     Int          @default(90)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // A saved city/area (e.g. "Byron, GA") that Lead searches run against
@@ -947,22 +976,22 @@ model WinBackSettings {
 // of retyping the whole service area every time. A search with no saved
 // areas just runs the typed query as-is.
 model ServiceArea {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name      String   @unique
-  createdAt DateTime @default(now())
+  name           String       @unique
+  createdAt      DateTime     @default(now())
 }
 
 // A city/county where street placement requires a permit — configured in
 // Settings so the booking detail page's permit checklist only shows up
 // when it's actually relevant, instead of on every booking.
 model PermitArea {
-  id        String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name      String   @unique
-  createdAt DateTime @default(now())
+  name           String       @unique
+  createdAt      DateTime     @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a

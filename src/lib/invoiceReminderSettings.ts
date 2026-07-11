@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 
-// There's only ever one row. Created disabled with defaults on first use,
+// One row per organization. Created disabled with defaults on first use,
 // same pattern as getReviewRequestSettings.
-export async function getInvoiceReminderSettings() {
-  const existing = await db.invoiceReminderSettings.findFirst();
+export async function getInvoiceReminderSettings(organizationId: string) {
+  const existing = await db.invoiceReminderSettings.findUnique({ where: { organizationId } });
   if (existing) return existing;
-  return db.invoiceReminderSettings.create({ data: {} });
+  return db.invoiceReminderSettings.create({ data: { organizationId } });
 }

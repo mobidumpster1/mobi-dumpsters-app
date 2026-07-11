@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 
-// There's only ever one row. Created disabled on first use, same pattern
+// One row per organization. Created disabled on first use, same pattern
 // as getReviewRequestSettings.
-export async function getJobNotificationSettings() {
-  const existing = await db.jobNotificationSettings.findFirst();
+export async function getJobNotificationSettings(organizationId: string) {
+  const existing = await db.jobNotificationSettings.findUnique({ where: { organizationId } });
   if (existing) return existing;
-  return db.jobNotificationSettings.create({ data: {} });
+  return db.jobNotificationSettings.create({ data: { organizationId } });
 }

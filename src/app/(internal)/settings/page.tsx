@@ -77,19 +77,22 @@ export default async function SettingsPage({
     deliveries_checked,
   } = await searchParams;
   const configured = isQuickBooksConfigured();
-  const staffUsers = await db.user.findMany({ orderBy: { createdAt: "asc" } });
-  const connection = configured ? await getValidConnection() : null;
-  const agreement = await getAgreementSettings();
-  const reviewSettings = await getReviewRequestSettings();
-  const invoiceReminderSettings = await getInvoiceReminderSettings();
-  const jobNotificationSettings = await getJobNotificationSettings();
-  const deliveryReminderSettings = await getDeliveryReminderSettings();
-  const winBackSettings = await getWinBackSettings();
+  const staffUsers = await db.user.findMany({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+    orderBy: { createdAt: "asc" },
+  });
+  const connection = configured ? await getValidConnection(currentUser.effectiveOrganizationId) : null;
+  const agreement = await getAgreementSettings(currentUser.effectiveOrganizationId);
+  const reviewSettings = await getReviewRequestSettings(currentUser.effectiveOrganizationId);
+  const invoiceReminderSettings = await getInvoiceReminderSettings(currentUser.effectiveOrganizationId);
+  const jobNotificationSettings = await getJobNotificationSettings(currentUser.effectiveOrganizationId);
+  const deliveryReminderSettings = await getDeliveryReminderSettings(currentUser.effectiveOrganizationId);
+  const winBackSettings = await getWinBackSettings(currentUser.effectiveOrganizationId);
   const permitAreas = await db.permitArea.findMany({
     where: { organizationId: currentUser.effectiveOrganizationId },
     orderBy: { name: "asc" },
   });
-  const emailTemplates = await getAllEmailTemplates();
+  const emailTemplates = await getAllEmailTemplates(currentUser.effectiveOrganizationId);
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;

@@ -225,7 +225,7 @@ export async function submitBookingRequest(formData: FormData) {
     });
   }
 
-  const agreement = await getAgreementSettings();
+  const agreement = await getAgreementSettings(organizationId);
   const headerList = await headers();
   const ipAddress =
     headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -274,18 +274,22 @@ export async function submitBookingRequest(formData: FormData) {
   const host = headerList.get("host");
   const agreementUrl = host ? `https://${host}/agreement/view/${signedAgreement.id}` : null;
   try {
-    const { subject, body } = await renderEmailTemplate("booking_confirmation", {
-      customerName: name,
-      categoryAndTier: `${category.name}${tier ? ` (${tier.label})` : ""}`,
-      startDate: startDateStr,
-      endDate: endDate.toISOString().slice(0, 10),
-      address,
-      agreementLine: agreementUrl
-        ? `\nYou can view the service agreement you signed here: ${agreementUrl}\n`
-        : "",
-      phone: branding.smsPhone,
-      businessName: branding.businessName,
-    });
+    const { subject, body } = await renderEmailTemplate(
+      "booking_confirmation",
+      {
+        customerName: name,
+        categoryAndTier: `${category.name}${tier ? ` (${tier.label})` : ""}`,
+        startDate: startDateStr,
+        endDate: endDate.toISOString().slice(0, 10),
+        address,
+        agreementLine: agreementUrl
+          ? `\nYou can view the service agreement you signed here: ${agreementUrl}\n`
+          : "",
+        phone: branding.smsPhone,
+        businessName: branding.businessName,
+      },
+      organizationId
+    );
     await sendCustomerEmail(email, subject, body);
   } catch (error) {
     console.error("Failed to send booking confirmation email:", error);

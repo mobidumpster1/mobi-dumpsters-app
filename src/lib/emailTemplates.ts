@@ -167,9 +167,12 @@ function render(template: string, variables: Record<string, string>) {
 // — and fills in {{placeholders}} with the given variables.
 export async function renderEmailTemplate(
   key: EmailTemplateKey,
-  variables: Record<string, string>
+  variables: Record<string, string>,
+  organizationId: string
 ): Promise<{ subject: string; body: string }> {
-  const stored = await db.emailTemplate.findUnique({ where: { key } });
+  const stored = await db.emailTemplate.findUnique({
+    where: { organizationId_key: { organizationId, key } },
+  });
   const template = stored ?? DEFAULT_EMAIL_TEMPLATES[key];
   return {
     subject: render(template.subject, variables),
@@ -177,8 +180,8 @@ export async function renderEmailTemplate(
   };
 }
 
-export async function getAllEmailTemplates() {
-  const stored = await db.emailTemplate.findMany();
+export async function getAllEmailTemplates(organizationId: string) {
+  const stored = await db.emailTemplate.findMany({ where: { organizationId } });
   const byKey = new Map(stored.map((t) => [t.key, t]));
   return (Object.keys(DEFAULT_EMAIL_TEMPLATES) as EmailTemplateKey[]).map((key) => {
     const custom = byKey.get(key);
@@ -195,15 +198,16 @@ export async function getAllEmailTemplates() {
 export async function updateEmailTemplate(
   key: EmailTemplateKey,
   subject: string,
-  body: string
+  body: string,
+  organizationId: string
 ) {
   await db.emailTemplate.upsert({
-    where: { key },
-    create: { key, subject, body },
+    where: { organizationId_key: { organizationId, key } },
+    create: { organizationId, key, subject, body },
     update: { subject, body },
   });
 }
 
-export async function resetEmailTemplate(key: EmailTemplateKey) {
-  await db.emailTemplate.deleteMany({ where: { key } });
+export async function resetEmailTemplate(key: EmailTemplateKey, organizationId: string) {
+  await db.emailTemplate.deleteMany({ where: { organizationId, key } });
 }

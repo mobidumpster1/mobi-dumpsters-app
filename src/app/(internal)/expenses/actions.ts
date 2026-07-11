@@ -89,6 +89,7 @@ export async function markExpensePaid(expenseId: string) {
       category: expense.category,
       amount: expense.amount,
       date: expense.date,
+      organizationId: user.effectiveOrganizationId,
     });
     if (purchaseId) {
       await db.expense.update({

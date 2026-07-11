@@ -89,6 +89,7 @@ export async function markPaid(invoiceId: string, formData: FormData) {
             .map((item) => item.equipmentItem.label)
             .join(", ") ?? invoice.invoiceNumber,
         existingQboInvoiceId: invoice.quickbooksInvoiceId,
+        organizationId: user.effectiveOrganizationId,
       });
 
       if (result) {
@@ -172,6 +173,7 @@ export async function sendInvoiceForOnlinePayment(invoiceId: string) {
     description: invoice.lineItems.map((l) => l.description).join(", ") || invoice.invoiceNumber,
     billEmail: customer.email,
     existingQboInvoiceId: invoice.quickbooksInvoiceId,
+    organizationId: user.effectiveOrganizationId,
   });
 
   if (!result) {
@@ -214,7 +216,7 @@ export async function checkOnlinePaymentStatus(invoiceId: string) {
     where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
   });
   if (invoice.quickbooksInvoiceId && invoice.status !== "paid") {
-    const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId);
+    const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId, user.effectiveOrganizationId);
     if (balance === 0) {
       await db.invoice.update({
         where: { id: invoiceId },

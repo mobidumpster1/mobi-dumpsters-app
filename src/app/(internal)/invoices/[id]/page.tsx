@@ -42,7 +42,7 @@ export default async function InvoiceDetailPage({
   // so staff see it as paid without having to click "Check Payment Status".
   if (invoice.status !== "paid" && invoice.onlinePaymentUrl && invoice.quickbooksInvoiceId) {
     try {
-      const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId);
+      const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId, user.effectiveOrganizationId);
       if (balance === 0) {
         invoice = await db.invoice.update({
           where: { id: invoice.id },
@@ -66,7 +66,9 @@ export default async function InvoiceDetailPage({
   const checkOnlinePaymentStatusWithId = checkOnlinePaymentStatus.bind(null, invoice.id);
   const displayStatus = computeDisplayStatus(invoice.status, invoice.dueDate);
   const customer = invoice.booking?.customer ?? invoice.customer;
-  const quickbooksConnected = isQuickBooksConfigured() ? await getValidConnection() : null;
+  const quickbooksConnected = isQuickBooksConfigured()
+    ? await getValidConnection(user.effectiveOrganizationId)
+    : null;
   const logoExists = existsSync(
     path.join(process.cwd(), "public", branding.logoPath)
   );

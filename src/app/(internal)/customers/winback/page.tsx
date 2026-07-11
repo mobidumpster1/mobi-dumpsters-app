@@ -36,7 +36,7 @@ export default async function WinBackPage({
     selectedMonths !== null && (MONTH_FILTERS as readonly number[]).includes(selectedMonths);
 
   const [settings, customers, templates] = await Promise.all([
-    getWinBackSettings(),
+    getWinBackSettings(user.effectiveOrganizationId),
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       include: {

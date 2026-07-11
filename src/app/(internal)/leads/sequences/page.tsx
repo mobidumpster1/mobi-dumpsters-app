@@ -37,7 +37,7 @@ export default async function SequencesPage() {
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
     }),
-    getLeadOutreachSettings(),
+    getLeadOutreachSettings(user.effectiveOrganizationId),
     db.leadEmailSend.count({
       where: {
         source: "sequence_auto",
