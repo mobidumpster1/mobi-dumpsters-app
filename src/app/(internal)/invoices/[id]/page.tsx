@@ -129,8 +129,8 @@ export default async function InvoiceDetailPage({
           )}
         </div>
         <span
-          className={`inline-block rounded-full px-3 py-1 text-sm font-medium capitalize ${
-            INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-100 text-zinc-600"
+          className={`inline-block rounded-full px-3 py-1 text-sm font-black capitalize ${
+            INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-500 text-white"
           }`}
         >
           {displayStatus}

@@ -213,21 +213,21 @@ export default async function SettingsPage({
                 <span className="font-medium text-zinc-900">{staffUser.name}</span>{" "}
                 <span className="text-sm text-zinc-500">({staffUser.email})</span>
                 <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                  className={`ml-2 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
                     staffUser.role === "owner"
-                      ? "bg-brand/10 text-brand-dark"
-                      : "bg-zinc-100 text-zinc-600"
+                      ? "bg-brand text-white"
+                      : "bg-zinc-500 text-white"
                   }`}
                 >
                   {staffUser.role}
                 </span>
                 {!staffUser.active && (
-                  <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                  <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-black text-white">
                     Deactivated
                   </span>
                 )}
                 {staffUser.isPlatformAdmin && (
-                  <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
                     Platform Admin
                   </span>
                 )}
@@ -569,7 +569,7 @@ export default async function SettingsPage({
           {permitAreas.map((area) => (
             <span
               key={area.id}
-              className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1.5 pl-3 pr-1.5 text-sm text-zinc-700"
+              className="flex items-center gap-1.5 rounded-full border-2 border-zinc-300 bg-white py-1.5 pl-3 pr-1.5 text-sm font-bold text-zinc-700"
             >
               {area.name}
               <form action={removePermitArea.bind(null, area.id)}>

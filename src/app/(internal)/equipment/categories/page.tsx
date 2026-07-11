@@ -64,7 +64,7 @@ export default async function CategoriesPage() {
                 {fields.map((field) => (
                   <span
                     key={field.key}
-                    className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600"
+                    className="rounded-full border-2 border-zinc-300 bg-white px-2 py-0.5 text-xs font-bold text-zinc-700"
                   >
                     {field.label}
                   </span>

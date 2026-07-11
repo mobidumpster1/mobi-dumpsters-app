@@ -205,7 +205,7 @@ export default async function GalleryPage({
                 </p>
               )}
               <div className="mt-0.5 flex items-center justify-between gap-2">
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium capitalize text-zinc-600">
+                <span className="rounded-full bg-zinc-500 px-2 py-0.5 text-[10px] font-black capitalize text-white">
                   {photo.source} · {photo.type}
                 </span>
                 <span className="flex-shrink-0 text-[10px] text-zinc-400">

@@ -37,7 +37,7 @@ export function EmailTemplateCard({
         <span>
           <span className="font-medium text-ink">{label}</span>
           {isCustomized && (
-            <span className="ml-2 rounded-full bg-brand-light px-2 py-0.5 text-xs font-medium text-brand">
+            <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-xs font-black text-white">
               Customized
             </span>
           )}

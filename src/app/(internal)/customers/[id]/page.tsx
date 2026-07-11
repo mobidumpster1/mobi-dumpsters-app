@@ -460,7 +460,7 @@ export default async function CustomerDetailPage({
             key={entry.id}
             className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm text-sm"
           >
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium capitalize text-zinc-600">
+            <span className="rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black capitalize text-white">
               {entry.type}
             </span>
             <div className="flex-1">
@@ -502,7 +502,7 @@ export default async function CustomerDetailPage({
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600"
+                  className="rounded-full border-2 border-zinc-300 bg-white px-2 py-0.5 text-xs font-bold text-zinc-700"
                 >
                   {tag}
                 </span>

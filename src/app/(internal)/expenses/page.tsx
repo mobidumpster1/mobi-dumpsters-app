@@ -53,10 +53,10 @@ export default async function ExpensesPage() {
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-zinc-900">{expense.vendor}</span>
               <span
-                className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
                   expense.status === "paid"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-amber-100 text-amber-700"
+                    ? "bg-green-600 text-white"
+                    : "bg-amber-500 text-white"
                 }`}
               >
                 {expense.status}
@@ -137,10 +137,10 @@ export default async function ExpensesPage() {
                 </td>
                 <td className="px-5 py-4">
                   <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-black capitalize ${
                       expense.status === "paid"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-amber-100 text-amber-700"
+                        ? "bg-green-600 text-white"
+                        : "bg-amber-500 text-white"
                     }`}
                   >
                     {expense.status}

@@ -122,10 +122,10 @@ export default async function SequencesPage() {
                 <form action={toggleSequenceAutoSend.bind(null, sequence.id, !sequence.autoSend)}>
                   <button
                     type="submit"
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    className={`rounded-full px-3 py-1.5 text-xs font-black ${
                       sequence.autoSend
-                        ? "bg-blue-100 text-blue-700"
-                        : "border border-zinc-300 text-zinc-600"
+                        ? "bg-blue-600 text-white"
+                        : "border-2 border-zinc-300 text-zinc-600"
                     }`}
                   >
                     {sequence.autoSend ? "Auto-Send: On" : "Auto-Send: Off"}
@@ -134,10 +134,10 @@ export default async function SequencesPage() {
                 <form action={toggleSequenceActive.bind(null, sequence.id, !sequence.active)}>
                   <button
                     type="submit"
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    className={`rounded-full px-3 py-1.5 text-xs font-black ${
                       sequence.active
-                        ? "bg-green-100 text-green-700"
-                        : "border border-zinc-300 text-zinc-600"
+                        ? "bg-green-600 text-white"
+                        : "border-2 border-zinc-300 text-zinc-600"
                     }`}
                   >
                     {sequence.active ? "Active" : "Paused"}

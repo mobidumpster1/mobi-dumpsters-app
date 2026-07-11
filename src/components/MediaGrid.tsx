@@ -69,7 +69,7 @@ export function MediaGrid({
               className="h-40 w-full object-cover"
             />
             <div className="p-2">
-              <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium capitalize text-zinc-600">
+              <span className="inline-block rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black capitalize text-white">
                 {item.type}
               </span>
               {item.caption && (

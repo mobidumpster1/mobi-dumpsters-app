@@ -57,8 +57,8 @@ export default async function UnpaidInvoicesPage() {
                   {invoice.invoiceNumber}
                 </span>
                 <span
-                  className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                    INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-100 text-zinc-600"
+                  className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
+                    INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-500 text-white"
                   }`}
                 >
                   {displayStatus}
@@ -150,8 +150,8 @@ export default async function UnpaidInvoicesPage() {
                   </td>
                   <td className="px-5 py-4">
                     <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                        INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-100 text-zinc-600"
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-black capitalize ${
+                        INVOICE_STATUS_STYLES[displayStatus] ?? "bg-zinc-500 text-white"
                       }`}
                     >
                       {displayStatus}

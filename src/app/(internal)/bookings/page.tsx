@@ -41,11 +41,11 @@ export default async function BookingsPage() {
                 {booking.customer.name}
               </Link>
               {booking.status === "pending" ? (
-                <span className="inline-block flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                <span className="inline-block flex-shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
                   Pending Review
                 </span>
               ) : booking.status === "cancelled" ? (
-                <span className="inline-block flex-shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                <span className="inline-block flex-shrink-0 rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black text-white">
                   Cancelled
                 </span>
               ) : (
@@ -96,11 +96,11 @@ export default async function BookingsPage() {
                 </td>
                 <td className="px-5 py-4">
                   {booking.status === "pending" ? (
-                    <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    <span className="inline-block rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
                       Pending Review
                     </span>
                   ) : booking.status === "cancelled" ? (
-                    <span className="inline-block rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                    <span className="inline-block rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black text-white">
                       Cancelled
                     </span>
                   ) : (

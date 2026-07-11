@@ -28,7 +28,7 @@ export function ServiceAreaManager({
           {areas.map((area) => (
             <span
               key={area.id}
-              className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1.5 pl-3 pr-1.5 text-sm text-zinc-700"
+              className="flex items-center gap-1.5 rounded-full border-2 border-zinc-300 bg-white py-1.5 pl-3 pr-1.5 text-sm font-bold text-zinc-700"
             >
               {area.name}
               <form action={removeAction.bind(null, area.id)}>

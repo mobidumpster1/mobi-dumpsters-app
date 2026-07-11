@@ -22,7 +22,7 @@ export function WinBackStatusSelect({
         await action(sendId, e.target.value);
         router.refresh();
       }}
-      className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+      className="rounded-full border-2 border-zinc-900 bg-white px-3 py-1.5 text-xs font-bold text-zinc-900 transition-colors hover:bg-zinc-100 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
     >
       {Object.entries(WINBACK_STATUS_LABELS).map(([value, label]) => (
         <option key={value} value={value}>

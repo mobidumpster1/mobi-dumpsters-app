@@ -35,7 +35,7 @@ export function VehicleQuickSelect({
         name="vehicleId"
         defaultValue={currentVehicleId ?? ""}
         onChange={() => formRef.current?.requestSubmit()}
-        className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        className="rounded-full border-2 border-zinc-900 bg-white px-3 py-1.5 text-xs font-bold text-zinc-900 transition-colors hover:bg-zinc-100 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
       >
         <option value="">Not set</option>
         {vehicles.map((v) => (

@@ -52,10 +52,10 @@ export default async function ExpenseDetailPage({
             Edit
           </Link>
           <span
-            className={`inline-block self-center rounded-full px-3 py-1 text-sm font-medium capitalize ${
+            className={`inline-block self-center rounded-full px-3 py-1 text-sm font-black capitalize ${
               expense.status === "paid"
-                ? "bg-green-100 text-green-700"
-                : "bg-amber-100 text-amber-700"
+                ? "bg-green-600 text-white"
+                : "bg-amber-500 text-white"
             }`}
           >
             {expense.status}

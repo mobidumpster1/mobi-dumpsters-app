@@ -372,10 +372,10 @@ export default async function BookingDetailPage({
               </p>
               <p className="text-sm text-zinc-500">{report.description}</p>
               <span
-                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-black ${
                   report.billedToCustomer
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-zinc-100 text-zinc-600"
+                    ? "bg-amber-500 text-white"
+                    : "bg-zinc-500 text-white"
                 }`}
               >
                 {report.billedToCustomer ? "Billed to customer" : "Business expense"}
