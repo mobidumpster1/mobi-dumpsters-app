@@ -11,6 +11,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 // privacy/terms pages required by Intuit's QuickBooks app review.
 const PUBLIC_PATHS = [
   "/login",
+  "/signup",
   "/book",
   "/agreement",
   "/api/cron",
