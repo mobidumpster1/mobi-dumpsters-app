@@ -248,7 +248,7 @@ export async function submitBookingRequest(formData: FormData) {
   // Hold these units so they don't look "Available" for other jobs while
   // the request is awaiting confirmation.
   await db.equipmentItem.updateMany({
-    where: { id: { in: items.map((item) => item.id) } },
+    where: { id: { in: items.map((item) => item.id) }, organizationId },
     data: {
       status: "reserved",
       currentCustomerId: customer.id,

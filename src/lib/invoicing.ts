@@ -126,15 +126,17 @@ export async function nextInvoiceNumber(organizationId: string): Promise<string>
 // one already exists. Used both by auto-generation on job completion and
 // by the manual "Create Invoice" button.
 export async function createDraftInvoiceForBooking(bookingId: string) {
-  const existing = await db.invoice.findFirst({ where: { bookingId } });
-  if (existing) return existing;
-
   const booking = await db.booking.findUniqueOrThrow({
     where: { id: bookingId },
     include: {
       items: { include: { equipmentItem: { include: { category: true } } } },
     },
   });
+
+  const existing = await db.invoice.findFirst({
+    where: { bookingId, organizationId: booking.organizationId },
+  });
+  if (existing) return existing;
 
   const lines = computeInvoiceLineItems(booking.items);
   const amount = lines.reduce((sum, line) => sum + line.amount, 0);

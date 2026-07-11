@@ -12,6 +12,7 @@ import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { requirePermission, requireUser } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
@@ -71,7 +72,10 @@ export async function createBooking(formData: FormData) {
   });
 
   await db.equipmentItem.updateMany({
-    where: { id: { in: validItems.map((i) => i.equipmentItemId) } },
+    where: {
+      id: { in: validItems.map((i) => i.equipmentItemId) },
+      organizationId: user.effectiveOrganizationId,
+    },
     data: {
       status: "reserved",
       currentCustomerId: customerId,
@@ -153,7 +157,10 @@ export async function declineBooking(bookingId: string) {
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
 
   await db.equipmentItem.updateMany({
-    where: { id: { in: booking.items.map((item) => item.equipmentItemId) } },
+    where: {
+      id: { in: booking.items.map((item) => item.equipmentItemId) },
+      organizationId: user.effectiveOrganizationId,
+    },
     data: { status: "available", currentCustomerId: null, currentLocation: null },
   });
 
@@ -175,7 +182,10 @@ export async function cancelBooking(bookingId: string) {
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
 
   await db.equipmentItem.updateMany({
-    where: { id: { in: booking.items.map((item) => item.equipmentItemId) } },
+    where: {
+      id: { in: booking.items.map((item) => item.equipmentItemId) },
+      organizationId: user.effectiveOrganizationId,
+    },
     data: { status: "available", currentCustomerId: null, currentLocation: null },
   });
 
@@ -264,6 +274,7 @@ export async function deleteBooking(bookingId: string) {
     where: {
       id: { in: booking.items.map((item) => item.equipmentItemId) },
       currentCustomerId: booking.customerId,
+      organizationId: user.effectiveOrganizationId,
     },
     data: { status: "available", currentCustomerId: null, currentLocation: null },
   });
@@ -272,7 +283,10 @@ export async function deleteBooking(bookingId: string) {
     await deleteUploadedFile(photo.filePath);
   }
   await db.photo.deleteMany({ where: { bookingId } });
-  await db.expense.updateMany({ where: { bookingId }, data: { bookingId: null } });
+  await db.expense.updateMany({
+    where: { bookingId, organizationId: user.effectiveOrganizationId },
+    data: { bookingId: null },
+  });
   await db.bookingItem.deleteMany({ where: { bookingId } });
   await db.booking.delete({ where: { id: bookingId } });
   await logAction("booking.deleted", "Booking", bookingId);
@@ -423,7 +437,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
   // booking has multiple items — one job is one trip, not one per item.
   if (bookingItem.actualMileage) {
     const alreadyLogged = await db.mileageLogEntry.findFirst({
-      where: { bookingId: bookingItem.bookingId },
+      where: { bookingId: bookingItem.bookingId, organizationId: user.effectiveOrganizationId },
     });
     if (!alreadyLogged) {
       await db.mileageLogEntry.create({
@@ -494,4 +508,79 @@ export async function resolveServiceRequest(requestId: string) {
   });
   revalidatePath(`/bookings/${request.bookingId}`);
   revalidatePath("/");
+}
+
+// Lets staff mark a booking as already reviewed without sending an email —
+// e.g. the customer left a review on their own, outside this flow. Reuses
+// reviewRequestSentAt (the same field the automated send uses), so this
+// booking is excluded from future auto-sends and from the "due" list,
+// exactly as if a real send had already happened.
+export async function markBookingReviewed(bookingId: string) {
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+  });
+
+  await db.$transaction([
+    db.booking.update({
+      where: { id: bookingId },
+      data: { reviewRequestSentAt: new Date() },
+    }),
+    db.customerNote.create({
+      data: {
+        customerId: booking.customerId,
+        type: "note",
+        content: "Marked as already reviewed (no email sent)",
+      },
+    }),
+  ]);
+
+  await logAction("booking.marked_reviewed", "Booking", bookingId);
+  revalidatePath(`/bookings/${bookingId}`);
+}
+
+// Sends the review-request email for just this one booking right now,
+// bypassing the daily cron's delay/eligibility window — e.g. staff know a
+// job wrapped up cleanly and don't want to wait for the automated delay.
+// Only requires a Google review link to be configured, not that auto-send
+// be turned on — that toggle only controls the daily cron.
+export async function sendReviewRequestNow(bookingId: string) {
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+    include: { customer: true },
+  });
+
+  if (!booking.customer.email) {
+    throw new Error("This customer has no email on file.");
+  }
+
+  const settings = await getReviewRequestSettings();
+  if (!settings.googleReviewUrl) {
+    throw new Error("Add a Google review link in Settings first.");
+  }
+
+  const { subject, body } = await renderEmailTemplate("review_request", {
+    customerName: booking.customer.name,
+    businessName: branding.businessName,
+    reviewUrl: settings.googleReviewUrl,
+  });
+  await sendCustomerEmail(booking.customer.email, subject, body);
+
+  await db.$transaction([
+    db.booking.update({
+      where: { id: bookingId },
+      data: { reviewRequestSentAt: new Date() },
+    }),
+    db.customerNote.create({
+      data: {
+        customerId: booking.customerId,
+        type: "email",
+        content: "Manually sent review request email",
+      },
+    }),
+  ]);
+
+  await logAction("booking.review_request_sent", "Booking", bookingId);
+  revalidatePath(`/bookings/${bookingId}`);
 }

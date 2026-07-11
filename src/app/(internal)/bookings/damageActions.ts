@@ -29,7 +29,9 @@ export async function addDamageReport(bookingId: string, formData: FormData) {
   let expenseId: string | null = null;
 
   if (billedToCustomer) {
-    const invoice = await db.invoice.findFirst({ where: { bookingId } });
+    const invoice = await db.invoice.findFirst({
+      where: { bookingId, organizationId: user.effectiveOrganizationId },
+    });
     if (!invoice) {
       throw new Error(
         "This booking doesn't have an invoice yet — create one first, then bill the damage to it."

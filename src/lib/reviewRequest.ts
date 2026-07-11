@@ -29,15 +29,19 @@ export async function sendPendingReviewRequests() {
   // bookings. Not a data leak — each candidate's own customer gets
   // emailed about their own booking — but every org shares one
   // configuration until settings themselves become per-organization.
-  const candidates = await db.booking.findMany({
-    where: {
-      reviewRequestSentAt: null,
-      status: { not: "cancelled" },
-      customer: { email: { not: null } },
-      items: { every: { actualReturnDate: { lte: cutoff } } },
-    },
-    include: { customer: true, items: true },
-  });
+  const candidates = await db.$allowUnscoped(
+    "daily cron applies one global settings row to every organization's bookings",
+    () =>
+      db.booking.findMany({
+        where: {
+          reviewRequestSentAt: null,
+          status: { not: "cancelled" },
+          customer: { email: { not: null } },
+          items: { every: { actualReturnDate: { lte: cutoff } } },
+        },
+        include: { customer: true, items: true },
+      })
+  );
 
   const eligible = candidates.filter((booking) => booking.items.length > 0);
 

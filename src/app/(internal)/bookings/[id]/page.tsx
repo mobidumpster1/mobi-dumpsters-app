@@ -10,6 +10,8 @@ import {
   notifyOnTheWay,
   setBookingVehicle,
   resolveServiceRequest,
+  markBookingReviewed,
+  sendReviewRequestNow,
 } from "../actions";
 import { uploadPhoto, deletePhoto } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
@@ -94,6 +96,8 @@ export default async function BookingDetailPage({
     "#MobiDumpsters #DumpsterRental #JunkRemoval #ByronGA #MaconGA",
   ].join("\n");
   const addDamageReportWithId = addDamageReport.bind(null, booking.id);
+  const markBookingReviewedWithId = markBookingReviewed.bind(null, booking.id);
+  const sendReviewRequestNowWithId = sendReviewRequestNow.bind(null, booking.id);
 
   return (
     <div>
@@ -276,6 +280,43 @@ export default async function BookingDetailPage({
             + This delivery requires a permit
           </button>
         </form>
+      )}
+
+      {!isPending && !isCancelled && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Review Request
+            </p>
+            {booking.reviewRequestSentAt ? (
+              <p className="mt-1 text-sm text-zinc-600">
+                Marked as requested/reviewed on {formatDate(booking.reviewRequestSentAt)}.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-zinc-400">Not requested yet.</p>
+            )}
+          </div>
+          {!booking.reviewRequestSentAt && (
+            <div className="flex flex-wrap gap-2">
+              <form action={sendReviewRequestNowWithId}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                >
+                  Send Review Request Now
+                </button>
+              </form>
+              <form action={markBookingReviewedWithId}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                >
+                  Already Reviewed
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
       )}
 
       {booking.serviceRequests.length > 0 && (

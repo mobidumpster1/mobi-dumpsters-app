@@ -30,17 +30,21 @@ export async function sendPendingInvoiceReminders() {
   // organization's invoices. Not a data leak — each candidate's own
   // customer gets emailed about their own invoice — but every org shares
   // one configuration until settings themselves become per-organization.
-  const candidates = await db.invoice.findMany({
-    where: {
-      status: { not: "paid" },
-      dueDate: { not: null, lte: cutoffFirst },
-      OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }],
-    },
-    include: {
-      booking: { include: { customer: true } },
-      customer: true,
-    },
-  });
+  const candidates = await db.$allowUnscoped(
+    "daily cron applies one global settings row to every organization's invoices",
+    () =>
+      db.invoice.findMany({
+        where: {
+          status: { not: "paid" },
+          dueDate: { not: null, lte: cutoffFirst },
+          OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }],
+        },
+        include: {
+          booking: { include: { customer: true } },
+          customer: true,
+        },
+      })
+  );
 
   const eligible = candidates
     .map((invoice) => ({ invoice, customer: invoice.booking?.customer ?? invoice.customer }))
