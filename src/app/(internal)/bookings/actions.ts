@@ -13,7 +13,7 @@ import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireUser } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { matchesPermitArea } from "@/lib/permits";
 
@@ -25,6 +25,8 @@ type BookingItemInput = {
 };
 
 export async function createBooking(formData: FormData) {
+  const user = await requireUser();
+
   const customerId = str(formData, "customerId");
   const deliveryAddress = str(formData, "deliveryAddress");
   if (!customerId) throw new Error("Customer is required");
@@ -43,11 +45,12 @@ export async function createBooking(formData: FormData) {
 
   const [geocoded, permitAreas] = await Promise.all([
     geocodeAddress(deliveryAddress),
-    db.permitArea.findMany(),
+    db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
   ]);
 
   const booking = await db.booking.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       customerId,
       deliveryAddress,
       latitude: geocoded?.latitude,
@@ -100,8 +103,9 @@ export async function createBooking(formData: FormData) {
 }
 
 export async function confirmBooking(bookingId: string, formData: FormData) {
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
   });
 
@@ -140,8 +144,9 @@ export async function confirmBooking(bookingId: string, formData: FormData) {
 }
 
 export async function declineBooking(bookingId: string) {
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true },
   });
 
@@ -161,8 +166,9 @@ export async function declineBooking(bookingId: string) {
 // equipment and removes the synced Google Calendar event, same outcome as
 // declining a pending request, just reachable from a different screen.
 export async function cancelBooking(bookingId: string) {
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true },
   });
 
@@ -184,18 +190,21 @@ export async function cancelBooking(bookingId: string) {
 }
 
 export async function updateBooking(bookingId: string, formData: FormData) {
+  const user = await requireUser();
   const deliveryAddress = str(formData, "deliveryAddress");
   if (!deliveryAddress) throw new Error("Delivery address is required");
 
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true },
   });
 
   const addressChanged = deliveryAddress !== booking.deliveryAddress;
   const [geocoded, permitAreas] = await Promise.all([
     addressChanged ? geocodeAddress(deliveryAddress) : Promise.resolve(null),
-    addressChanged ? db.permitArea.findMany() : Promise.resolve([]),
+    addressChanged
+      ? db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } })
+      : Promise.resolve([]),
   ]);
 
   await db.booking.update({
@@ -238,10 +247,10 @@ export async function updateBooking(bookingId: string, formData: FormData) {
 }
 
 export async function deleteBooking(bookingId: string) {
-  await requirePermission("canDeleteRecords");
+  const user = await requirePermission("canDeleteRecords");
 
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true, invoices: true, photos: true },
   });
 
@@ -275,8 +284,9 @@ export async function deleteBooking(bookingId: string) {
 }
 
 export async function notifyOnTheWay(bookingId: string) {
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { customer: true },
   });
 
@@ -301,15 +311,20 @@ export async function notifyOnTheWay(bookingId: string) {
 }
 
 export async function setBookingVehicle(bookingId: string, formData: FormData) {
+  const user = await requireUser();
   const vehicleId = str(formData, "vehicleId");
-  await db.booking.update({
-    where: { id: bookingId },
+  await db.booking.updateMany({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     data: { vehicleId: vehicleId || null },
   });
   revalidatePath(`/bookings/${bookingId}`);
 }
 
 export async function markDelivered(bookingItemId: string) {
+  const user = await requireUser();
+  await db.bookingItem.findFirstOrThrow({
+    where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
+  });
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
     data: { deliveredAt: new Date() },
@@ -366,6 +381,11 @@ export async function markDelivered(bookingItemId: string) {
 }
 
 export async function markReturned(bookingItemId: string, formData: FormData) {
+  const user = await requireUser();
+  await db.bookingItem.findFirstOrThrow({
+    where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
+  });
+
   const actualTonnageStr = str(formData, "actualTonnage");
   const actualMileageStr = str(formData, "actualMileage");
 
@@ -408,6 +428,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
     if (!alreadyLogged) {
       await db.mileageLogEntry.create({
         data: {
+          organizationId: user.effectiveOrganizationId,
           vehicleId: bookingItem.booking.vehicleId,
           equipmentItemId: bookingItem.booking.vehicleId ? null : bookingItem.equipmentItemId,
           bookingId: bookingItem.bookingId,
@@ -463,6 +484,10 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
 // change the booking's dates or trigger a dump trip. Staff make the actual
 // change (edit the booking, log a dump) through the normal tools.
 export async function resolveServiceRequest(requestId: string) {
+  const user = await requireUser();
+  await db.serviceRequest.findFirstOrThrow({
+    where: { id: requestId, booking: { organizationId: user.effectiveOrganizationId } },
+  });
   const request = await db.serviceRequest.update({
     where: { id: requestId },
     data: { status: "resolved", resolvedAt: new Date() },

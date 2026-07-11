@@ -38,13 +38,17 @@ export default async function WinBackPage({
   const [settings, customers, templates] = await Promise.all([
     getWinBackSettings(),
     db.customer.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       include: {
         bookings: { include: { items: { select: { startDate: true } } } },
         invoices: { select: { issueDate: true } },
         winBackSends: { orderBy: { sentAt: "desc" }, take: 1 },
       },
     }),
-    db.winBackEmailTemplate.findMany({ orderBy: { name: "asc" } }),
+    db.winBackEmailTemplate.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   let cutoff: Date;

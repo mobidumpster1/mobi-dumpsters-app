@@ -83,9 +83,13 @@ export default async function ReportsPage() {
 
   const [invoices, expenses] = await Promise.all([
     db.invoice.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       include: { booking: { include: { customer: true } }, customer: true },
     }),
-    db.expense.findMany({ include: { equipmentItem: true } }),
+    db.expense.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      include: { equipmentItem: true },
+    }),
   ]);
 
   const totalRevenue = invoices.reduce((sum, i) => sum + i.amount, 0);

@@ -11,6 +11,7 @@ import {
   documentUrgency,
   utcStartOfToday,
 } from "@/lib/documents";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,7 @@ function DispatchCard({
 }
 
 export default async function DispatchPage() {
+  const user = await requireUser();
   const today = startOfToday();
   const weekEnd = daysFromNow(7);
   const docToday = utcStartOfToday();
@@ -108,7 +110,7 @@ export default async function DispatchPage() {
         where: {
           deliveredAt: null,
           startDate: { lte: weekEnd },
-          booking: { status: "confirmed" },
+          booking: { status: "confirmed", organizationId: user.effectiveOrganizationId },
         },
         include: { equipmentItem: true, booking: { include: { customer: true } } },
         orderBy: { startDate: "asc" },
@@ -117,7 +119,7 @@ export default async function DispatchPage() {
         where: {
           actualReturnDate: null,
           expectedReturnDate: { lte: weekEnd },
-          booking: { status: "confirmed" },
+          booking: { status: "confirmed", organizationId: user.effectiveOrganizationId },
         },
         include: { equipmentItem: true, booking: { include: { customer: true } } },
         orderBy: { expectedReturnDate: "asc" },
@@ -128,21 +130,22 @@ export default async function DispatchPage() {
           latitude: { not: null },
           longitude: { not: null },
           items: { some: { deliveredAt: { not: null }, actualReturnDate: null } },
+          organizationId: user.effectiveOrganizationId,
         },
         include: { customer: true },
       }),
       db.booking.findMany({
-        where: { status: "pending" },
+        where: { status: "pending", organizationId: user.effectiveOrganizationId },
         include: { customer: true, items: { include: { equipmentItem: true } } },
         orderBy: { createdAt: "asc" },
       }),
       db.serviceRequest.findMany({
-        where: { status: "pending" },
+        where: { status: "pending", booking: { organizationId: user.effectiveOrganizationId } },
         include: { booking: { include: { customer: true } } },
         orderBy: { createdAt: "asc" },
       }),
       db.document.findMany({
-        where: { expiresOn: { lte: docAlertCutoff } },
+        where: { expiresOn: { lte: docAlertCutoff }, organizationId: user.effectiveOrganizationId },
         include: { vehicle: true },
         orderBy: { expiresOn: "asc" },
       }),

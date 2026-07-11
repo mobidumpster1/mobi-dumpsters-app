@@ -6,8 +6,11 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { normalizeTagsInput } from "@/lib/tags";
 import { geocodeAddress } from "@/lib/geocode";
+import { requireUser } from "@/lib/session";
 
 export async function createCustomer(formData: FormData) {
+  const user = await requireUser();
+
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
@@ -16,6 +19,7 @@ export async function createCustomer(formData: FormData) {
 
   const customer = await db.customer.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       name,
       companyName: str(formData, "companyName"),
       phone: str(formData, "phone"),
@@ -36,6 +40,8 @@ export async function createCustomer(formData: FormData) {
 // picker on the New Booking screen) that want to stay on the current page
 // and get the new customer back, instead of being redirected to it.
 export async function quickAddCustomer(formData: FormData) {
+  const user = await requireUser();
+
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
@@ -44,6 +50,7 @@ export async function quickAddCustomer(formData: FormData) {
 
   const customer = await db.customer.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       name,
       phone: str(formData, "phone"),
       email: str(formData, "email"),
@@ -58,14 +65,16 @@ export async function quickAddCustomer(formData: FormData) {
 }
 
 export async function updateCustomer(customerId: string, formData: FormData) {
+  const user = await requireUser();
+
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
   const address = str(formData, "address");
   const geocoded = address ? await geocodeAddress(address) : null;
 
-  await db.customer.update({
-    where: { id: customerId },
+  await db.customer.updateMany({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
     data: {
       name,
       companyName: str(formData, "companyName"),
@@ -84,9 +93,14 @@ export async function updateCustomer(customerId: string, formData: FormData) {
 }
 
 export async function addCustomerNote(customerId: string, formData: FormData) {
+  const user = await requireUser();
   const content = str(formData, "content");
   if (!content) throw new Error("Note content is required");
   const type = str(formData, "type") ?? "note";
+
+  await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
 
   await db.customerNote.create({
     data: { customerId, content, type },

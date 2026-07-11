@@ -14,8 +14,15 @@ export default async function DocumentsPage() {
   if (!hasPermission(user, "canViewReports")) redirect("/");
 
   const [documents, vehicles] = await Promise.all([
-    db.document.findMany({ orderBy: { expiresOn: "asc" }, include: { vehicle: true } }),
-    db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
+    db.document.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { expiresOn: "asc" },
+      include: { vehicle: true },
+    }),
+    db.vehicle.findMany({
+      where: { active: true, organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
   ]);
 
   const today = utcStartOfToday();

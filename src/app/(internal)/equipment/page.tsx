@@ -5,6 +5,7 @@ import { SearchBox } from "@/components/SearchBox";
 import { EquipmentTabs } from "@/components/EquipmentTabs";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
 import { quickSetEquipmentStatus } from "./actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function EquipmentPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  const user = await requireUser();
   const { status, q } = await searchParams;
 
   function statusHref(nextStatus?: string) {
@@ -28,6 +30,7 @@ export default async function EquipmentPage({
   const [items, statusCounts, totalCount] = await Promise.all([
     db.equipmentItem.findMany({
       where: {
+        organizationId: user.effectiveOrganizationId,
         status: status || undefined,
         ...(q
           ? {
@@ -50,8 +53,12 @@ export default async function EquipmentPage({
         },
       },
     }),
-    db.equipmentItem.groupBy({ by: ["status"], _count: true }),
-    db.equipmentItem.count(),
+    db.equipmentItem.groupBy({
+      by: ["status"],
+      where: { organizationId: user.effectiveOrganizationId },
+      _count: true,
+    }),
+    db.equipmentItem.count({ where: { organizationId: user.effectiveOrganizationId } }),
   ]);
 
   const countByStatus = new Map(statusCounts.map((s) => [s.status, s._count]));

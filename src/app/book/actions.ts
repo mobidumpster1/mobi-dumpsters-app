@@ -13,6 +13,7 @@ import { branding } from "@/lib/branding";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
+import { getPublicOrganizationId } from "@/lib/session";
 
 export async function checkAvailability(
   categoryId: string,
@@ -22,7 +23,10 @@ export async function checkAvailability(
   if (!categoryId || !startDate || !endDate) {
     return { availableCount: 0, isAvailable: false };
   }
-  const category = await db.equipmentCategory.findUnique({ where: { id: categoryId } });
+  const organizationId = await getPublicOrganizationId();
+  const category = await db.equipmentCategory.findFirst({
+    where: { id: categoryId, organizationId },
+  });
   if (!category) return { availableCount: 0, isAvailable: false };
 
   const items = await findAvailableItems(
@@ -44,7 +48,10 @@ export async function getUnavailableStartDates(
   durationDays: number
 ): Promise<string[]> {
   if (!categoryId || !monthStart) return [];
-  const category = await db.equipmentCategory.findUnique({ where: { id: categoryId } });
+  const organizationId = await getPublicOrganizationId();
+  const category = await db.equipmentCategory.findFirst({
+    where: { id: categoryId, organizationId },
+  });
   if (!category) return [];
 
   const effectiveId = effectiveCategoryId(category);
@@ -58,7 +65,11 @@ export async function getUnavailableStartDates(
   queryEnd.setUTCDate(queryEnd.getUTCDate() + days);
 
   const items = await db.equipmentItem.findMany({
-    where: { categoryId: effectiveId, status: { notIn: ["retired", "needs_repair"] } },
+    where: {
+      categoryId: effectiveId,
+      organizationId,
+      status: { notIn: ["retired", "needs_repair"] },
+    },
     include: {
       bookingItems: {
         where: {
@@ -120,8 +131,9 @@ export async function submitBookingRequest(formData: FormData) {
   if (!address) throw new Error("Delivery address is required");
   if (!agreed) throw new Error("You must agree to the service agreement to book");
 
-  const category = await db.equipmentCategory.findUniqueOrThrow({
-    where: { id: categoryId },
+  const organizationId = await getPublicOrganizationId();
+  const category = await db.equipmentCategory.findFirstOrThrow({
+    where: { id: categoryId, organizationId },
     include: { pricingTiers: true },
   });
 
@@ -158,9 +170,9 @@ export async function submitBookingRequest(formData: FormData) {
   const totalPrice = tier ? (tier.price ?? 0) : (category.basePrice ?? 0);
   const pricePerItem = totalPrice / needed;
 
-  let customer = await db.customer.findFirst({ where: { email } });
+  let customer = await db.customer.findFirst({ where: { email, organizationId } });
   if (!customer) {
-    customer = await db.customer.findFirst({ where: { phone } });
+    customer = await db.customer.findFirst({ where: { phone, organizationId } });
   }
   if (!customer) {
     // Only set on a genuinely new customer — an existing customer's
@@ -168,7 +180,14 @@ export async function submitBookingRequest(formData: FormData) {
     // booking happened to come from a different ad click.
     const utmSource = (await cookies()).get("mobi_utm_source")?.value;
     customer = await db.customer.create({
-      data: { name, phone, email, address, leadSource: mapUtmSourceToLeadSource(utmSource) },
+      data: {
+        organizationId,
+        name,
+        phone,
+        email,
+        address,
+        leadSource: mapUtmSourceToLeadSource(utmSource),
+      },
     });
   } else {
     await fillBlankCustomerFields(customer, { phone, email, address });
@@ -178,6 +197,7 @@ export async function submitBookingRequest(formData: FormData) {
 
   const booking = await db.booking.create({
     data: {
+      organizationId,
       customerId: customer.id,
       deliveryAddress: address,
       latitude: geocoded?.latitude,

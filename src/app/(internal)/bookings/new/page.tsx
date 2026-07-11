@@ -4,14 +4,19 @@ import { createBooking } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { BookingItemsBuilder } from "@/components/BookingItemsBuilder";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewBookingPage() {
+  const user = await requireUser();
   const [customers, items] = await Promise.all([
-    db.customer.findMany({ orderBy: { name: "asc" } }),
+    db.customer.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
     db.equipmentItem.findMany({
-      where: { status: { not: "retired" } },
+      where: { status: { not: "retired" }, organizationId: user.effectiveOrganizationId },
       orderBy: { label: "asc" },
       include: { category: true },
     }),

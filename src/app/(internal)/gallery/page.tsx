@@ -5,6 +5,7 @@ import { GalleryImage } from "@/components/GalleryImage";
 import { QuickPhotoUploadButton } from "@/components/QuickPhotoUploadButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { uploadGalleryPhoto, deleteGalleryPhoto } from "./actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function GalleryPage({
 }: {
   searchParams: Promise<{ source?: string; media?: string }>;
 }) {
+  const user = await requireUser();
   const { source, media } = await searchParams;
   const activeSource = SOURCES.includes(source as (typeof SOURCES)[number])
     ? (source as (typeof SOURCES)[number])
@@ -39,21 +41,25 @@ export default async function GalleryPage({
 
   const [bookingPhotos, equipmentPhotos, customerPhotos, generalPhotos] = await Promise.all([
     db.photo.findMany({
+      where: { booking: { organizationId: user.effectiveOrganizationId } },
       include: { booking: { include: { customer: true } } },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
     db.equipmentPhoto.findMany({
+      where: { equipmentItem: { organizationId: user.effectiveOrganizationId } },
       include: { equipmentItem: true },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
     db.customerPhoto.findMany({
+      where: { customer: { organizationId: user.effectiveOrganizationId } },
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
     db.galleryPhoto.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),

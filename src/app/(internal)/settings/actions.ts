@@ -19,6 +19,7 @@ import {
   resetEmailTemplate,
   type EmailTemplateKey,
 } from "@/lib/emailTemplates";
+import { requireUser } from "@/lib/session";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -56,6 +57,7 @@ export async function disconnectQuickBooks() {
 }
 
 export async function importCustomersFromQuickBooks() {
+  const user = await requireUser();
   const connection = await getValidConnection();
   if (!connection) throw new Error("Not connected to QuickBooks");
 
@@ -63,7 +65,10 @@ export async function importCustomersFromQuickBooks() {
 
   for (const qc of qboCustomers) {
     const existing = await db.customer.findFirst({
-      where: { OR: [{ quickbooksCustomerId: qc.Id }, { name: qc.DisplayName }] },
+      where: {
+        organizationId: user.effectiveOrganizationId,
+        OR: [{ quickbooksCustomerId: qc.Id }, { name: qc.DisplayName }],
+      },
     });
     if (existing) {
       if (!existing.quickbooksCustomerId) {
@@ -84,6 +89,7 @@ export async function importCustomersFromQuickBooks() {
 
     await db.customer.create({
       data: {
+        organizationId: user.effectiveOrganizationId,
         name: qc.DisplayName,
         email: qc.PrimaryEmailAddr?.Address ?? null,
         phone: qc.PrimaryPhone?.FreeFormNumber ?? null,
@@ -162,12 +168,13 @@ export async function updateWinBackSettings(formData: FormData) {
 }
 
 export async function addPermitArea(formData: FormData) {
+  const user = await requireUser();
   const name = str(formData, "name");
   if (!name) throw new Error("Area name is required");
 
   await db.permitArea.upsert({
     where: { name },
-    create: { name },
+    create: { organizationId: user.effectiveOrganizationId, name },
     update: {},
   });
 
@@ -175,7 +182,10 @@ export async function addPermitArea(formData: FormData) {
 }
 
 export async function removePermitArea(areaId: string) {
-  await db.permitArea.delete({ where: { id: areaId } });
+  const user = await requireUser();
+  await db.permitArea.deleteMany({
+    where: { id: areaId, organizationId: user.effectiveOrganizationId },
+  });
   revalidatePath("/settings");
 }
 

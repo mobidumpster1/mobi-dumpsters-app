@@ -8,7 +8,7 @@ import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function addRecurringBill(formData: FormData) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
   const name = str(formData, "name");
   const category = str(formData, "category");
@@ -22,6 +22,7 @@ export async function addRecurringBill(formData: FormData) {
 
   await db.recurringBill.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       name,
       category,
       frequency,
@@ -37,7 +38,7 @@ export async function addRecurringBill(formData: FormData) {
 }
 
 export async function updateRecurringBill(billId: string, formData: FormData) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
   const name = str(formData, "name");
   const category = str(formData, "category");
@@ -49,8 +50,8 @@ export async function updateRecurringBill(billId: string, formData: FormData) {
   const dueDayStr = str(formData, "dueDay");
   const dueDateStr = str(formData, "dueDate");
 
-  await db.recurringBill.update({
-    where: { id: billId },
+  await db.recurringBill.updateMany({
+    where: { id: billId, organizationId: user.effectiveOrganizationId },
     data: {
       name,
       category,
@@ -68,19 +69,21 @@ export async function updateRecurringBill(billId: string, formData: FormData) {
 }
 
 export async function toggleRecurringBillActive(billId: string, currentlyActive: boolean) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
-  await db.recurringBill.update({
-    where: { id: billId },
+  await db.recurringBill.updateMany({
+    where: { id: billId, organizationId: user.effectiveOrganizationId },
     data: { active: !currentlyActive },
   });
   revalidatePath("/expenses/recurring");
 }
 
 export async function deleteRecurringBill(billId: string) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
-  await db.recurringBill.delete({ where: { id: billId } });
+  await db.recurringBill.deleteMany({
+    where: { id: billId, organizationId: user.effectiveOrganizationId },
+  });
   await logAction("recurring_bill.deleted", "RecurringBill", billId);
   revalidatePath("/expenses/recurring");
 }
@@ -89,9 +92,11 @@ export async function deleteRecurringBill(billId: string) {
 // period), pre-filled from the recurring bill's details — doesn't touch
 // the recurring bill itself, so it can be logged again next period.
 export async function logRecurringBillAsExpense(billId: string) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
-  const bill = await db.recurringBill.findUniqueOrThrow({ where: { id: billId } });
+  const bill = await db.recurringBill.findFirstOrThrow({
+    where: { id: billId, organizationId: user.effectiveOrganizationId },
+  });
 
   const today = new Date();
   let dueDate: Date | null = null;
@@ -103,6 +108,7 @@ export async function logRecurringBillAsExpense(billId: string) {
 
   const expense = await db.expense.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       vendor: bill.name,
       category: bill.category,
       amount: bill.amount ?? 0,

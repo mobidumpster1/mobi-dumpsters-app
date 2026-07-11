@@ -15,10 +15,14 @@ import { sendCustomerEmail } from "@/lib/email";
 // Each successful send creates its own WinBackSend row (status "sent") so
 // outreach can be tracked and followed up on, not just fired once.
 export async function sendWinBackEmailBulk(customerIds: string[], templateId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  const template = await db.winBackEmailTemplate.findUniqueOrThrow({ where: { id: templateId } });
-  const customers = await db.customer.findMany({ where: { id: { in: customerIds } } });
+  const template = await db.winBackEmailTemplate.findFirstOrThrow({
+    where: { id: templateId, organizationId: user.effectiveOrganizationId },
+  });
+  const customers = await db.customer.findMany({
+    where: { id: { in: customerIds }, organizationId: user.effectiveOrganizationId },
+  });
 
   let sent = 0;
   let skipped = 0;
@@ -46,14 +50,17 @@ export async function sendWinBackEmailBulk(customerIds: string[], templateId: st
 // book again, or say no — instead of a send being a fire-and-forget blast
 // with no follow-up visibility.
 export async function updateWinBackSendStatus(sendId: string, status: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.winBackSend.update({ where: { id: sendId }, data: { status } });
+  await db.winBackSend.updateMany({
+    where: { id: sendId, customer: { organizationId: user.effectiveOrganizationId } },
+    data: { status },
+  });
   revalidatePath("/customers/winback");
 }
 
 export async function createWinBackEmailTemplate(formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
   const name = str(formData, "name");
   const subject = str(formData, "subject");
@@ -62,13 +69,17 @@ export async function createWinBackEmailTemplate(formData: FormData) {
     throw new Error("Name, subject, and body are all required.");
   }
 
-  await db.winBackEmailTemplate.create({ data: { name, subject, body } });
+  await db.winBackEmailTemplate.create({
+    data: { organizationId: user.effectiveOrganizationId, name, subject, body },
+  });
   revalidatePath("/customers/winback");
 }
 
 export async function deleteWinBackEmailTemplate(templateId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.winBackEmailTemplate.delete({ where: { id: templateId } });
+  await db.winBackEmailTemplate.deleteMany({
+    where: { id: templateId, organizationId: user.effectiveOrganizationId },
+  });
   revalidatePath("/customers/winback");
 }

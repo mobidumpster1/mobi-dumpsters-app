@@ -66,6 +66,7 @@ export default async function LeadsPage({
     await Promise.all([
       db.lead.findMany({
         where: {
+          organizationId: user.effectiveOrganizationId,
           status: activeStatus === "All" ? undefined : activeStatus,
           tradeCategory: trade ? trade : undefined,
         },
@@ -75,21 +76,32 @@ export default async function LeadsPage({
           _count: { select: { emailSends: true } },
         },
       }),
-      db.placesSearchLog.count({ where: { createdAt: { gte: monthStart } } }),
-      db.serviceArea.findMany({ orderBy: { name: "asc" } }),
+      db.placesSearchLog.count({
+        where: { createdAt: { gte: monthStart }, organizationId: user.effectiveOrganizationId },
+      }),
+      db.serviceArea.findMany({
+        where: { organizationId: user.effectiveOrganizationId },
+        orderBy: { name: "asc" },
+      }),
       db.lead.findMany({
-        where: { tradeCategory: { not: null } },
+        where: { tradeCategory: { not: null }, organizationId: user.effectiveOrganizationId },
         distinct: ["tradeCategory"],
         select: { tradeCategory: true },
         orderBy: { tradeCategory: "asc" },
       }),
-      db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
-      db.emailSequence.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+      db.leadEmailTemplate.findMany({
+        where: { organizationId: user.effectiveOrganizationId },
+        orderBy: { name: "asc" },
+      }),
+      db.emailSequence.findMany({
+        where: { active: true, organizationId: user.effectiveOrganizationId },
+        orderBy: { name: "asc" },
+      }),
       db.leadSequenceEnrollment.findMany({
         where: {
           status: "active",
           nextDueAt: { lte: new Date() },
-          sequence: { autoSend: false, active: true },
+          sequence: { autoSend: false, active: true, organizationId: user.effectiveOrganizationId },
         },
         include: { lead: true, sequence: true },
         orderBy: { nextDueAt: "asc" },

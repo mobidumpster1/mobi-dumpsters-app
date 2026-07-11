@@ -5,6 +5,7 @@ import { updateExpense } from "../../actions";
 import { Field, inputClass } from "@/components/Field";
 import { EXPENSE_CATEGORIES } from "@/lib/expenseCategories";
 import { formatDate } from "@/lib/date";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,18 @@ export default async function EditExpensePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [expense, bookings, equipmentItems] = await Promise.all([
-    db.expense.findUnique({ where: { id } }),
-    db.booking.findMany({ orderBy: { createdAt: "desc" }, include: { customer: true } }),
-    db.equipmentItem.findMany({ orderBy: { label: "asc" } }),
+    db.expense.findFirst({ where: { id, organizationId: user.effectiveOrganizationId } }),
+    db.booking.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { createdAt: "desc" },
+      include: { customer: true },
+    }),
+    db.equipmentItem.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
   ]);
 
   if (!expense) notFound();

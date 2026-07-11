@@ -99,6 +99,18 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+// For public, unauthenticated routes (the online booking form, a standalone
+// agreement-signing link) that need to create a record but have no session
+// to read an organizationId from. Every install today has exactly one
+// organization, so this is safe — but it's a placeholder: once a second
+// business is actually onboarded, these public routes will need their own
+// way to know which organization they belong to (e.g. a slug or subdomain
+// in the URL), and this function should be replaced at each call site.
+export async function getPublicOrganizationId(): Promise<string> {
+  const org = await db.organization.findFirstOrThrow();
+  return org.id;
+}
+
 export function hasPermission(user: SessionUser, permission: Permission): boolean {
   return user.role === "owner" || user[permission];
 }

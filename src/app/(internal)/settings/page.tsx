@@ -85,7 +85,10 @@ export default async function SettingsPage({
   const jobNotificationSettings = await getJobNotificationSettings();
   const deliveryReminderSettings = await getDeliveryReminderSettings();
   const winBackSettings = await getWinBackSettings();
-  const permitAreas = await db.permitArea.findMany({ orderBy: { name: "asc" } });
+  const permitAreas = await db.permitArea.findMany({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+    orderBy: { name: "asc" },
+  });
   const emailTemplates = await getAllEmailTemplates();
 
   let accounts: QboAccount[] = [];

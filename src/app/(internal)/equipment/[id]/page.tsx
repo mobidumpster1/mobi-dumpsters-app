@@ -9,6 +9,7 @@ import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { LocationMap } from "@/components/LocationMap";
 import { branding } from "@/lib/branding";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,9 @@ export default async function EquipmentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const item = await db.equipmentItem.findUnique({
-    where: { id },
+  const user = await requireUser();
+  const item = await db.equipmentItem.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
     include: {
       category: true,
       currentCustomer: true,

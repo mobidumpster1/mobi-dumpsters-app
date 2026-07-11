@@ -36,6 +36,7 @@ export async function GET() {
   }
 
   const customers = await db.customer.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     orderBy: { name: "asc" },
     include: { bookings: { select: { id: true } } },
   });

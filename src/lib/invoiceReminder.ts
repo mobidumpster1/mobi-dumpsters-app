@@ -25,6 +25,11 @@ export async function sendPendingInvoiceReminders() {
   const cutoffFirst = new Date(now.getTime() - settings.delayDays * MS_PER_DAY);
   const cutoffRepeat = new Date(now.getTime() - settings.repeatDays * MS_PER_DAY);
 
+  // Settings are still a single global row (not per-organization yet), so
+  // this applies one on/off switch and one delay schedule to every
+  // organization's invoices. Not a data leak — each candidate's own
+  // customer gets emailed about their own invoice — but every org shares
+  // one configuration until settings themselves become per-organization.
   const candidates = await db.invoice.findMany({
     where: {
       status: { not: "paid" },

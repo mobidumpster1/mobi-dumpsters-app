@@ -17,6 +17,7 @@ import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { formatDate } from "@/lib/date";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,9 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = await db.customer.findUnique({
-    where: { id },
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
     include: {
       bookings: {
         orderBy: { createdAt: "desc" },

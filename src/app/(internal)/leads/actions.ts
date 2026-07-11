@@ -21,13 +21,16 @@ import { stopAllActiveEnrollmentsForLead } from "@/lib/leadSequences";
 // how fast the free monthly quota gets used, in exchange for not having to
 // retype the area every time.
 export async function searchAndSaveLeads(formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
   const query = str(formData, "query");
   if (!query) throw new Error("Search is required");
   const tradeCategory = query.trim().toLowerCase();
 
-  const areas = await db.serviceArea.findMany({ orderBy: { name: "asc" } });
+  const areas = await db.serviceArea.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
+    orderBy: { name: "asc" },
+  });
   const searches =
     areas.length > 0 ? areas.map((area) => `${query} near ${area.name}`) : [query];
 
@@ -37,7 +40,9 @@ export async function searchAndSaveLeads(formData: FormData) {
     // matches — a zero-result search still uses up one of the 1,000 free
     // Enterprise-tier calls for the month.
     if (process.env.GOOGLE_MAPS_API_KEY) {
-      await db.placesSearchLog.create({ data: { query: fullQuery } });
+      await db.placesSearchLog.create({
+        data: { organizationId: user.effectiveOrganizationId, query: fullQuery },
+      });
     }
 
     const results = await searchPlaces(fullQuery);
@@ -46,6 +51,7 @@ export async function searchAndSaveLeads(formData: FormData) {
       await db.lead.upsert({
         where: { placeId: result.placeId },
         create: {
+          organizationId: user.effectiveOrganizationId,
           placeId: result.placeId,
           name: result.name,
           phone: result.phone,
@@ -77,10 +83,10 @@ export async function searchAndSaveLeads(formData: FormData) {
 }
 
 export async function updateLeadStatus(leadId: string, status: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.lead.update({
-    where: { id: leadId },
+  await db.lead.updateMany({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
     data: {
       status,
       contactedAt: status === "contacted" ? new Date() : undefined,
@@ -97,10 +103,10 @@ export async function updateLeadStatus(leadId: string, status: string) {
 }
 
 export async function updateLeadNotes(leadId: string, formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.lead.update({
-    where: { id: leadId },
+  await db.lead.updateMany({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
     data: { notes: str(formData, "notes") },
   });
 
@@ -108,10 +114,10 @@ export async function updateLeadNotes(leadId: string, formData: FormData) {
 }
 
 export async function updateLeadEmail(leadId: string, formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.lead.update({
-    where: { id: leadId },
+  await db.lead.updateMany({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
     data: { email: str(formData, "email") },
   });
 
@@ -123,11 +129,13 @@ export async function updateLeadEmail(leadId: string, formData: FormData) {
 // email on file yet or the send itself fails — nothing silent here, since
 // the whole point is a staff member clicking "Send" and knowing it worked.
 export async function sendLeadEmail(leadId: string, templateId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
   const [lead, template] = await Promise.all([
-    db.lead.findUniqueOrThrow({ where: { id: leadId } }),
-    db.leadEmailTemplate.findUniqueOrThrow({ where: { id: templateId } }),
+    db.lead.findFirstOrThrow({ where: { id: leadId, organizationId: user.effectiveOrganizationId } }),
+    db.leadEmailTemplate.findFirstOrThrow({
+      where: { id: templateId, organizationId: user.effectiveOrganizationId },
+    }),
   ]);
 
   if (!lead.email) {
@@ -152,7 +160,7 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
 }
 
 export async function createLeadEmailTemplate(formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
   const name = str(formData, "name");
   const subject = str(formData, "subject");
@@ -161,21 +169,25 @@ export async function createLeadEmailTemplate(formData: FormData) {
     throw new Error("Name, subject, and body are all required.");
   }
 
-  await db.leadEmailTemplate.create({ data: { name, subject, body } });
+  await db.leadEmailTemplate.create({
+    data: { organizationId: user.effectiveOrganizationId, name, subject, body },
+  });
   revalidatePath("/leads");
 }
 
 export async function deleteLeadEmailTemplate(templateId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.leadEmailTemplate.delete({ where: { id: templateId } });
+  await db.leadEmailTemplate.deleteMany({
+    where: { id: templateId, organizationId: user.effectiveOrganizationId },
+  });
   revalidatePath("/leads");
 }
 
 export async function deleteLead(leadId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.lead.delete({ where: { id: leadId } });
+  await db.lead.deleteMany({ where: { id: leadId, organizationId: user.effectiveOrganizationId } });
   await logAction("lead.deleted", "Lead", leadId);
   revalidatePath("/leads");
 }
@@ -185,12 +197,15 @@ export async function deleteLead(leadId: string) {
 // tagging leadSource "b2b_outreach" automatically — the whole point of
 // converting through this button instead of adding the customer by hand.
 export async function convertLeadToCustomer(leadId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  const lead = await db.lead.findUniqueOrThrow({ where: { id: leadId } });
+  const lead = await db.lead.findFirstOrThrow({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
+  });
 
   const customer = await db.customer.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       name: lead.name,
       phone: lead.phone,
       address: lead.address,
@@ -207,14 +222,14 @@ export async function convertLeadToCustomer(leadId: string) {
 }
 
 export async function addServiceArea(formData: FormData) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
   const name = str(formData, "name");
   if (!name) throw new Error("Area name is required");
 
   await db.serviceArea.upsert({
     where: { name },
-    create: { name },
+    create: { organizationId: user.effectiveOrganizationId, name },
     update: {},
   });
 
@@ -222,8 +237,10 @@ export async function addServiceArea(formData: FormData) {
 }
 
 export async function removeServiceArea(areaId: string) {
-  await requirePermission("canManageLeads");
+  const user = await requirePermission("canManageLeads");
 
-  await db.serviceArea.delete({ where: { id: areaId } });
+  await db.serviceArea.deleteMany({
+    where: { id: areaId, organizationId: user.effectiveOrganizationId },
+  });
   revalidatePath("/leads");
 }

@@ -98,7 +98,10 @@ export default async function RecurringBillsPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
 
-  const bills = await db.recurringBill.findMany({ orderBy: { name: "asc" } });
+  const bills = await db.recurringBill.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
+    orderBy: { name: "asc" },
+  });
   const monthly = bills.filter((b) => b.frequency === "monthly");
   const yearly = bills.filter((b) => b.frequency === "yearly");
 

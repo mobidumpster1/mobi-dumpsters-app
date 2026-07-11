@@ -2,11 +2,14 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { EquipmentTabs } from "@/components/EquipmentTabs";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
+  const user = await requireUser();
   const categories = await db.equipmentCategory.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     orderBy: { name: "asc" },
     include: { items: true, bundleOfCategory: true },
   });

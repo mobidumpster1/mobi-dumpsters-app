@@ -11,6 +11,7 @@ export default async function ExpensesPage() {
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
 
   const expenses = await db.expense.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     orderBy: { date: "desc" },
     include: { equipmentItem: true, booking: { include: { customer: true } } },
   });

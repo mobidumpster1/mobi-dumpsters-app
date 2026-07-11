@@ -8,7 +8,7 @@ import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function createDocument(formData: FormData) {
-  await requirePermission("canViewReports");
+  const user = await requirePermission("canViewReports");
 
   const type = str(formData, "type");
   const name = str(formData, "name");
@@ -26,6 +26,7 @@ export async function createDocument(formData: FormData) {
 
   const document = await db.document.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       type,
       name,
       expiresOn: new Date(expiresOnStr),
@@ -41,9 +42,12 @@ export async function createDocument(formData: FormData) {
 }
 
 export async function deleteDocument(documentId: string) {
-  await requirePermission("canViewReports");
+  const user = await requirePermission("canViewReports");
 
-  const document = await db.document.delete({ where: { id: documentId } });
+  const document = await db.document.findFirstOrThrow({
+    where: { id: documentId, organizationId: user.effectiveOrganizationId },
+  });
+  await db.document.delete({ where: { id: documentId } });
   await deleteUploadedFile(document.fileUrl);
   await logAction("document.deleted", "Document", documentId);
   revalidatePath("/documents");

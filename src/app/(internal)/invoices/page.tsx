@@ -2,11 +2,14 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function InvoicesPage() {
+  const user = await requireUser();
   const invoices = await db.invoice.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     orderBy: { issueDate: "desc" },
     include: { booking: { include: { customer: true } }, customer: true },
   });

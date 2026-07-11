@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { updateEquipmentItem } from "../../actions";
 import { EquipmentItemForm } from "@/components/EquipmentItemForm";
 import { parseAttributes, parseFieldDefinitions } from "@/lib/categoryFields";
+import { requireUser } from "@/lib/session";
 
 export default async function EditEquipmentPage({
   params,
@@ -10,10 +11,19 @@ export default async function EditEquipmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [item, categories, customers] = await Promise.all([
-    db.equipmentItem.findUnique({ where: { id } }),
-    db.equipmentCategory.findMany({ orderBy: { name: "asc" } }),
-    db.customer.findMany({ orderBy: { name: "asc" } }),
+    db.equipmentItem.findFirst({
+      where: { id, organizationId: user.effectiveOrganizationId },
+    }),
+    db.equipmentCategory.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
+    db.customer.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!item) notFound();

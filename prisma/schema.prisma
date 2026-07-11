@@ -23,7 +23,25 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users              User[]
+  customers          Customer[]
+  bookings           Booking[]
+  invoices           Invoice[]
+  expenses           Expense[]
+  recurringBills     RecurringBill[]
+  equipmentCategories EquipmentCategory[]
+  equipmentItems     EquipmentItem[]
+  vehicles           Vehicle[]
+  documents          Document[]
+  mileageLogEntries  MileageLogEntry[]
+  leads              Lead[]
+  galleryPhotos      GalleryPhoto[]
+  serviceAreas       ServiceArea[]
+  permitAreas        PermitArea[]
+  emailSequences     EmailSequence[]
+  leadEmailTemplates LeadEmailTemplate[]
+  winBackEmailTemplates WinBackEmailTemplate[]
+  placesSearchLogs   PlacesSearchLog[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -98,6 +116,8 @@ model EmailTemplate {
 // customer. Per-booking delivery addresses can differ from this.
 model Customer {
   id          String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name        String
   companyName String?
   phone       String?
@@ -191,6 +211,8 @@ model CustomerPhoto {
 // changing this schema.
 model EquipmentCategory {
   id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
   name             String   @unique
   description      String?
   // Shown next to this category on the public booking page, so customers
@@ -249,6 +271,8 @@ model PricingTier {
 // {"hourMeter": 812.5, "attachments": ["bucket","breaker"]} for an excavator).
 model EquipmentItem {
   id         String            @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   categoryId String
   category   EquipmentCategory @relation(fields: [categoryId], references: [id])
 
@@ -279,6 +303,8 @@ model EquipmentItem {
 // on the public booking form. Vehicles are never bookable by customers.
 model Vehicle {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   label     String // e.g. "2004 F250"
   active    Boolean  @default(true)
   notes     String?
@@ -297,6 +323,8 @@ model Vehicle {
 // and re-adding, which keeps the upload flow (and this model) simple.
 model Document {
   id        String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   type      String // insurance | vehicle_registration | dot_filing | business_license | other
   name      String // e.g. "General Liability Policy" or "Truck 1 Registration"
   fileUrl   String
@@ -316,6 +344,8 @@ model Document {
 // without a schema change.
 model MileageLogEntry {
   id              String         @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id])
   vehicleId       String?
   vehicle         Vehicle?       @relation(fields: [vehicleId], references: [id])
   equipmentItemId String?
@@ -366,6 +396,8 @@ model EquipmentPhoto {
 // (marketing, category photos, anything without an obvious home).
 model GalleryPhoto {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   mediaType String   @default("photo") // photo | video
   caption   String?
   filePath  String
@@ -376,6 +408,8 @@ model GalleryPhoto {
 // equipment, each tracked independently via BookingItem.
 model Booking {
   id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
   customerId      String
   customer        Customer @relation(fields: [customerId], references: [id])
   status          String   @default("confirmed") // quoted | confirmed | in_progress | completed | cancelled
@@ -500,6 +534,8 @@ model BookingItem {
 // predate this app) can exist with just a customer, no full booking.
 model Invoice {
   id            String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   bookingId     String?
   booking       Booking?  @relation(fields: [bookingId], references: [id])
   // Used when there's no booking — set on every invoice for convenience,
@@ -550,6 +586,8 @@ model InvoiceLineItem {
 // was incurred for, so profit can be broken down by booking or equipment.
 model Expense {
   id       String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   vendor   String
   category String
   amount   Float
@@ -588,6 +626,8 @@ model ExpenseReceipt {
 // actually paid, so recordkeeping stays accurate without manual re-entry.
 model RecurringBill {
   id            String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name          String // e.g. "Truck", "Google Ads"
   category      String // e.g. "Vehicle Payment", "Advertising"
   amount        Float? // null when variable (e.g. a credit card balance)
@@ -686,6 +726,8 @@ model DeliveryReminderSettings {
 // entries are counted.
 model PlacesSearchLog {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   query     String
   createdAt DateTime @default(now())
 }
@@ -696,6 +738,8 @@ model PlacesSearchLog {
 // existing lead's status/notes alone and refreshes its basic details.
 model Lead {
   id          String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   placeId     String    @unique
   name        String
   phone       String?
@@ -782,6 +826,8 @@ model LeadOutreachSettings {
 // mechanism either way, just who pulls the trigger.
 model EmailSequence {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name      String
   autoSend  Boolean  @default(false)
   // Master switch — an inactive sequence stops advancing every
@@ -838,6 +884,8 @@ model LeadSequenceEnrollment {
 // freeform, user-created, and there can be any number of them.
 model LeadEmailTemplate {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name      String
   subject   String
   body      String
@@ -855,6 +903,8 @@ model LeadEmailTemplate {
 // read very differently even though the sending mechanism is identical.
 model WinBackEmailTemplate {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name      String
   subject   String
   body      String
@@ -898,6 +948,8 @@ model WinBackSettings {
 // areas just runs the typed query as-is.
 model ServiceArea {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name      String   @unique
   createdAt DateTime @default(now())
 }
@@ -907,6 +959,8 @@ model ServiceArea {
 // when it's actually relevant, instead of on every booking.
 model PermitArea {
   id        String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name      String   @unique
   createdAt DateTime @default(now())
 }

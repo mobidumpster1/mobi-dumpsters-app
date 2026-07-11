@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { getAgreementSettings } from "@/lib/agreement";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
+import { getPublicOrganizationId } from "@/lib/session";
 
 export async function submitSignature(formData: FormData) {
   const name = str(formData, "name");
@@ -20,14 +21,15 @@ export async function submitSignature(formData: FormData) {
   if (!address) throw new Error("Service address is required");
   if (!agreed) throw new Error("You must check the box to agree before submitting");
 
+  const organizationId = await getPublicOrganizationId();
   const agreement = await getAgreementSettings();
 
-  let customer = await db.customer.findFirst({ where: { email } });
+  let customer = await db.customer.findFirst({ where: { email, organizationId } });
   if (!customer) {
-    customer = await db.customer.findFirst({ where: { phone } });
+    customer = await db.customer.findFirst({ where: { phone, organizationId } });
   }
   if (!customer) {
-    customer = await db.customer.create({ data: { name, email, phone, address } });
+    customer = await db.customer.create({ data: { organizationId, name, email, phone, address } });
   } else {
     await fillBlankCustomerFields(customer, { phone, email, address });
   }

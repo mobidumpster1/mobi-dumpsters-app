@@ -9,7 +9,7 @@ import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function createExpense(formData: FormData) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
   const vendor = str(formData, "vendor");
   const category = str(formData, "category");
@@ -24,6 +24,7 @@ export async function createExpense(formData: FormData) {
 
   const expense = await db.expense.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       vendor,
       category,
       amount: Number(amountStr) || 0,
@@ -40,7 +41,7 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function updateExpense(expenseId: string, formData: FormData) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
   const vendor = str(formData, "vendor");
   const category = str(formData, "category");
@@ -53,8 +54,8 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 
   const dueDateStr = str(formData, "dueDate");
 
-  await db.expense.update({
-    where: { id: expenseId },
+  await db.expense.updateMany({
+    where: { id: expenseId, organizationId: user.effectiveOrganizationId },
     data: {
       vendor,
       category,
@@ -71,7 +72,11 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 }
 
 export async function markExpensePaid(expenseId: string) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
+
+  await db.expense.findFirstOrThrow({
+    where: { id: expenseId, organizationId: user.effectiveOrganizationId },
+  });
 
   const expense = await db.expense.update({
     where: { id: expenseId },
@@ -102,10 +107,10 @@ export async function markExpensePaid(expenseId: string) {
 }
 
 export async function markExpenseUnpaid(expenseId: string) {
-  await requirePermission("canManageExpenses");
+  const user = await requirePermission("canManageExpenses");
 
-  await db.expense.update({
-    where: { id: expenseId },
+  await db.expense.updateMany({
+    where: { id: expenseId, organizationId: user.effectiveOrganizationId },
     data: { status: "unpaid", paidDate: null },
   });
   await logAction("expense.marked_unpaid", "Expense", expenseId);

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Field, inputClass } from "@/components/Field";
 import { updateRecurringBill } from "../../../recurringActions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,10 @@ export default async function EditRecurringBillPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const bill = await db.recurringBill.findUnique({ where: { id } });
+  const user = await requireUser();
+  const bill = await db.recurringBill.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
+  });
 
   if (!bill) notFound();
 

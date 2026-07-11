@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { updateCustomer } from "../../actions";
 import { Field, inputClass } from "@/components/Field";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
+import { requireUser } from "@/lib/session";
 
 export default async function EditCustomerPage({
   params,
@@ -11,7 +12,10 @@ export default async function EditCustomerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = await db.customer.findUnique({ where: { id } });
+  const user = await requireUser();
+  const customer = await db.customer.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
+  });
   if (!customer) notFound();
 
   const updateWithId = updateCustomer.bind(null, customer.id);

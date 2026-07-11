@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Field, inputClass } from "@/components/Field";
 import { updateSignedAgreement } from "../../actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,21 @@ export default async function EditSignedAgreementPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [signed, customers] = await Promise.all([
-    db.signedAgreement.findUnique({ where: { id } }),
-    db.customer.findMany({ orderBy: { name: "asc" } }),
+    db.signedAgreement.findFirst({
+      where: {
+        id,
+        OR: [
+          { customer: { organizationId: user.effectiveOrganizationId } },
+          { booking: { organizationId: user.effectiveOrganizationId } },
+        ],
+      },
+    }),
+    db.customer.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!signed) notFound();

@@ -11,6 +11,7 @@ import {
   addVehicle,
   toggleVehicleActive,
 } from "./actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,10 @@ function MilesCard({ label, value }: { label: string; value: number }) {
 }
 
 export default async function MileagePage() {
+  const user = await requireUser();
   const [entries, equipmentItems, vehicles] = await Promise.all([
     db.mileageLogEntry.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       orderBy: { date: "desc" },
       include: {
         equipmentItem: true,
@@ -50,11 +53,14 @@ export default async function MileagePage() {
       },
     }),
     db.equipmentItem.findMany({
-      where: { status: { not: "retired" } },
+      where: { status: { not: "retired" }, organizationId: user.effectiveOrganizationId },
       orderBy: { label: "asc" },
       include: { category: true },
     }),
-    db.vehicle.findMany({ orderBy: { label: "asc" } }),
+    db.vehicle.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
   ]);
 
   const activeVehicles = vehicles.filter((v) => v.active);

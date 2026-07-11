@@ -15,7 +15,9 @@ export default async function InternalLayout({
   const logoExists = existsSync(
     path.join(process.cwd(), "public", branding.logoPath)
   );
-  const pendingCount = await db.booking.count({ where: { status: "pending" } });
+  const pendingCount = await db.booking.count({
+    where: { status: "pending", organizationId: user.effectiveOrganizationId },
+  });
 
   return (
     <div className="flex min-h-full flex-col md:flex-row">

@@ -7,9 +7,12 @@ import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { BundleFields } from "@/components/BundleFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { requireUser } from "@/lib/session";
 
 export default async function NewCategoryPage() {
+  const user = await requireUser();
   const categoryOptions = await db.equipmentCategory.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

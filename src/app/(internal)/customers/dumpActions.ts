@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
+import { requireUser } from "@/lib/session";
 
 export async function addDumpLogEntry(customerId: string, formData: FormData) {
+  const user = await requireUser();
   const dateStr = str(formData, "date");
   const weightTonsStr = str(formData, "weightTons");
   const feeStr = str(formData, "fee");
@@ -14,6 +16,10 @@ export async function addDumpLogEntry(customerId: string, formData: FormData) {
   if (!dateStr) throw new Error("Date is required");
   if (!weightTonsStr) throw new Error("Weight is required");
   if (!feeStr) throw new Error("Fee is required");
+
+  await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
 
   await db.dumpLogEntry.create({
     data: {
@@ -30,11 +36,16 @@ export async function addDumpLogEntry(customerId: string, formData: FormData) {
 }
 
 export async function deleteDumpLogEntry(customerId: string, entryId: string) {
+  const user = await requireUser();
+  await db.dumpLogEntry.findFirstOrThrow({
+    where: { id: entryId, customer: { organizationId: user.effectiveOrganizationId } },
+  });
   await db.dumpLogEntry.delete({ where: { id: entryId } });
   revalidatePath(`/customers/${customerId}`);
 }
 
 export async function addCreditEntry(customerId: string, formData: FormData) {
+  const user = await requireUser();
   const amountStr = str(formData, "amount");
   const reason = str(formData, "reason");
 
@@ -42,6 +53,10 @@ export async function addCreditEntry(customerId: string, formData: FormData) {
     throw new Error("Enter a non-zero amount");
   }
   if (!reason) throw new Error("A reason is required");
+
+  await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
 
   await db.customerCreditEntry.create({
     data: { customerId, amount: Number(amountStr), reason },
@@ -51,6 +66,10 @@ export async function addCreditEntry(customerId: string, formData: FormData) {
 }
 
 export async function deleteCreditEntry(customerId: string, entryId: string) {
+  const user = await requireUser();
+  await db.customerCreditEntry.findFirstOrThrow({
+    where: { id: entryId, customer: { organizationId: user.effectiveOrganizationId } },
+  });
   await db.customerCreditEntry.delete({ where: { id: entryId } });
   revalidatePath(`/customers/${customerId}`);
 }

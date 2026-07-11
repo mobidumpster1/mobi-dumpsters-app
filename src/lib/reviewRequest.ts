@@ -24,6 +24,11 @@ export async function sendPendingReviewRequests() {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - settings.delayDays);
 
+  // Settings are still a single global row (not per-organization yet), so
+  // this applies one on/off switch and one delay to every organization's
+  // bookings. Not a data leak — each candidate's own customer gets
+  // emailed about their own booking — but every org shares one
+  // configuration until settings themselves become per-organization.
   const candidates = await db.booking.findMany({
     where: {
       reviewRequestSentAt: null,

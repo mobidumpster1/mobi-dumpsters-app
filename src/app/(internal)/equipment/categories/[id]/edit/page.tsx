@@ -9,6 +9,7 @@ import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { BundleFields } from "@/components/BundleFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
+import { requireUser } from "@/lib/session";
 
 export default async function EditCategoryPage({
   params,
@@ -16,13 +17,14 @@ export default async function EditCategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [category, categoryOptions] = await Promise.all([
-    db.equipmentCategory.findUnique({
-      where: { id },
+    db.equipmentCategory.findFirst({
+      where: { id, organizationId: user.effectiveOrganizationId },
       include: { pricingTiers: { orderBy: { sortOrder: "asc" } } },
     }),
     db.equipmentCategory.findMany({
-      where: { id: { not: id } },
+      where: { id: { not: id }, organizationId: user.effectiveOrganizationId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

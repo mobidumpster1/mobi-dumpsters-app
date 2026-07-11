@@ -24,6 +24,12 @@ export async function sendPendingDeliveryReminders() {
   const now = new Date();
   const cutoff = new Date(now.getTime() + settings.hoursBefore * MS_PER_HOUR);
 
+  // Settings are still a single global row (not per-organization — that's
+  // later work), so this applies one on/off switch and one hoursBefore
+  // value to every organization's bookings. Not a data leak — each
+  // candidate's own customer gets emailed about their own booking, never
+  // another organization's — but it means every org shares one
+  // configuration until settings themselves become per-organization.
   const candidates = await db.bookingItem.findMany({
     where: {
       deliveredAt: null,

@@ -1,11 +1,22 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AgreementsPage() {
+  const user = await requireUser();
+  // SignedAgreement has no organizationId of its own — it's scoped through
+  // whichever of customer/booking it's linked to (in practice always at
+  // least the customer, but both are optional on the model).
   const signed = await db.signedAgreement.findMany({
+    where: {
+      OR: [
+        { customer: { organizationId: user.effectiveOrganizationId } },
+        { booking: { organizationId: user.effectiveOrganizationId } },
+      ],
+    },
     orderBy: { agreedAt: "desc" },
     include: { customer: true, booking: true },
   });

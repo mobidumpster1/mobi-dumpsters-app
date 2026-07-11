@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
+import { requireUser } from "@/lib/session";
 
 export async function addDamageReport(bookingId: string, formData: FormData) {
+  const user = await requireUser();
+  await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+  });
+
   const equipmentItemId = str(formData, "equipmentItemId");
   const description = str(formData, "description");
   const estimatedCostStr = str(formData, "estimatedCost");
@@ -15,8 +21,8 @@ export async function addDamageReport(bookingId: string, formData: FormData) {
   if (!estimatedCostStr) throw new Error("An estimated cost is required");
   const estimatedCost = Number(estimatedCostStr);
 
-  const equipmentItem = await db.equipmentItem.findUniqueOrThrow({
-    where: { id: equipmentItemId },
+  const equipmentItem = await db.equipmentItem.findFirstOrThrow({
+    where: { id: equipmentItemId, organizationId: user.effectiveOrganizationId },
   });
 
   let invoiceLineItemId: string | null = null;
@@ -45,6 +51,7 @@ export async function addDamageReport(bookingId: string, formData: FormData) {
   } else {
     const expense = await db.expense.create({
       data: {
+        organizationId: user.effectiveOrganizationId,
         vendor: "Repair",
         category: "Repairs",
         amount: estimatedCost,
@@ -75,7 +82,10 @@ export async function addDamageReport(bookingId: string, formData: FormData) {
 }
 
 export async function deleteDamageReport(damageReportId: string) {
-  const report = await db.damageReport.findUniqueOrThrow({ where: { id: damageReportId } });
+  const user = await requireUser();
+  const report = await db.damageReport.findFirstOrThrow({
+    where: { id: damageReportId, booking: { organizationId: user.effectiveOrganizationId } },
+  });
 
   if (report.invoiceLineItemId) {
     const lineItem = await db.invoiceLineItem.findUnique({

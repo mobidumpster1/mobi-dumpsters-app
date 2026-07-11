@@ -27,6 +27,7 @@ import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { FacebookShareBox } from "@/components/FacebookShareBox";
 import { branding } from "@/lib/branding";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,10 @@ export default async function BookingDetailPage({
 }) {
   const { id } = await params;
   const { notified } = await searchParams;
+  const user = await requireUser();
   const [booking, vehicles, permitAreas] = await Promise.all([
-    db.booking.findUnique({
-      where: { id },
+    db.booking.findFirst({
+      where: { id, organizationId: user.effectiveOrganizationId },
       include: {
         customer: true,
         items: { include: { equipmentItem: { include: { category: true } } } },
@@ -51,8 +53,11 @@ export default async function BookingDetailPage({
         serviceRequests: { where: { status: "pending" }, orderBy: { createdAt: "desc" } },
       },
     }),
-    db.vehicle.findMany({ where: { active: true }, orderBy: { label: "asc" } }),
-    db.permitArea.findMany(),
+    db.vehicle.findMany({
+      where: { active: true, organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
+    db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
   ]);
 
   if (!booking) notFound();

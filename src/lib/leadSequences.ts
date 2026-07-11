@@ -35,12 +35,18 @@ function appendComplianceFooter(body: string, enrollmentId: string): string {
 // manual ones. Never throws (mirrors sendPendingInvoiceReminders): a
 // single bad send shouldn't take down a whole cron run, and a manual
 // caller gets a result object it can show instead of a thrown error.
-export async function sendSequenceStep(enrollmentId: string): Promise<
+export async function sendSequenceStep(
+  enrollmentId: string,
+  organizationId?: string
+): Promise<
   | { ok: true; status: "sent" | "completed" }
   | { ok: false; reason: string }
 > {
-  const enrollment = await db.leadSequenceEnrollment.findUnique({
-    where: { id: enrollmentId },
+  const enrollment = await db.leadSequenceEnrollment.findFirst({
+    where: {
+      id: enrollmentId,
+      ...(organizationId ? { lead: { organizationId } } : {}),
+    },
     include: {
       lead: true,
       sequence: { include: { steps: { orderBy: { order: "asc" } } } },
@@ -151,12 +157,13 @@ export async function sendSequenceStep(enrollmentId: string): Promise<
 // just want a count of what happened, not a hard failure per lead.
 export async function enrollLeadInSequence(
   leadId: string,
-  sequenceId: string
+  sequenceId: string,
+  organizationId: string
 ): Promise<"enrolled" | "skipped"> {
   const [lead, sequence, existing] = await Promise.all([
-    db.lead.findUnique({ where: { id: leadId } }),
-    db.emailSequence.findUnique({
-      where: { id: sequenceId },
+    db.lead.findFirst({ where: { id: leadId, organizationId } }),
+    db.emailSequence.findFirst({
+      where: { id: sequenceId, organizationId },
       include: { steps: { orderBy: { order: "asc" }, take: 1 } },
     }),
     db.leadSequenceEnrollment.findUnique({
@@ -187,16 +194,26 @@ export async function enrollLeadInSequence(
   return "enrolled";
 }
 
-export async function stopEnrollment(enrollmentId: string, reason: string = "manual") {
-  await db.leadSequenceEnrollment.update({
-    where: { id: enrollmentId },
+export async function stopEnrollment(
+  enrollmentId: string,
+  reason: string = "manual",
+  organizationId?: string
+) {
+  await db.leadSequenceEnrollment.updateMany({
+    where: {
+      id: enrollmentId,
+      ...(organizationId ? { lead: { organizationId } } : {}),
+    },
     data: { status: "stopped", stoppedReason: reason, nextDueAt: null },
   });
 }
 
 // Stops every active sequence a lead is currently in — used whenever
 // something external makes the lead no longer a fit for automated
-// outreach (a status change, or an actual reply coming in).
+// outreach (a status change, or an actual reply coming in). The caller
+// (updateLeadStatus) already scoped the leadId to the org via updateMany,
+// so a bare leadId lookup here is safe — it can't reach another org's
+// enrollments since the lead row itself was already confirmed in-org.
 export async function stopAllActiveEnrollmentsForLead(leadId: string, reason: string) {
   const activeEnrollments = await db.leadSequenceEnrollment.findMany({
     where: { leadId, status: "active" },
@@ -219,6 +236,11 @@ export async function stopAllActiveEnrollmentsForLead(leadId: string, reason: st
 // newest leads winning the cap every time. Only counts sends this cron
 // itself made today (source: "sequence_auto") — a human clicking Send
 // on a manual sequence doesn't eat into this budget.
+// Settings (dailySendCap) are still a single global row, not per
+// organization, so the cap and the due-enrollment scan both span every
+// organization's leads together. Not a data leak — each send still goes
+// to that lead's own address via the org-scoped Lead row — but every org
+// shares one daily budget until settings themselves become per-organization.
 export async function sendDueAutomatedSequenceSteps() {
   const settings = await getLeadOutreachSettings();
 

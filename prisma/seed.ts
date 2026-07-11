@@ -15,10 +15,13 @@ const trailerFields: FieldDefinition[] = [
 ];
 
 async function main() {
+  const organization = await db.organization.findFirstOrThrow();
+
   const dumpsterCategory = await db.equipmentCategory.upsert({
     where: { name: "Roll-Off Dumpster" },
     update: {},
     create: {
+      organizationId: organization.id,
       name: "Roll-Off Dumpster",
       description: "Roll-off dumpsters for junk removal and demolition debris.",
       fieldDefinitions: JSON.stringify(dumpsterFields),
@@ -29,6 +32,7 @@ async function main() {
     where: { name: "Dump Trailer" },
     update: {},
     create: {
+      organizationId: organization.id,
       name: "Dump Trailer",
       description: "Towable dump trailers.",
       fieldDefinitions: JSON.stringify(trailerFields),
@@ -64,6 +68,7 @@ async function main() {
     if (!existing) {
       await db.equipmentItem.create({
         data: {
+          organizationId: organization.id,
           categoryId: item.categoryId,
           label: item.label,
           status: "available",

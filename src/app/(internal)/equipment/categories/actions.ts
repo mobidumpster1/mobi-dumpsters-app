@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
+import { requireUser } from "@/lib/session";
 
 function num(formData: FormData, key: string): number | null {
   const raw = str(formData, key);
@@ -52,6 +53,7 @@ function bundleFields(formData: FormData) {
 }
 
 export async function createCategory(formData: FormData) {
+  const user = await requireUser();
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
@@ -61,6 +63,7 @@ export async function createCategory(formData: FormData) {
 
   await db.equipmentCategory.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       name,
       description: str(formData, "description"),
       imageUrl: str(formData, "imageUrl"),
@@ -75,12 +78,17 @@ export async function createCategory(formData: FormData) {
 }
 
 export async function updateCategory(categoryId: string, formData: FormData) {
+  const user = await requireUser();
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
   const fieldDefinitionsJson = formData.get("fieldDefinitionsJson");
   const fieldDefinitions =
     typeof fieldDefinitionsJson === "string" ? fieldDefinitionsJson : "[]";
+
+  await db.equipmentCategory.findFirstOrThrow({
+    where: { id: categoryId, organizationId: user.effectiveOrganizationId },
+  });
 
   await db.pricingTier.deleteMany({ where: { categoryId } });
   await db.equipmentCategory.update({

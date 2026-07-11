@@ -8,11 +8,11 @@ import { pushInvoicePayment, createOnlinePaymentLink, getQboInvoiceBalance } fro
 import { computeInvoiceLineItems } from "@/lib/invoicing";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireUser } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function createInvoice(formData: FormData) {
-  await requirePermission("canManageInvoices");
+  const user = await requirePermission("canManageInvoices");
   const bookingId = str(formData, "bookingId");
   const invoiceNumber = str(formData, "invoiceNumber");
   const issueDateStr = str(formData, "issueDate");
@@ -21,8 +21,8 @@ export async function createInvoice(formData: FormData) {
 
   const dueDateStr = str(formData, "dueDate");
 
-  const booking = await db.booking.findUniqueOrThrow({
-    where: { id: bookingId },
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: {
       items: { include: { equipmentItem: { include: { category: true } } } },
     },
@@ -32,6 +32,7 @@ export async function createInvoice(formData: FormData) {
 
   const invoice = await db.invoice.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       bookingId,
       invoiceNumber,
       issueDate: issueDateStr ? new Date(issueDateStr) : new Date(),
@@ -47,7 +48,11 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function markPaid(invoiceId: string, formData: FormData) {
-  await requirePermission("canManageInvoices");
+  const user = await requirePermission("canManageInvoices");
+
+  await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+  });
 
   const invoice = await db.invoice.update({
     where: { id: invoiceId },
@@ -106,10 +111,10 @@ export async function markPaid(invoiceId: string, formData: FormData) {
 }
 
 export async function markUnpaid(invoiceId: string) {
-  await requirePermission("canManageInvoices");
+  const user = await requirePermission("canManageInvoices");
 
-  await db.invoice.update({
-    where: { id: invoiceId },
+  await db.invoice.updateMany({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
     data: { status: "unpaid", paidDate: null, paymentMethod: null },
   });
   await logAction("invoice.marked_unpaid", "Invoice", invoiceId);
@@ -117,7 +122,11 @@ export async function markUnpaid(invoiceId: string) {
 }
 
 export async function deleteInvoice(invoiceId: string) {
-  await requirePermission("canDeleteRecords");
+  const user = await requirePermission("canDeleteRecords");
+
+  await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+  });
 
   await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
   await db.invoice.delete({ where: { id: invoiceId } });
@@ -131,10 +140,10 @@ export async function deleteInvoice(invoiceId: string) {
 // the actual charge, requiring QuickBooks Payments to already be enabled on
 // the connected company.
 export async function sendInvoiceForOnlinePayment(invoiceId: string) {
-  await requirePermission("canManageInvoices");
+  const user = await requirePermission("canManageInvoices");
 
-  const invoice = await db.invoice.findUniqueOrThrow({
-    where: { id: invoiceId },
+  const invoice = await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
     include: {
       booking: { include: { customer: true } },
       customer: true,
@@ -200,7 +209,10 @@ export async function sendInvoiceForOnlinePayment(invoiceId: string) {
 // online invoice yet, marking it paid locally if so. Also run
 // best-effort whenever the invoice page loads (see page.tsx).
 export async function checkOnlinePaymentStatus(invoiceId: string) {
-  const invoice = await db.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+  const user = await requireUser();
+  const invoice = await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+  });
   if (invoice.quickbooksInvoiceId && invoice.status !== "paid") {
     const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId);
     if (balance === 0) {

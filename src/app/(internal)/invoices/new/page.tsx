@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { createInvoice } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { computeInvoiceLineItems, nextInvoiceNumber } from "@/lib/invoicing";
+import { requireUser } from "@/lib/session";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -23,8 +24,9 @@ export default async function NewInvoicePage({
   const { bookingId } = await searchParams;
   if (!bookingId) notFound();
 
-  const booking = await db.booking.findUnique({
-    where: { id: bookingId },
+  const user = await requireUser();
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: {
       customer: true,
       items: { include: { equipmentItem: { include: { category: true } } } },
@@ -34,7 +36,7 @@ export default async function NewInvoicePage({
 
   const lines = computeInvoiceLineItems(booking.items);
   const total = lines.reduce((sum, line) => sum + line.amount, 0);
-  const invoiceNumber = await nextInvoiceNumber();
+  const invoiceNumber = await nextInvoiceNumber(user.effectiveOrganizationId);
 
   return (
     <div className="max-w-xl">

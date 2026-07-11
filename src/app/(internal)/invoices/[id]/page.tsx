@@ -17,6 +17,7 @@ import { PrintButton } from "@/components/PrintButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { branding } from "@/lib/branding";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
+import { requireUser } from "@/lib/session";
 
 export default async function InvoiceDetailPage({
   params,
@@ -24,8 +25,9 @@ export default async function InvoiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  let invoice = await db.invoice.findUnique({
-    where: { id },
+  const user = await requireUser();
+  let invoice = await db.invoice.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
     include: {
       booking: { include: { customer: true } },
       customer: true,

@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { scanReceiptImage, isReceiptScanConfigured } from "@/lib/receiptScan";
 import { saveExpenseReceiptFile } from "@/lib/uploads";
+import { requireUser } from "@/lib/session";
 
 export async function scanReceipt(formData: FormData) {
+  const user = await requireUser();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw new Error("A receipt photo is required");
@@ -24,6 +26,7 @@ export async function scanReceipt(formData: FormData) {
 
   const expense = await db.expense.create({
     data: {
+      organizationId: user.effectiveOrganizationId,
       vendor: scanned.vendor,
       category: scanned.category,
       amount: scanned.amount,

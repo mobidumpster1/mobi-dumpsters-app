@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { LocationMap } from "@/components/LocationMap";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { cancelBooking } from "../bookings/actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ view?: string; date?: string }>;
 }) {
+  const user = await requireUser();
   const { view: viewParam, date: dateParam } = await searchParams;
   const view: ViewMode =
     viewParam === "day" || viewParam === "week" ? viewParam : "month";
@@ -135,7 +137,10 @@ export default async function CalendarPage({
 
   const items = await db.bookingItem.findMany({
     where: {
-      booking: { status: { notIn: ["cancelled", "pending"] } },
+      booking: {
+        status: { notIn: ["cancelled", "pending"] },
+        organizationId: user.effectiveOrganizationId,
+      },
       OR: [
         { startDate: { gte: rangeStart, lte: rangeEnd } },
         { expectedReturnDate: { gte: rangeStart, lte: rangeEnd } },

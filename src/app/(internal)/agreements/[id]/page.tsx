@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { deleteSignedAgreement } from "../actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,15 @@ export default async function SignedAgreementDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const signed = await db.signedAgreement.findUnique({
-    where: { id },
+  const user = await requireUser();
+  const signed = await db.signedAgreement.findFirst({
+    where: {
+      id,
+      OR: [
+        { customer: { organizationId: user.effectiveOrganizationId } },
+        { booking: { organizationId: user.effectiveOrganizationId } },
+      ],
+    },
     include: { customer: true, booking: true },
   });
 

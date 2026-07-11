@@ -2,11 +2,14 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { computeBookingStatus } from "@/lib/bookingStatus";
 import { AddressLink } from "@/components/AddressLink";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function BookingsPage() {
+  const user = await requireUser();
   const bookings = await db.booking.findMany({
+    where: { organizationId: user.effectiveOrganizationId },
     orderBy: { createdAt: "desc" },
     include: { customer: true, items: { include: { equipmentItem: true } } },
   });

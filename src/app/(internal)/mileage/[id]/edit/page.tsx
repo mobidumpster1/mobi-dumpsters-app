@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Field, inputClass } from "@/components/Field";
 import { updateMileageEntry } from "../../actions";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,20 @@ export default async function EditMileageEntryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [entry, vehicles, equipmentItems] = await Promise.all([
-    db.mileageLogEntry.findUnique({ where: { id } }),
-    db.vehicle.findMany({ orderBy: { label: "asc" } }),
-    db.equipmentItem.findMany({ orderBy: { label: "asc" }, include: { category: true } }),
+    db.mileageLogEntry.findFirst({
+      where: { id, organizationId: user.effectiveOrganizationId },
+    }),
+    db.vehicle.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
+    db.equipmentItem.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+      include: { category: true },
+    }),
   ]);
 
   if (!entry) notFound();

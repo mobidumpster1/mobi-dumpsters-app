@@ -4,6 +4,7 @@ import { createExpense } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { EXPENSE_CATEGORIES } from "@/lib/expenseCategories";
 import { formatDate } from "@/lib/date";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,17 @@ function todayStr() {
 }
 
 export default async function NewExpensePage() {
+  const user = await requireUser();
   const [bookings, equipmentItems] = await Promise.all([
     db.booking.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       orderBy: { createdAt: "desc" },
       include: { customer: true },
     }),
-    db.equipmentItem.findMany({ orderBy: { label: "asc" } }),
+    db.equipmentItem.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { label: "asc" },
+    }),
   ]);
 
   return (

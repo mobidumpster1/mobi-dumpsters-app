@@ -26,16 +26,24 @@ export default async function SequencesPage() {
 
   const [sequences, templates, outreachSettings, autoSentToday] = await Promise.all([
     db.emailSequence.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
       orderBy: { createdAt: "asc" },
       include: {
         steps: { orderBy: { order: "asc" }, include: { template: true } },
         _count: { select: { enrollments: { where: { status: "active" } } } },
       },
     }),
-    db.leadEmailTemplate.findMany({ orderBy: { name: "asc" } }),
+    db.leadEmailTemplate.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+    }),
     getLeadOutreachSettings(),
     db.leadEmailSend.count({
-      where: { source: "sequence_auto", sentAt: { gte: startOfDay } },
+      where: {
+        source: "sequence_auto",
+        sentAt: { gte: startOfDay },
+        lead: { organizationId: user.effectiveOrganizationId },
+      },
     }),
   ]);
 

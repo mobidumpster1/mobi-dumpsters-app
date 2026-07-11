@@ -6,6 +6,7 @@ import { markExpensePaid, markExpenseUnpaid } from "../actions";
 import { uploadExpenseReceipt, deleteExpenseReceipt } from "../receiptActions";
 import { Field, inputClass } from "@/components/Field";
 import { GalleryImage } from "@/components/GalleryImage";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,9 @@ export default async function ExpenseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const expense = await db.expense.findUnique({
-    where: { id },
+  const user = await requireUser();
+  const expense = await db.expense.findFirst({
+    where: { id, organizationId: user.effectiveOrganizationId },
     include: {
       booking: { include: { customer: true } },
       equipmentItem: true,

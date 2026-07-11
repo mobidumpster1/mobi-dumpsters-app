@@ -110,9 +110,9 @@ export function computeInvoiceLineItems(
 // than a row count, since a count drifts out of sync with the sequence
 // whenever an invoice is deleted (or historical HIST-#### rows exist
 // alongside it), which caused collisions with already-used numbers.
-export async function nextInvoiceNumber(): Promise<string> {
+export async function nextInvoiceNumber(organizationId: string): Promise<string> {
   const invoices = await db.invoice.findMany({
-    where: { invoiceNumber: { startsWith: "INV-" } },
+    where: { organizationId, invoiceNumber: { startsWith: "INV-" } },
     select: { invoiceNumber: true },
   });
   const maxNumber = invoices.reduce((max, invoice) => {
@@ -138,10 +138,11 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
 
   const lines = computeInvoiceLineItems(booking.items);
   const amount = lines.reduce((sum, line) => sum + line.amount, 0);
-  const invoiceNumber = await nextInvoiceNumber();
+  const invoiceNumber = await nextInvoiceNumber(booking.organizationId);
 
   return db.invoice.create({
     data: {
+      organizationId: booking.organizationId,
       bookingId,
       invoiceNumber,
       amount,
