@@ -1,7 +1,6 @@
-// Shared Google Maps dark theme + marker icon helper, used by the real
-// LocationMap component and (for consistency) the design-preview mockups.
-// Only affects roadmap tiles — satellite/hybrid imagery is unstyled photos
-// and ignores this regardless.
+// Google Maps dark theme + marker icon helper for LocationMap. Only
+// affects roadmap tiles — satellite/hybrid imagery is unstyled photos and
+// ignores this regardless.
 
 export const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#0a0f14" }] },
