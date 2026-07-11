@@ -61,7 +61,7 @@ export function MediaUploadForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+      className="mt-3 flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-5"
     >
       <div className="flex gap-3">
         <Field label="Type" htmlFor="type">
@@ -103,7 +103,7 @@ export function MediaUploadForm({
         <button
           type="submit"
           disabled={uploading}
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
         >
           {uploading ? "Uploading…" : "Upload"}
         </button>

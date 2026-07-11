@@ -134,7 +134,7 @@ export function CustomerPicker({
               type="button"
               onClick={handleAdd}
               disabled={adding}
-              className="self-start rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+              className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
             >
               {adding ? "Adding…" : "Add Customer"}
             </button>

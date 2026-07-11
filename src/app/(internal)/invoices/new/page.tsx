@@ -40,13 +40,13 @@ export default async function NewInvoicePage({
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">New Invoice</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">New Invoice</h1>
       <p className="mt-1 text-sm text-zinc-500">
         For {booking.customer.name} —{" "}
         {booking.items.map((i) => i.equipmentItem.label).join(", ")}
       </p>
 
-      <div className="mt-4 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -117,7 +117,7 @@ export default async function NewInvoicePage({
         <div className="flex gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Create Invoice
           </button>

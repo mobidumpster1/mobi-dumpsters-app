@@ -63,7 +63,7 @@ function SummaryCard({
   sub?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="min-w-0 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <div className="truncate text-sm text-zinc-500">{label}</div>
       <div
         className={`mt-1 break-words text-xl font-semibold sm:text-2xl ${
@@ -206,7 +206,7 @@ export default async function ReportsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Reports</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Reports</h1>
         <p className="mt-1 text-zinc-500">
           Revenue and expenses across all time, based on invoiced and incurred
           amounts (not just what&apos;s been collected or paid).
@@ -225,7 +225,7 @@ export default async function ReportsPage() {
       </div>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">Revenue</h2>
+        <h2 className="text-xl font-black text-ink">Revenue</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Based on invoice issue dates.
         </p>
@@ -239,22 +239,22 @@ export default async function ReportsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">
+        <h2 className="text-xl font-black text-ink">
           Expense Breakdown
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           Total expenses by category.
         </p>
-        <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
           <DonutChart slices={expenseSlices} />
         </div>
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">
+        <h2 className="text-xl font-black text-ink">
           Monthly Breakdown
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
@@ -300,10 +300,10 @@ export default async function ReportsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">
+        <h2 className="text-xl font-black text-ink">
           Revenue by Customer
         </h2>
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
@@ -333,7 +333,7 @@ export default async function ReportsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">New vs. Returning Customers</h2>
+        <h2 className="text-xl font-black text-ink">New vs. Returning Customers</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Returning means invoiced more than once, ever — not limited to a
           specific time period.
@@ -351,12 +351,12 @@ export default async function ReportsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">Channel Performance</h2>
+        <h2 className="text-xl font-black text-ink">Channel Performance</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Revenue grouped by how each customer found you — set per customer
           on their profile, or automatically when converted from a Lead.
         </p>
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
@@ -389,10 +389,10 @@ export default async function ReportsPage() {
 
       {equipmentRows.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold text-ink">
+          <h2 className="text-xl font-black text-ink">
             Cost by Equipment
           </h2>
-          <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
             <table className="w-full text-left text-sm">
               <thead className="bg-zinc-50 text-zinc-500">
                 <tr>

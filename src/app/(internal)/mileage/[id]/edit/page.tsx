@@ -50,7 +50,7 @@ export default async function EditMileageEntryPage({
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">Edit Mileage Entry</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">Edit Mileage Entry</h1>
       <form action={updateWithId} className="mt-6 flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Truck" htmlFor="vehicleId">
@@ -141,7 +141,7 @@ export default async function EditMileageEntryPage({
         <div className="flex gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Save Changes
           </button>

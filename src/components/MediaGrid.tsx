@@ -57,7 +57,7 @@ export function MediaGrid({
         {filtered.map((item, i) => (
           <div
             key={item.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-lg border-2 border-zinc-900 bg-white"
           >
             <GalleryImage
               images={filtered.map((p) => ({

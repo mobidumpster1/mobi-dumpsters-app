@@ -19,7 +19,7 @@ export function EmailTemplateManager({
   removeAction: (templateId: string) => Promise<void>;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-sm font-semibold text-zinc-700">Email Templates</h2>
       <p className="mt-1 text-xs text-zinc-500">
         Write a message once, then send it in one click. Use{" "}
@@ -84,7 +84,7 @@ export function EmailTemplateManager({
         <div>
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             + Add Template
           </button>

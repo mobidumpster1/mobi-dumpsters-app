@@ -15,7 +15,7 @@ export function ServiceAreaManager({
   removeAction: (areaId: string) => Promise<void>;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-sm font-semibold text-zinc-700">Service Areas</h2>
       <p className="mt-1 text-xs text-zinc-500">
         {areas.length > 0

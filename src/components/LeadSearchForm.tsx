@@ -10,7 +10,7 @@ function SearchButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+      className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
     >
       {pending ? "Searching…" : "Search"}
     </button>
@@ -33,7 +33,7 @@ export function LeadSearchForm({
         await action(formData);
         formRef.current?.reset();
       }}
-      className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end"
+      className="flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-5 sm:flex-row sm:items-end"
     >
       <div className="flex-1">
         <label htmlFor="query" className="text-sm font-medium text-zinc-700">

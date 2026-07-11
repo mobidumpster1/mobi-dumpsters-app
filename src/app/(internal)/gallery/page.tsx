@@ -136,7 +136,7 @@ export default async function GalleryPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Photo & Video Gallery</h1>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Photo & Video Gallery</h1>
           <p className="mt-1 text-zinc-500">
             Every photo and video across jobs, equipment, and customers, newest first.
           </p>
@@ -180,7 +180,7 @@ export default async function GalleryPage({
         {filtered.map((photo, i) => (
           <div
             key={photo.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-lg border-2 border-zinc-900 bg-white"
           >
             <GalleryImage
               images={filtered.map((p) => ({

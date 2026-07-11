@@ -21,7 +21,7 @@ export default async function NewEquipmentPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">New Equipment</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">New Equipment</h1>
       <div className="mt-6">
         <EquipmentItemForm
           action={createEquipmentItem}

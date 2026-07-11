@@ -36,7 +36,7 @@ export default async function ExpenseDetailPage({
     <div className="max-w-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             {expense.vendor}
           </h1>
           <p className="mt-1 text-zinc-500">{expense.category}</p>
@@ -63,7 +63,7 @@ export default async function ExpenseDetailPage({
         </div>
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm">
+      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5 text-sm">
         <div>
           <dt className="text-zinc-500">Amount</dt>
           <dd className="text-zinc-900">${expense.amount.toFixed(2)}</dd>
@@ -135,7 +135,7 @@ export default async function ExpenseDetailPage({
           <form action={markPaidWithId}>
             <button
               type="submit"
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Mark Paid
             </button>
@@ -143,10 +143,10 @@ export default async function ExpenseDetailPage({
         )}
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Receipts</h2>
+      <h2 className="mt-8 text-xl font-black text-ink">Receipts</h2>
       <form
         action={uploadReceiptWithId}
-        className="mt-3 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+        className="mt-3 flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-5"
       >
         <Field label="Photo" htmlFor="file">
           <input
@@ -162,7 +162,7 @@ export default async function ExpenseDetailPage({
         <div>
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Add Receipt
           </button>
@@ -173,7 +173,7 @@ export default async function ExpenseDetailPage({
         {expense.receipts.map((receipt, i) => (
           <div
             key={receipt.id}
-            className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-lg border-2 border-zinc-900 bg-white"
           >
             <GalleryImage
               images={expense.receipts.map((r) => ({

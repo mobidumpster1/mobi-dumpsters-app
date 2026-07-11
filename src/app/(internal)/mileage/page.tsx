@@ -31,7 +31,7 @@ function fmt(n: number) {
 
 function MilesCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="min-w-0 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <div className="truncate text-sm text-zinc-500">{label}</div>
       <div className="mt-1 break-words text-xl font-semibold text-zinc-900 sm:text-2xl">
         {fmt(value)} mi
@@ -101,7 +101,7 @@ export default async function MileagePage() {
   return (
     <div>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Mileage Log</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Mileage Log</h1>
         <p className="mt-1 text-zinc-500">
           Trip mileage for your trucks and whatever they're hauling —
           deliveries, pickups, yard moves, and maintenance runs. Entered
@@ -117,7 +117,7 @@ export default async function MileagePage() {
       </div>
 
       {totalsByLabel.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
           <h2 className="text-sm font-medium text-zinc-700">Miles by Truck/Equipment</h2>
           <div className="mt-3 flex flex-col gap-2">
             {totalsByLabel.map((t) => (
@@ -130,7 +130,7 @@ export default async function MileagePage() {
         </div>
       )}
 
-      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
         <h2 className="text-sm font-medium text-zinc-700">Trucks</h2>
         <div className="mt-3 flex flex-col gap-2">
           {vehicles.map((v) => (
@@ -173,7 +173,7 @@ export default async function MileagePage() {
         </form>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
         <h2 className="text-lg font-semibold text-ink">Add Entry</h2>
         <div className="mt-3">
           <MileageEntryForm
@@ -192,7 +192,7 @@ export default async function MileagePage() {
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-lg border-2 border-zinc-900 bg-white p-4"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-zinc-900">
@@ -296,7 +296,7 @@ export default async function MileagePage() {
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

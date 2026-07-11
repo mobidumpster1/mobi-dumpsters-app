@@ -64,7 +64,7 @@ export default async function EquipmentDetailPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             {item.label}
           </h1>
           <p className="mt-1 text-zinc-500">{item.category.name}</p>
@@ -84,7 +84,7 @@ export default async function EquipmentDetailPage({
         </p>
       )}
 
-      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm sm:grid-cols-3">
+      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-zinc-500">Status</dt>
           <dd className="mt-1">
@@ -162,8 +162,8 @@ export default async function EquipmentDetailPage({
         );
       })()}
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Location History</h2>
-      <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <h2 className="mt-8 text-xl font-black text-ink">Location History</h2>
+      <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -202,7 +202,7 @@ export default async function EquipmentDetailPage({
         </table>
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Condition Photos & Videos</h2>
+      <h2 className="mt-8 text-xl font-black text-ink">Condition Photos & Videos</h2>
       <MediaUploadForm
         uploadAction={uploadWithId}
         typeOptions={[

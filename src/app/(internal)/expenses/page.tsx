@@ -19,7 +19,7 @@ export default async function ExpensesPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Expenses</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Expenses</h1>
         <div className="flex gap-3">
           <Link
             href="/expenses/recurring"
@@ -35,7 +35,7 @@ export default async function ExpensesPage() {
           </Link>
           <Link
             href="/expenses/new"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             + New Expense
           </Link>
@@ -48,7 +48,7 @@ export default async function ExpensesPage() {
           <Link
             key={expense.id}
             href={`/expenses/${expense.id}`}
-            className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="block rounded-lg border-2 border-zinc-900 bg-white p-4"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-zinc-900">{expense.vendor}</span>
@@ -98,7 +98,7 @@ export default async function ExpensesPage() {
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

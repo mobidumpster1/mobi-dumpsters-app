@@ -122,7 +122,7 @@ export function MileageEntryForm({
       <div>
         <button
           type="submit"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           Add Entry
         </button>

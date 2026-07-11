@@ -6,7 +6,7 @@ export default function EquipmentTrackingPage() {
   return (
     <div>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Equipment Tracking</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Equipment Tracking</h1>
         <p className="mt-1 text-zinc-500">
           Live GPS location for trucks and equipment, once a provider is connected.
         </p>

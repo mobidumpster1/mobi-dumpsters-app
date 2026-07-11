@@ -8,7 +8,7 @@ export default function ScanReceiptPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">
+      <h1 className="text-3xl font-black tracking-tight text-ink">
         Scan Receipt
       </h1>
       <p className="mt-1 text-zinc-500">
@@ -27,7 +27,7 @@ export default function ScanReceiptPage() {
       ) : (
         <form
           action={scanReceipt}
-          className="mt-6 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+          className="mt-6 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
         >
           <Field label="Receipt Photo" htmlFor="file">
             <input
@@ -43,7 +43,7 @@ export default function ScanReceiptPage() {
           <div>
             <button
               type="submit"
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Scan &amp; File Expense
             </button>

@@ -20,7 +20,7 @@ export default async function PlatformAdminPage() {
   return (
     <div>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Platform Admin</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Platform Admin</h1>
         <p className="mt-1 text-zinc-500">
           Every business using this app. "View As" lets you see the app exactly as that business
           does, for troubleshooting — it's time-limited (4 hours) and logged under your own name,
@@ -28,7 +28,7 @@ export default async function PlatformAdminPage() {
         </p>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

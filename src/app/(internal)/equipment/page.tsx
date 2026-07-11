@@ -66,10 +66,10 @@ export default async function EquipmentPage({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Equipment</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Equipment</h1>
         <Link
           href="/equipment/new"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           + New Equipment
         </Link>
@@ -125,7 +125,7 @@ export default async function EquipmentPage({
           return (
             <div
               key={item.id}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+              className="rounded-lg border-2 border-zinc-900 bg-white p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -188,7 +188,7 @@ export default async function EquipmentPage({
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

@@ -44,7 +44,7 @@ export function SelectableCustomerMap({ customers }: { customers: MappableCustom
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3 rounded-lg border-2 border-zinc-900 bg-white p-3">
         <span className="text-sm text-zinc-500">
           Showing {selected.size} of {customers.length} on the map
         </span>
@@ -56,7 +56,7 @@ export function SelectableCustomerMap({ customers }: { customers: MappableCustom
           {allSelected ? "Clear all" : "Select all"}
         </button>
       </div>
-      <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-lg border-2 border-zinc-900 bg-white p-3">
         {customers.map((c) => (
           <label
             key={c.id}

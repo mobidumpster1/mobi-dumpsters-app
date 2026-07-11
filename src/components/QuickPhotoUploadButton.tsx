@@ -54,7 +54,7 @@ export function QuickPhotoUploadButton({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={status !== null}
-        className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+        className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
       >
         {status ?? "+ Add Photos"}
       </button>

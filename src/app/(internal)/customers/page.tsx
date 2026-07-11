@@ -46,7 +46,7 @@ export default async function CustomersPage({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Customers</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Customers</h1>
         <div className="flex flex-wrap gap-2">
           {hasPermission(user, "canViewReports") && (
             <a
@@ -58,7 +58,7 @@ export default async function CustomersPage({
           )}
           <Link
             href="/customers/new"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             + New Customer
           </Link>
@@ -82,7 +82,7 @@ export default async function CustomersPage({
         {customers.map((customer) => (
           <div
             key={customer.id}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-lg border-2 border-zinc-900 bg-white p-4"
           >
             <Link
               href={`/customers/${customer.id}`}
@@ -127,7 +127,7 @@ export default async function CustomersPage({
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

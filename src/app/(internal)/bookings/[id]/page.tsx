@@ -28,6 +28,7 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { FacebookShareBox } from "@/components/FacebookShareBox";
+import { Tabs } from "@/components/Tabs";
 import { branding } from "@/lib/branding";
 import { requireUser } from "@/lib/session";
 
@@ -99,11 +100,343 @@ export default async function BookingDetailPage({
   const markBookingReviewedWithId = markBookingReviewed.bind(null, booking.id);
   const sendReviewRequestNowWithId = sendReviewRequestNow.bind(null, booking.id);
 
+  const overviewTab = (
+    <>
+      {booking.latitude !== null && booking.longitude !== null && (
+        <div>
+          <LocationMap
+            pins={[
+              {
+                id: booking.id,
+                lat: booking.latitude,
+                lng: booking.longitude,
+                label: booking.deliveryAddress,
+                href: `/bookings/${booking.id}`,
+              },
+            ]}
+            heightClassName="h-64"
+            zoom={15}
+          />
+        </div>
+      )}
+
+      {/* Mobile: card list */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {booking.items.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-lg border-2 border-zinc-900 bg-white p-4"
+          >
+            <p className="font-medium text-zinc-900">
+              {item.equipmentItem.label}
+            </p>
+            <dl className="mt-2 flex flex-col gap-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Start</dt>
+                <dd className="text-zinc-700">{formatDate(item.startDate)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Expected Return</dt>
+                <dd className="text-zinc-700">
+                  {formatDate(item.expectedReturnDate)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-zinc-500">Price</dt>
+                <dd className="text-zinc-700">${item.price.toFixed(2)}</dd>
+              </div>
+            </dl>
+            <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
+              <div>
+                <p className="text-xs text-zinc-500">Delivery</p>
+                {item.deliveredAt ? (
+                  <span className="text-sm text-zinc-500">
+                    {item.deliveredAt.toLocaleDateString()}
+                  </span>
+                ) : (
+                  <form action={markDelivered.bind(null, item.id)}>
+                    <button
+                      type="submit"
+                      className="text-sm font-semibold text-brand hover:underline"
+                    >
+                      Mark Delivered
+                    </button>
+                  </form>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500">Return</p>
+                {item.actualReturnDate ? (
+                  <span className="text-sm text-zinc-500">
+                    {item.actualReturnDate.toLocaleDateString()}
+                  </span>
+                ) : (
+                  <form
+                    action={markReturned.bind(null, item.id)}
+                    className="flex flex-col gap-1.5"
+                  >
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="actualTonnage"
+                      placeholder="Tons (optional)"
+                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      name="actualMileage"
+                      placeholder="Miles (optional)"
+                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                    />
+                    <button
+                      type="submit"
+                      className="self-start text-sm font-semibold text-brand hover:underline"
+                    >
+                      Mark Returned
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center justify-between rounded-lg border-2 border-zinc-900 bg-white p-4">
+          <span className="font-medium text-zinc-500">Total</span>
+          <span className="font-medium text-zinc-900">${total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Tablet/desktop: table */}
+      <div className="hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Item</th>
+              <th className="px-5 py-3.5 font-semibold">Start</th>
+              <th className="px-5 py-3.5 font-semibold">Expected Return</th>
+              <th className="px-5 py-3.5 font-semibold">Price</th>
+              <th className="px-5 py-3.5 font-semibold">Delivery</th>
+              <th className="px-5 py-3.5 font-semibold">Return</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {booking.items.map((item) => (
+              <tr key={item.id}>
+                <td className="px-5 py-4 font-medium text-zinc-900">
+                  {item.equipmentItem.label}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">
+                  {formatDate(item.startDate)}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">
+                  {formatDate(item.expectedReturnDate)}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">
+                  ${item.price.toFixed(2)}
+                </td>
+                <td className="px-5 py-4">
+                  {item.deliveredAt ? (
+                    <span className="text-zinc-500">
+                      {item.deliveredAt.toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <form action={markDelivered.bind(null, item.id)}>
+                      <button
+                        type="submit"
+                        className="text-sm font-semibold text-brand hover:underline"
+                      >
+                        Mark Delivered
+                      </button>
+                    </form>
+                  )}
+                </td>
+                <td className="px-5 py-4">
+                  {item.actualReturnDate ? (
+                    <span className="text-zinc-500">
+                      {item.actualReturnDate.toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <form
+                      action={markReturned.bind(null, item.id)}
+                      className="flex flex-col gap-1.5"
+                    >
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="actualTonnage"
+                        placeholder="Tons (optional)"
+                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
+                      />
+                      <input
+                        type="number"
+                        step="0.1"
+                        name="actualMileage"
+                        placeholder="Miles (optional)"
+                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
+                      />
+                      <button
+                        type="submit"
+                        className="text-sm font-semibold text-brand hover:underline"
+                      >
+                        Mark Returned
+                      </button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3} className="px-5 py-4 text-right font-medium text-zinc-500">
+                Total
+              </td>
+              <td colSpan={3} className="px-5 py-4 font-medium text-zinc-900">
+                ${total.toFixed(2)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
+  );
+
+  const damageReportsTab = (
+    <>
+      <div>
+        <h2 className="text-xl font-black text-ink">Damage Reports</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          File a report if equipment came back damaged — bill the estimated
+          cost to the customer&apos;s invoice, or record it as a repair
+          expense the business absorbs. Attach photos under the Photos &amp;
+          Videos tab, type &quot;Damage&quot;.
+        </p>
+      </div>
+      <form
+        action={addDamageReportWithId}
+        className="flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Equipment" htmlFor="equipmentItemId">
+            <select id="equipmentItemId" name="equipmentItemId" required className={inputClass}>
+              {booking.items.map((item) => (
+                <option key={item.equipmentItemId} value={item.equipmentItemId}>
+                  {item.equipmentItem.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Estimated Repair Cost" htmlFor="estimatedCost">
+            <input
+              id="estimatedCost"
+              name="estimatedCost"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <Field label="Description" htmlFor="description">
+          <input id="description" name="description" required className={inputClass} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+          <input
+            type="checkbox"
+            name="billedToCustomer"
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Bill this to the customer&apos;s invoice (leave unchecked to record it as a repair expense instead)
+        </label>
+        <div>
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            File Damage Report
+          </button>
+        </div>
+      </form>
+
+      <div className="flex flex-col gap-3">
+        {booking.damageReports.map((report) => (
+          <div
+            key={report.id}
+            className="flex items-center justify-between gap-3 rounded-lg border-2 border-zinc-900 bg-white p-4"
+          >
+            <div>
+              <p className="font-medium text-zinc-900">
+                {report.equipmentItem.label} — ${report.estimatedCost.toFixed(2)}
+              </p>
+              <p className="text-sm text-zinc-500">{report.description}</p>
+              <span
+                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                  report.billedToCustomer
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-zinc-100 text-zinc-600"
+                }`}
+              >
+                {report.billedToCustomer ? "Billed to customer" : "Business expense"}
+              </span>
+            </div>
+            <form action={deleteDamageReport.bind(null, report.id)}>
+              <ConfirmButton
+                message="Delete this damage report? This will also remove the associated invoice charge or expense."
+                className="text-sm font-semibold text-red-600 hover:underline"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
+          </div>
+        ))}
+        {booking.damageReports.length === 0 && (
+          <p className="text-sm text-zinc-400">No damage reported.</p>
+        )}
+      </div>
+    </>
+  );
+
+  const mediaTab = (
+    <>
+      <MediaUploadForm
+        uploadAction={uploadPhoto.bind(null, booking.id)}
+        typeOptions={[
+          { value: "delivery", label: "Delivery" },
+          { value: "pickup", label: "Pickup" },
+          { value: "damage", label: "Damage" },
+          { value: "other", label: "Other" },
+        ]}
+        defaultType="delivery"
+        folder={`bookings/${booking.id}`}
+      />
+
+      <MediaGrid items={booking.photos} deleteAction={deletePhoto} />
+
+      {booking.photos.some((p) => p.mediaType !== "video") && (
+        <FacebookShareBox
+          photos={booking.photos
+            .filter((p) => p.mediaType !== "video")
+            .map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
+          defaultCaption={facebookCaption}
+          facebookPageUrl={branding.facebookPageUrl ?? null}
+        />
+      )}
+    </>
+  );
+
+  const tabs = [
+    { id: "overview", label: "Overview", content: overviewTab },
+    { id: "damage", label: "Damage Reports", content: damageReportsTab },
+    { id: "media", label: "Photos & Videos", content: mediaTab },
+  ];
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             Booking for{" "}
             <Link
               href={`/customers/${booking.customer.id}`}
@@ -162,7 +495,7 @@ export default async function BookingDetailPage({
             (booking.invoices.length === 0 ? (
               <Link
                 href={`/invoices/new?bookingId=${booking.id}`}
-                className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
               >
                 Create Invoice
               </Link>
@@ -348,7 +681,7 @@ export default async function BookingDetailPage({
       {isPending && (
         <form
           action={confirmWithId}
-          className="mt-6 flex flex-col gap-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm"
+          className="mt-6 flex flex-col gap-4 rounded-lg border-2 border-amber-600 bg-amber-50 p-5"
         >
           <div>
             <h2 className="text-lg font-semibold text-ink">
@@ -389,7 +722,7 @@ export default async function BookingDetailPage({
           <div className="flex gap-3">
             <button
               type="submit"
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Confirm Booking
             </button>
@@ -404,320 +737,9 @@ export default async function BookingDetailPage({
         </form>
       )}
 
-      {booking.latitude !== null && booking.longitude !== null && (
-        <div className="mt-6">
-          <LocationMap
-            pins={[
-              {
-                id: booking.id,
-                lat: booking.latitude,
-                lng: booking.longitude,
-                label: booking.deliveryAddress,
-                href: `/bookings/${booking.id}`,
-              },
-            ]}
-            heightClassName="h-64"
-            zoom={15}
-          />
-        </div>
-      )}
-
-      {/* Mobile: card list */}
-      <div className="mt-6 flex flex-col gap-3 md:hidden">
-        {booking.items.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-          >
-            <p className="font-medium text-zinc-900">
-              {item.equipmentItem.label}
-            </p>
-            <dl className="mt-2 flex flex-col gap-1 text-sm">
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Start</dt>
-                <dd className="text-zinc-700">{formatDate(item.startDate)}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Expected Return</dt>
-                <dd className="text-zinc-700">
-                  {formatDate(item.expectedReturnDate)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Price</dt>
-                <dd className="text-zinc-700">${item.price.toFixed(2)}</dd>
-              </div>
-            </dl>
-            <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
-              <div>
-                <p className="text-xs text-zinc-500">Delivery</p>
-                {item.deliveredAt ? (
-                  <span className="text-sm text-zinc-500">
-                    {item.deliveredAt.toLocaleDateString()}
-                  </span>
-                ) : (
-                  <form action={markDelivered.bind(null, item.id)}>
-                    <button
-                      type="submit"
-                      className="text-sm font-semibold text-brand hover:underline"
-                    >
-                      Mark Delivered
-                    </button>
-                  </form>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500">Return</p>
-                {item.actualReturnDate ? (
-                  <span className="text-sm text-zinc-500">
-                    {item.actualReturnDate.toLocaleDateString()}
-                  </span>
-                ) : (
-                  <form
-                    action={markReturned.bind(null, item.id)}
-                    className="flex flex-col gap-1.5"
-                  >
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="actualTonnage"
-                      placeholder="Tons (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
-                    />
-                    <input
-                      type="number"
-                      step="0.1"
-                      name="actualMileage"
-                      placeholder="Miles (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
-                    />
-                    <button
-                      type="submit"
-                      className="self-start text-sm font-semibold text-brand hover:underline"
-                    >
-                      Mark Returned
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <span className="font-medium text-zinc-500">Total</span>
-          <span className="font-medium text-zinc-900">${total.toFixed(2)}</span>
-        </div>
+      <div className="mt-6">
+        <Tabs tabs={tabs} initialTab="overview" />
       </div>
-
-      {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-zinc-500">
-            <tr>
-              <th className="px-5 py-3.5 font-semibold">Item</th>
-              <th className="px-5 py-3.5 font-semibold">Start</th>
-              <th className="px-5 py-3.5 font-semibold">Expected Return</th>
-              <th className="px-5 py-3.5 font-semibold">Price</th>
-              <th className="px-5 py-3.5 font-semibold">Delivery</th>
-              <th className="px-5 py-3.5 font-semibold">Return</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {booking.items.map((item) => (
-              <tr key={item.id}>
-                <td className="px-5 py-4 font-medium text-zinc-900">
-                  {item.equipmentItem.label}
-                </td>
-                <td className="px-5 py-4 text-zinc-600">
-                  {formatDate(item.startDate)}
-                </td>
-                <td className="px-5 py-4 text-zinc-600">
-                  {formatDate(item.expectedReturnDate)}
-                </td>
-                <td className="px-5 py-4 text-zinc-600">
-                  ${item.price.toFixed(2)}
-                </td>
-                <td className="px-5 py-4">
-                  {item.deliveredAt ? (
-                    <span className="text-zinc-500">
-                      {item.deliveredAt.toLocaleDateString()}
-                    </span>
-                  ) : (
-                    <form action={markDelivered.bind(null, item.id)}>
-                      <button
-                        type="submit"
-                        className="text-sm font-semibold text-brand hover:underline"
-                      >
-                        Mark Delivered
-                      </button>
-                    </form>
-                  )}
-                </td>
-                <td className="px-5 py-4">
-                  {item.actualReturnDate ? (
-                    <span className="text-zinc-500">
-                      {item.actualReturnDate.toLocaleDateString()}
-                    </span>
-                  ) : (
-                    <form
-                      action={markReturned.bind(null, item.id)}
-                      className="flex flex-col gap-1.5"
-                    >
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="actualTonnage"
-                        placeholder="Tons (optional)"
-                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        name="actualMileage"
-                        placeholder="Miles (optional)"
-                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
-                      />
-                      <button
-                        type="submit"
-                        className="text-sm font-semibold text-brand hover:underline"
-                      >
-                        Mark Returned
-                      </button>
-                    </form>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3} className="px-5 py-4 text-right font-medium text-zinc-500">
-                Total
-              </td>
-              <td colSpan={3} className="px-5 py-4 font-medium text-zinc-900">
-                ${total.toFixed(2)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <h2 className="mt-8 text-xl font-semibold text-ink">Damage Reports</h2>
-      <p className="mt-1 text-sm text-zinc-500">
-        File a report if equipment came back damaged — bill the estimated
-        cost to the customer&apos;s invoice, or record it as a repair
-        expense the business absorbs. Attach photos below under
-        &quot;Damage&quot;.
-      </p>
-      <form
-        action={addDamageReportWithId}
-        className="mt-3 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Equipment" htmlFor="equipmentItemId">
-            <select id="equipmentItemId" name="equipmentItemId" required className={inputClass}>
-              {booking.items.map((item) => (
-                <option key={item.equipmentItemId} value={item.equipmentItemId}>
-                  {item.equipmentItem.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Estimated Repair Cost" htmlFor="estimatedCost">
-            <input
-              id="estimatedCost"
-              name="estimatedCost"
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              className={inputClass}
-            />
-          </Field>
-        </div>
-        <Field label="Description" htmlFor="description">
-          <input id="description" name="description" required className={inputClass} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
-          <input
-            type="checkbox"
-            name="billedToCustomer"
-            className="h-4 w-4 rounded border-zinc-300"
-          />
-          Bill this to the customer&apos;s invoice (leave unchecked to record it as a repair expense instead)
-        </label>
-        <div>
-          <button
-            type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            File Damage Report
-          </button>
-        </div>
-      </form>
-
-      <div className="mt-3 flex flex-col gap-3">
-        {booking.damageReports.map((report) => (
-          <div
-            key={report.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
-          >
-            <div>
-              <p className="font-medium text-zinc-900">
-                {report.equipmentItem.label} — ${report.estimatedCost.toFixed(2)}
-              </p>
-              <p className="text-sm text-zinc-500">{report.description}</p>
-              <span
-                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                  report.billedToCustomer
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-zinc-100 text-zinc-600"
-                }`}
-              >
-                {report.billedToCustomer ? "Billed to customer" : "Business expense"}
-              </span>
-            </div>
-            <form action={deleteDamageReport.bind(null, report.id)}>
-              <ConfirmButton
-                message="Delete this damage report? This will also remove the associated invoice charge or expense."
-                className="text-sm font-semibold text-red-600 hover:underline"
-              >
-                Delete
-              </ConfirmButton>
-            </form>
-          </div>
-        ))}
-        {booking.damageReports.length === 0 && (
-          <p className="text-sm text-zinc-400">No damage reported.</p>
-        )}
-      </div>
-
-      <h2 className="mt-8 text-xl font-semibold text-ink">Photos & Videos</h2>
-      <MediaUploadForm
-        uploadAction={uploadPhoto.bind(null, booking.id)}
-        typeOptions={[
-          { value: "delivery", label: "Delivery" },
-          { value: "pickup", label: "Pickup" },
-          { value: "damage", label: "Damage" },
-          { value: "other", label: "Other" },
-        ]}
-        defaultType="delivery"
-        folder={`bookings/${booking.id}`}
-      />
-
-      <MediaGrid items={booking.photos} deleteAction={deletePhoto} />
-
-      {booking.photos.some((p) => p.mediaType !== "video") && (
-        <div className="mt-6">
-          <FacebookShareBox
-            photos={booking.photos
-              .filter((p) => p.mediaType !== "video")
-              .map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
-            defaultCaption={facebookCaption}
-            facebookPageUrl={branding.facebookPageUrl ?? null}
-          />
-        </div>
-      )}
     </div>
   );
 }

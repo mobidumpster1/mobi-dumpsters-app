@@ -92,7 +92,7 @@ export default async function WinBackPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Win-Back</h1>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Win-Back</h1>
           <p className="mt-1 text-zinc-500">
             Customers with no activity in the last{" "}
             {usingMonthFilter ? `${selectedMonths} months` : `${settings.lapsedDays} days`}. The

@@ -34,7 +34,7 @@ export default async function SignedAgreementDetailPage({
     <div className="max-w-2xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             {signed.agreementTitle}
           </h1>
           <p className="mt-1 text-zinc-500">
@@ -60,7 +60,7 @@ export default async function SignedAgreementDetailPage({
         </div>
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm sm:grid-cols-3">
+      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-zinc-500">Signer Email</dt>
           <dd className="text-zinc-900">{signed.signerEmail ?? "—"}</dd>
@@ -109,10 +109,10 @@ export default async function SignedAgreementDetailPage({
         </div>
       </dl>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">
+      <h2 className="mt-8 text-xl font-black text-ink">
         Agreement Text (as signed)
       </h2>
-      <div className="mt-3 whitespace-pre-wrap rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm text-zinc-700">
+      <div className="mt-3 whitespace-pre-wrap rounded-lg border-2 border-zinc-900 bg-white p-5 text-sm text-zinc-700">
         {signed.agreementText}
       </div>
     </div>

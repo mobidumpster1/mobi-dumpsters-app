@@ -32,7 +32,7 @@ export default async function EditEquipmentPage({
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">Edit Equipment</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">Edit Equipment</h1>
       <div className="mt-6">
         <EquipmentItemForm
           action={updateWithId}

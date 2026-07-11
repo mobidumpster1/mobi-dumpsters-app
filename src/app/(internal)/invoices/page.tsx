@@ -17,7 +17,7 @@ export default async function InvoicesPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Invoices</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Invoices</h1>
         <Link
           href="/invoices/unpaid"
           className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
@@ -34,7 +34,7 @@ export default async function InvoicesPage() {
             <Link
               key={invoice.id}
               href={`/invoices/${invoice.id}`}
-              className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+              className="block rounded-lg border-2 border-zinc-900 bg-white p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-zinc-900">
@@ -75,7 +75,7 @@ export default async function InvoicesPage() {
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

@@ -60,7 +60,7 @@ function DispatchCard({
   action: (formData: FormData) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-semibold text-zinc-900">{date}</span>
         <span className={`text-xs ${urgencyClassName}`}>{urgencyText}</span>
@@ -184,15 +184,15 @@ export default async function DispatchPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Dispatch</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Dispatch</h1>
         <p className="mt-1 text-zinc-500">
           What&apos;s due for delivery or pickup/return, today and this week.
         </p>
       </div>
 
       {pendingBookings.length > 0 && (
-        <section className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-ink">
+        <section className="rounded-lg border-2 border-amber-600 bg-amber-50 p-5">
+          <h2 className="text-xl font-black text-ink">
             {pendingBookings.length} New Booking Request
             {pendingBookings.length === 1 ? "" : "s"} Awaiting Review
           </h2>
@@ -216,8 +216,8 @@ export default async function DispatchPage() {
       )}
 
       {serviceRequests.length > 0 && (
-        <section className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-ink">
+        <section className="rounded-lg border-2 border-amber-600 bg-amber-50 p-5">
+          <h2 className="text-xl font-black text-ink">
             {serviceRequests.length} Service Request
             {serviceRequests.length === 1 ? "" : "s"}
           </h2>
@@ -254,8 +254,8 @@ export default async function DispatchPage() {
       )}
 
       {expiringDocuments.length > 0 && (
-        <section className="rounded-2xl border-2 border-red-300 bg-red-50 p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-ink">
+        <section className="rounded-lg border-2 border-red-600 bg-red-50 p-5">
+          <h2 className="text-xl font-black text-ink">
             {expiringDocuments.length} Document{expiringDocuments.length === 1 ? "" : "s"} Expiring
             Soon
           </h2>
@@ -284,7 +284,7 @@ export default async function DispatchPage() {
       )}
 
       <section>
-        <h2 className="text-xl font-semibold text-ink">Active Equipment Map</h2>
+        <h2 className="text-xl font-black text-ink">Active Equipment Map</h2>
         <div className="mt-3">
           <LocationMap pins={pins} heightClassName="h-96" />
         </div>
@@ -292,7 +292,7 @@ export default async function DispatchPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="text-xl font-semibold text-ink">Deliveries</h2>
+          <h2 className="text-xl font-black text-ink">Deliveries</h2>
           <div className="mt-3 flex flex-col gap-3">
             {deliveries.map((item) => {
               const u = urgency(item.startDate, today);
@@ -321,7 +321,7 @@ export default async function DispatchPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-ink">Pickups &amp; Returns</h2>
+          <h2 className="text-xl font-black text-ink">Pickups &amp; Returns</h2>
           <div className="mt-3 flex flex-col gap-3">
             {pickups.map((item) => {
               const u = urgency(item.expectedReturnDate, today);

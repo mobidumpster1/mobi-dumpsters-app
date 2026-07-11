@@ -127,7 +127,7 @@ export default async function LeadsPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Leads</h1>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Leads</h1>
           <p className="mt-1 text-zinc-500">
             Find local businesses on Google Maps and keep track of outreach.
           </p>
@@ -156,8 +156,8 @@ export default async function LeadsPage({
       </div>
 
       {dueFollowUps.length > 0 && (
-        <div className="mt-6 rounded-2xl border-2 border-blue-300 bg-blue-50 p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-ink">
+        <div className="mt-6 rounded-lg border-2 border-blue-600 bg-blue-50 p-5">
+          <h2 className="text-xl font-black text-ink">
             {dueFollowUps.length} Follow-Up{dueFollowUps.length === 1 ? "" : "s"} Due
           </h2>
           <div className="mt-3 flex flex-col gap-2">
@@ -271,7 +271,7 @@ export default async function LeadsPage({
         {leads.map((lead) => (
           <div
             key={lead.id}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-lg border-2 border-zinc-900 bg-white p-4"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -403,7 +403,7 @@ export default async function LeadsPage({
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

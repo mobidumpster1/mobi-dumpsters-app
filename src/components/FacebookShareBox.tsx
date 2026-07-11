@@ -23,7 +23,7 @@ export function FacebookShareBox({
   const selected = photos[selectedIndex];
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-lg font-semibold text-ink">Share to Facebook</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Pick a photo, tweak the caption if you want, then copy it, download
@@ -63,7 +63,7 @@ export function FacebookShareBox({
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }}
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           {copied ? "Copied!" : "Copy Caption"}
         </button>

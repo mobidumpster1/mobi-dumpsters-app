@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/dumpster-rental",
   "/booking",
   "/leads-unsubscribe",
+  "/design-preview", // TEMP: design exploration mockup, remove once direction is picked
 ];
 
 // Static assets (logo, icons, manifest, etc.) — these need to load for

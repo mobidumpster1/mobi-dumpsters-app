@@ -30,7 +30,7 @@ export default async function DocumentsPage() {
   return (
     <div>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">Documents</h1>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Documents</h1>
         <p className="mt-1 text-zinc-500">
           Insurance, registrations, DOT filings, and licenses — with a heads-up on the Dispatch
           page as they get close to expiring.
@@ -42,7 +42,7 @@ export default async function DocumentsPage() {
         {documents.map((doc) => {
           const u = documentUrgency(doc.expiresOn, today);
           return (
-            <div key={doc.id} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div key={doc.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-medium text-zinc-900">{doc.name}</div>
@@ -97,7 +97,7 @@ export default async function DocumentsPage() {
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="mt-6 hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -159,10 +159,10 @@ export default async function DocumentsPage() {
         </table>
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Add a Document</h2>
+      <h2 className="mt-8 text-xl font-black text-ink">Add a Document</h2>
       <form
         action={createDocument}
-        className="mt-3 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+        className="mt-3 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Type" htmlFor="type">
@@ -215,7 +215,7 @@ export default async function DocumentsPage() {
         <div>
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Add Document
           </button>

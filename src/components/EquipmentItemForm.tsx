@@ -190,7 +190,7 @@ export function EquipmentItemForm({
       <div className="flex gap-3">
         <button
           type="submit"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           Save Equipment
         </button>

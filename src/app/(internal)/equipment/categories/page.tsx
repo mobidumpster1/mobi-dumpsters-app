@@ -18,7 +18,7 @@ export default async function CategoriesPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             Equipment Categories
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
@@ -28,7 +28,7 @@ export default async function CategoriesPage() {
         </div>
         <Link
           href="/equipment/categories/new"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           + New Category
         </Link>
@@ -45,7 +45,7 @@ export default async function CategoriesPage() {
             <Link
               key={category.id}
               href={`/equipment/categories/${category.id}/edit`}
-              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:border-zinc-300"
+              className="rounded-lg border-2 border-zinc-900 bg-white p-5 hover:border-zinc-300"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-medium text-zinc-900">{category.name}</h2>

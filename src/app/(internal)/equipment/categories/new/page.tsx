@@ -19,7 +19,7 @@ export default async function NewCategoryPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">New Category</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">New Category</h1>
       <p className="mt-1 text-sm text-zinc-500">
         A category is a type of rentable thing, like &quot;Excavator&quot; or
         &quot;Tiller&quot;. Define what extra fields items of this type
@@ -51,7 +51,7 @@ export default async function NewCategoryPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Save Category
           </button>

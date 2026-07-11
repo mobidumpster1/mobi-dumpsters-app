@@ -69,7 +69,7 @@ export function WinBackList({
   }
 
   const bulkBar = (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-4">
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-zinc-600">
           <input
@@ -119,7 +119,7 @@ export function WinBackList({
       {/* Mobile: card list */}
       <div className="flex flex-col gap-3 md:hidden">
         {rows.map((row) => (
-          <div key={row.id} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div key={row.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
             <div className="flex items-start gap-3">
               <input
                 type="checkbox"
@@ -176,7 +176,7 @@ export function WinBackList({
       </div>
 
       {/* Tablet/desktop: table */}
-      <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm md:block">
+      <div className="hidden overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>

@@ -6,7 +6,7 @@ import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 export default function NewCustomerPage() {
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">New Customer</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">New Customer</h1>
       <form action={createCustomer} className="mt-6 flex flex-col gap-4">
         <Field label="Name" htmlFor="name">
           <input id="name" name="name" required className={inputClass} />
@@ -47,7 +47,7 @@ export default function NewCustomerPage() {
         <div className="flex gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Save Customer
           </button>

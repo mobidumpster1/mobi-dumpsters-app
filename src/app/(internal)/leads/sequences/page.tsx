@@ -51,7 +51,7 @@ export default async function SequencesPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Email Sequences</h1>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Email Sequences</h1>
           <p className="mt-1 text-zinc-500">
             Multi-step outreach built from your Email Templates. Auto-Send sequences email the
             next step by themselves once due; everything else shows up as a follow-up you send
@@ -66,7 +66,7 @@ export default async function SequencesPage() {
         </Link>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
         <h2 className="text-sm font-semibold text-zinc-700">Sending Limits</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Caps how many Auto-Send emails go out per day, even if more leads are due — a big batch
@@ -109,7 +109,7 @@ export default async function SequencesPage() {
 
       <div className="mt-6 flex flex-col gap-4">
         {sequences.map((sequence) => (
-          <div key={sequence.id} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div key={sequence.id} className="rounded-lg border-2 border-zinc-900 bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{sequence.name}</h2>
@@ -234,10 +234,10 @@ export default async function SequencesPage() {
         )}
       </div>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">New Sequence</h2>
+      <h2 className="mt-8 text-xl font-black text-ink">New Sequence</h2>
       <form
         action={createSequence}
-        className="mt-3 flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+        className="mt-3 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
       >
         <Field label="Name" htmlFor="name">
           <input id="name" name="name" required className={inputClass} placeholder="e.g. Roofers — 3 Touch" />
@@ -249,7 +249,7 @@ export default async function SequencesPage() {
         <div>
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Create Sequence
           </button>

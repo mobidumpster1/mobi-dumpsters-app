@@ -22,7 +22,7 @@ export default async function EditCustomerPage({
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">Edit Customer</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">Edit Customer</h1>
       <form action={updateWithId} className="mt-6 flex flex-col gap-4">
         <Field label="Name" htmlFor="name">
           <input
@@ -102,7 +102,7 @@ export default async function EditCustomerPage({
         <div className="flex gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             Save Changes
           </button>

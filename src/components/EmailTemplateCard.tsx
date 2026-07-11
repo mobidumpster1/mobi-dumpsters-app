@@ -72,7 +72,7 @@ export function EmailTemplateCard({
             </Field>
             <button
               type="submit"
-              className="self-start rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Save
             </button>

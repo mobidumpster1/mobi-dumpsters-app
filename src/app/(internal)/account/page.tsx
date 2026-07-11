@@ -14,9 +14,9 @@ export default async function AccountPage({
 
   return (
     <div className="max-w-md">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">My Account</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">My Account</h1>
 
-      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <section className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
         <dl className="flex flex-col gap-1 text-sm">
           <div className="flex justify-between">
             <dt className="text-zinc-500">Name</dt>
@@ -33,8 +33,8 @@ export default async function AccountPage({
         </dl>
       </section>
 
-      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-semibold text-ink">Change Password</h2>
+      <section className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h2 className="text-xl font-black text-ink">Change Password</h2>
 
         {saved && (
           <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -76,7 +76,7 @@ export default async function AccountPage({
           <div>
             <button
               type="submit"
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Update Password
             </button>

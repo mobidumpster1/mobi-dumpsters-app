@@ -54,7 +54,7 @@ function AgendaDay({
   isToday: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-4">
       <div className="flex items-center gap-2">
         <span
           className={`inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -254,7 +254,7 @@ export default async function CalendarPage({
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Calendar</h1>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Calendar</h1>
           <p className="mt-1 text-zinc-500">
             Deliveries and returns from your bookings. Also pushed one-way to
             your Google Calendar.
@@ -283,7 +283,7 @@ export default async function CalendarPage({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-ink">{title}</h2>
+        <h2 className="text-xl font-black text-ink">{title}</h2>
         <div className="flex gap-2">
           {(["day", "week", "month"] as ViewMode[]).map((mode) => (
             <Link
@@ -362,7 +362,7 @@ export default async function CalendarPage({
           </div>
 
           {/* Tablet/desktop: month grid */}
-          <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-zinc-200 shadow-sm md:block">
+          <div className="mt-4 hidden overflow-x-auto rounded-lg border-2 border-zinc-900 md:block">
             <div className="grid min-w-[700px] grid-cols-7 gap-px bg-zinc-200">
               {WEEKDAY_LABELS.map((label) => (
                 <div

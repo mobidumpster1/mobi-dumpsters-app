@@ -75,7 +75,7 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-6 flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="mb-6 flex items-center justify-between rounded-lg border-2 border-zinc-900 bg-white p-5">
         <div className="flex items-center gap-3">
           {logoExists && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -100,7 +100,7 @@ export default async function InvoiceDetailPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">
+          <h1 className="text-3xl font-black tracking-tight text-ink">
             {invoice.invoiceNumber}
           </h1>
           <p className="mt-1 text-zinc-500">
@@ -137,7 +137,7 @@ export default async function InvoiceDetailPage({
         </span>
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm text-sm sm:grid-cols-3">
+      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5 text-sm sm:grid-cols-3">
         <div>
           <dt className="text-zinc-500">Issue Date</dt>
           <dd className="text-zinc-900">{formatDate(invoice.issueDate)}</dd>
@@ -174,8 +174,8 @@ export default async function InvoiceDetailPage({
         )}
       </dl>
 
-      <h2 className="mt-8 text-xl font-semibold text-ink">Line Items</h2>
-      <div className="mt-3 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <h2 className="mt-8 text-xl font-black text-ink">Line Items</h2>
+      <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -216,7 +216,7 @@ export default async function InvoiceDetailPage({
       </div>
 
       {invoice.status !== "paid" && quickbooksConnected && customer && (
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm print:hidden">
+        <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">
           <h2 className="text-lg font-semibold text-ink">Online Payment</h2>
           {invoice.onlinePaymentUrl ? (
             <>
@@ -263,7 +263,7 @@ export default async function InvoiceDetailPage({
               <form action={sendForOnlinePaymentWithId} className="mt-3">
                 <button
                   type="submit"
-                  className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                  className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
                 >
                   Send for Online Payment
                 </button>
@@ -300,7 +300,7 @@ export default async function InvoiceDetailPage({
             </Field>
             <button
               type="submit"
-              className="rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
             >
               Mark Paid
             </button>
