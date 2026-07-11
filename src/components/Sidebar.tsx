@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { branding } from "@/lib/branding";
+import type { OrgBranding } from "@/lib/orgBranding";
 import { ThemeToggle } from "./ThemeToggle";
 import { logout } from "@/app/login/actions";
 
@@ -214,11 +214,11 @@ function AccountRow({ user }: { user: SidebarUser }) {
 }
 
 export function Sidebar({
-  logoExists,
+  branding,
   pendingCount = 0,
   user,
 }: {
-  logoExists: boolean;
+  branding: OrgBranding;
   pendingCount?: number;
   user: SidebarUser;
 }) {
@@ -256,10 +256,10 @@ export function Sidebar({
     }
   }
 
-  const logo = logoExists && (
+  const logo = branding.logoUrl && (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={branding.logoPath}
+      src={branding.logoUrl}
       alt={branding.businessName}
       className="h-11 w-11 flex-shrink-0 rounded-xl bg-white object-contain p-1"
     />

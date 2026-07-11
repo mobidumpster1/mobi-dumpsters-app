@@ -23,6 +23,11 @@
   --rt-zinc-600: #52525b;
   --rt-zinc-700: #3f3f46;
   --rt-zinc-900: #18181b;
+
+  /* Default brand palette. Overridden inline (per-organization) on the
+     internal app's root wrapper — see src/app/(internal)/layout.tsx. */
+  --rt-brand: #3f6b2f;
+  --rt-brand-dark: #2f5122;
 }
 
 .dark {
@@ -45,10 +50,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Brand palette, sampled from the Mobi Dumpsters logo. Stays constant
-     across themes. */
-  --color-brand: #3f6b2f;
-  --color-brand-dark: #2f5122;
+  /* Brand palette. Resolves through --rt-brand(-dark) so it can be
+     overridden per-organization without touching every bg-brand/text-brand
+     usage across the app — same pattern as the zinc tokens above. */
+  --color-brand: var(--rt-brand);
+  --color-brand-dark: var(--rt-brand-dark);
   --color-brand-light: #eef3ea;
   --color-ink: var(--foreground);
 

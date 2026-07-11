@@ -18,10 +18,12 @@ datasource db {
 // a second business can be onboarded later without retrofitting existing
 // data. See src/lib/session.ts for how a logged-in request carries this.
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  logoUrl      String?
+  primaryColor String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   users                    User[]
   customers                Customer[]

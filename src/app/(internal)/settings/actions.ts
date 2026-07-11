@@ -107,6 +107,20 @@ export async function importCustomersFromQuickBooks() {
   revalidatePath("/customers");
 }
 
+export async function updateBranding(formData: FormData) {
+  const user = await requireUser();
+  const logoUrl = str(formData, "logoUrl") || null;
+  const primaryColor = str(formData, "primaryColor") || null;
+
+  await db.organization.update({
+    where: { id: user.effectiveOrganizationId },
+    data: { logoUrl, primaryColor },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+}
+
 export async function updateAgreementSettings(formData: FormData) {
   const user = await requireUser();
   const settings = await getAgreementSettings(user.effectiveOrganizationId);

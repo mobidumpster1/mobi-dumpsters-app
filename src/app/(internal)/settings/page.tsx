@@ -4,6 +4,7 @@ import {
   saveAccountMappings,
   disconnectQuickBooks,
   importCustomersFromQuickBooks,
+  updateBranding,
   updateAgreementSettings,
   updateReviewRequestSettings,
   sendReviewRequestsNow,
@@ -27,7 +28,9 @@ import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { getWinBackSettings } from "@/lib/winbackSettings";
 import { getAllEmailTemplates } from "@/lib/emailTemplates";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { Field, inputClass } from "@/components/Field";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import { serviceAreas } from "@/lib/serviceAreas";
 import { EmailTemplateCard } from "@/components/EmailTemplateCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -93,6 +96,7 @@ export default async function SettingsPage({
     orderBy: { name: "asc" },
   });
   const emailTemplates = await getAllEmailTemplates(currentUser.effectiveOrganizationId);
+  const orgBranding = await getOrgBranding(currentUser.effectiveOrganizationId);
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;
@@ -108,6 +112,39 @@ export default async function SettingsPage({
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight text-ink">Settings</h1>
+
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold text-ink">Branding</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Your logo and brand color, shown throughout the app.
+        </p>
+        <form action={updateBranding} className="mt-4 flex flex-col gap-4">
+          <ImageUploadField
+            name="logoUrl"
+            label="Logo"
+            initialUrl={orgBranding.logoUrl}
+            folder="branding"
+          />
+          <Field label="Primary color" htmlFor="primaryColor">
+            <div className="flex items-center gap-3">
+              <input
+                id="primaryColor"
+                type="color"
+                name="primaryColor"
+                defaultValue={orgBranding.primaryColor}
+                className="h-12 w-16 cursor-pointer rounded-lg border border-zinc-300 bg-white p-1"
+              />
+              <span className="font-mono text-sm text-zinc-500">{orgBranding.primaryColor}</span>
+            </div>
+          </Field>
+          <button
+            type="submit"
+            className="self-start rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+          >
+            Save Branding
+          </button>
+        </form>
+      </section>
 
       <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-xl font-semibold text-ink">Booking Page Link</h2>
