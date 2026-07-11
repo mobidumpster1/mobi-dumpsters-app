@@ -18,7 +18,7 @@ async function main() {
   const organization = await db.organization.findFirstOrThrow();
 
   const dumpsterCategory = await db.equipmentCategory.upsert({
-    where: { name: "Roll-Off Dumpster" },
+    where: { organizationId_name: { organizationId: organization.id, name: "Roll-Off Dumpster" } },
     update: {},
     create: {
       organizationId: organization.id,
@@ -29,7 +29,7 @@ async function main() {
   });
 
   const trailerCategory = await db.equipmentCategory.upsert({
-    where: { name: "Dump Trailer" },
+    where: { organizationId_name: { organizationId: organization.id, name: "Dump Trailer" } },
     update: {},
     create: {
       organizationId: organization.id,

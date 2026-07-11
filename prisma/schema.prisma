@@ -226,7 +226,7 @@ model EquipmentCategory {
   id                 String       @id @default(cuid())
   organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id])
-  name               String       @unique
+  name               String
   description        String?
   // Shown next to this category on the public booking page, so customers
   // can see what they're actually renting.
@@ -260,6 +260,8 @@ model EquipmentCategory {
 
   items        EquipmentItem[]
   pricingTiers PricingTier[]
+
+  @@unique([organizationId, name])
 }
 
 // A duration option shown on the public booking form, e.g. "24 Hour" / $199,
@@ -979,8 +981,10 @@ model ServiceArea {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String       @unique
+  name           String
   createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, name])
 }
 
 // A city/county where street placement requires a permit — configured in
@@ -990,8 +994,10 @@ model PermitArea {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String       @unique
+  name           String
   createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, name])
 }
 
 // A record of one customer agreeing to the service agreement — either as a

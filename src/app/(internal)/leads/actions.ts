@@ -228,7 +228,7 @@ export async function addServiceArea(formData: FormData) {
   if (!name) throw new Error("Area name is required");
 
   await db.serviceArea.upsert({
-    where: { name },
+    where: { organizationId_name: { organizationId: user.effectiveOrganizationId, name } },
     create: { organizationId: user.effectiveOrganizationId, name },
     update: {},
   });

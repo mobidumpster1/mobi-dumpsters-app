@@ -182,7 +182,7 @@ export async function addPermitArea(formData: FormData) {
   if (!name) throw new Error("Area name is required");
 
   await db.permitArea.upsert({
-    where: { name },
+    where: { organizationId_name: { organizationId: user.effectiveOrganizationId, name } },
     create: { organizationId: user.effectiveOrganizationId, name },
     update: {},
   });
