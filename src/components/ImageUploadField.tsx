@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { Field, inputClass } from "@/components/Field";
 
@@ -23,6 +23,20 @@ export function ImageUploadField({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The photo upload itself is async (client -> Vercel Blob), separate
+  // from the surrounding form's own submit. Without this, clicking Save
+  // right after picking a file can submit before setUrl(blob.url) above
+  // ever runs, silently saving with no photo at all — this blocks that.
+  useEffect(() => {
+    const form = fileInputRef.current?.closest("form");
+    if (!form) return;
+    function blockWhileUploading(e: SubmitEvent) {
+      if (uploading) e.preventDefault();
+    }
+    form.addEventListener("submit", blockWhileUploading);
+    return () => form.removeEventListener("submit", blockWhileUploading);
+  }, [uploading]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -63,7 +77,11 @@ export function ImageUploadField({
             onChange={handleFileChange}
             className={inputClass}
           />
-          {uploading && <p className="text-xs text-zinc-400">Uploading…</p>}
+          {uploading && (
+            <p className="text-xs text-amber-600">
+              Uploading… hang on before saving.
+            </p>
+          )}
           {error && <p className="text-xs text-red-600">{error}</p>}
           {url && (
             <button

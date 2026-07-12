@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Field, inputClass } from "@/components/Field";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { quickAddCategory } from "@/app/(internal)/equipment/categories/actions";
 import type { FieldDefinition } from "@/lib/categoryFields";
 
 type CategoryOption = {
@@ -36,24 +37,100 @@ export function EquipmentItemForm({
     attributes: Record<string, unknown>;
   };
 }) {
+  const [categoryOptions, setCategoryOptions] = useState(categories);
   const [categoryId, setCategoryId] = useState(
     initial?.categoryId ?? categories[0]?.id ?? ""
   );
-  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const selectedCategory = categoryOptions.find((c) => c.id === categoryId);
   const fieldDefs = selectedCategory?.fieldDefinitions ?? [];
+
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [addCategoryError, setAddCategoryError] = useState<string | null>(null);
+
+  async function handleAddCategory() {
+    if (!newCategoryName.trim()) {
+      setAddCategoryError("Name is required");
+      return;
+    }
+    setAddingCategory(true);
+    setAddCategoryError(null);
+    try {
+      const formData = new FormData();
+      formData.set("name", newCategoryName);
+      const category = await quickAddCategory(formData);
+      setCategoryOptions((prev) =>
+        prev.some((c) => c.id === category.id)
+          ? prev
+          : [...prev, { ...category, fieldDefinitions: [] }].sort((a, b) =>
+              a.name.localeCompare(b.name)
+            )
+      );
+      setCategoryId(category.id);
+      setShowAddCategory(false);
+      setNewCategoryName("");
+    } catch (err) {
+      setAddCategoryError(err instanceof Error ? err.message : "Couldn't add that category");
+    } finally {
+      setAddingCategory(false);
+    }
+  }
 
   return (
     <form action={action} className="flex flex-col gap-4">
       <Field label="Category" htmlFor="categoryId">
-        <SearchableSelect
-          id="categoryId"
-          name="categoryId"
-          required
-          placeholder="Search rental types…"
-          value={categoryId}
-          onChange={setCategoryId}
-          options={categories.map((category) => ({ id: category.id, label: category.name }))}
-        />
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <SearchableSelect
+                id="categoryId"
+                name="categoryId"
+                required
+                placeholder="Search rental types…"
+                value={categoryId}
+                onChange={setCategoryId}
+                options={categoryOptions.map((category) => ({
+                  id: category.id,
+                  label: category.name,
+                }))}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddCategory((v) => !v)}
+              className="flex-shrink-0 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              {showAddCategory ? "Cancel" : "+ New Category"}
+            </button>
+          </div>
+
+          {showAddCategory && (
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+              <p className="text-xs text-zinc-500">
+                Adds a new rental type with just a name — set its price, photo, and
+                dimensions later from Equipment → Categories.
+              </p>
+              <input
+                placeholder="e.g. Skid Steer"
+                className={inputClass}
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+              />
+              {addCategoryError && (
+                <p className="text-sm text-red-600">{addCategoryError}</p>
+              )}
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                disabled={addingCategory}
+                className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+              >
+                {addingCategory ? "Adding…" : "Add Category"}
+              </button>
+            </div>
+          )}
+        </div>
       </Field>
 
       <Field label="Label" htmlFor="label">

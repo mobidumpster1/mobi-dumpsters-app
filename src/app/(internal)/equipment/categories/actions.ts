@@ -52,6 +52,27 @@ function bundleFields(formData: FormData) {
   };
 }
 
+// A name-only category, for adding a new rental type inline while adding
+// equipment (see EquipmentItemForm's "+ New Category") instead of leaving
+// the page. Pricing, photo, and dimensions are still filled in later from
+// the full category edit page — same trade-off as quickAddCustomer.
+export async function quickAddCategory(formData: FormData) {
+  const user = await requireUser();
+  const name = str(formData, "name");
+  if (!name) throw new Error("Name is required");
+
+  const existing = await db.equipmentCategory.findFirst({
+    where: { organizationId: user.effectiveOrganizationId, name },
+  });
+  if (existing) return { id: existing.id, name: existing.name };
+
+  const category = await db.equipmentCategory.create({
+    data: { organizationId: user.effectiveOrganizationId, name },
+  });
+
+  return { id: category.id, name: category.name };
+}
+
 export async function createCategory(formData: FormData) {
   const user = await requireUser();
   const name = str(formData, "name");
