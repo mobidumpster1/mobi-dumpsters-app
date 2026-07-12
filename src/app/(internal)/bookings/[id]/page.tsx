@@ -34,6 +34,19 @@ import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+// Junk removal/demolition categories have no pricing tiers (see
+// src/app/book/actions.ts) — they're one-time services where Chase is
+// on-site the whole time, not equipment sitting at the customer's
+// property, so "Start Job"/"Job Complete" reads more naturally than the
+// rental-specific "Mark Delivered"/"Mark Returned".
+function isServiceItem(item: { equipmentItem: { category: { pricingTiers: unknown[] } } }) {
+  return item.equipmentItem.category.pricingTiers.length === 0;
+}
+
+function formatDateTime(date: Date) {
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
 export default async function BookingDetailPage({
   params,
   searchParams,
@@ -49,7 +62,11 @@ export default async function BookingDetailPage({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
         customer: true,
-        items: { include: { equipmentItem: { include: { category: true } } } },
+        items: {
+          include: {
+            equipmentItem: { include: { category: { include: { pricingTiers: true } } } },
+          },
+        },
         invoices: true,
         photos: { orderBy: { createdAt: "desc" } },
         damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
@@ -148,10 +165,12 @@ export default async function BookingDetailPage({
             </dl>
             <div className="mt-3 flex flex-col gap-3 border-t border-zinc-100 pt-3">
               <div>
-                <p className="text-xs text-zinc-500">Delivery</p>
+                <p className="text-xs text-zinc-500">
+                  {isServiceItem(item) ? "Started" : "Delivery"}
+                </p>
                 {item.deliveredAt ? (
                   <span className="text-sm text-zinc-500">
-                    {item.deliveredAt.toLocaleDateString()}
+                    {formatDateTime(item.deliveredAt)}
                   </span>
                 ) : (
                   <form action={markDelivered.bind(null, item.id)}>
@@ -159,16 +178,18 @@ export default async function BookingDetailPage({
                       type="submit"
                       className="text-sm font-semibold text-brand hover:underline"
                     >
-                      Mark Delivered
+                      {isServiceItem(item) ? "Start Job" : "Mark Delivered"}
                     </button>
                   </form>
                 )}
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Return</p>
+                <p className="text-xs text-zinc-500">
+                  {isServiceItem(item) ? "Completed" : "Return"}
+                </p>
                 {item.actualReturnDate ? (
                   <span className="text-sm text-zinc-500">
-                    {item.actualReturnDate.toLocaleDateString()}
+                    {formatDateTime(item.actualReturnDate)}
                   </span>
                 ) : (
                   <form
@@ -193,7 +214,7 @@ export default async function BookingDetailPage({
                       type="submit"
                       className="self-start text-sm font-semibold text-brand hover:underline"
                     >
-                      Mark Returned
+                      {isServiceItem(item) ? "Job Complete" : "Mark Returned"}
                     </button>
                   </form>
                 )}
@@ -216,8 +237,8 @@ export default async function BookingDetailPage({
               <th className="px-5 py-3.5 font-semibold">Start</th>
               <th className="px-5 py-3.5 font-semibold">Expected Return</th>
               <th className="px-5 py-3.5 font-semibold">Price</th>
-              <th className="px-5 py-3.5 font-semibold">Delivery</th>
-              <th className="px-5 py-3.5 font-semibold">Return</th>
+              <th className="px-5 py-3.5 font-semibold">Started</th>
+              <th className="px-5 py-3.5 font-semibold">Completed</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -238,7 +259,7 @@ export default async function BookingDetailPage({
                 <td className="px-5 py-4">
                   {item.deliveredAt ? (
                     <span className="text-zinc-500">
-                      {item.deliveredAt.toLocaleDateString()}
+                      {formatDateTime(item.deliveredAt)}
                     </span>
                   ) : (
                     <form action={markDelivered.bind(null, item.id)}>
@@ -246,7 +267,7 @@ export default async function BookingDetailPage({
                         type="submit"
                         className="text-sm font-semibold text-brand hover:underline"
                       >
-                        Mark Delivered
+                        {isServiceItem(item) ? "Start Job" : "Mark Delivered"}
                       </button>
                     </form>
                   )}
@@ -254,7 +275,7 @@ export default async function BookingDetailPage({
                 <td className="px-5 py-4">
                   {item.actualReturnDate ? (
                     <span className="text-zinc-500">
-                      {item.actualReturnDate.toLocaleDateString()}
+                      {formatDateTime(item.actualReturnDate)}
                     </span>
                   ) : (
                     <form
@@ -279,7 +300,7 @@ export default async function BookingDetailPage({
                         type="submit"
                         className="text-sm font-semibold text-brand hover:underline"
                       >
-                        Mark Returned
+                        {isServiceItem(item) ? "Job Complete" : "Mark Returned"}
                       </button>
                     </form>
                   )}
