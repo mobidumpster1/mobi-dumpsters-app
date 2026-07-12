@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
@@ -81,7 +82,7 @@ export default async function ReportsPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canViewReports")) redirect("/");
 
-  const [invoices, expenses] = await Promise.all([
+  const [invoices, expenses, recurringBills] = await Promise.all([
     db.invoice.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       include: { booking: { include: { customer: true } }, customer: true },
@@ -89,6 +90,10 @@ export default async function ReportsPage() {
     db.expense.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       include: { equipmentItem: true },
+    }),
+    db.recurringBill.findMany({
+      where: { organizationId: user.effectiveOrganizationId, active: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -202,6 +207,39 @@ export default async function ReportsPage() {
       value,
       color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
     }));
+  const categoryRows = expenseSlices.map((s) => ({
+    ...s,
+    percent: totalExpenses > 0 ? (s.value / totalExpenses) * 100 : 0,
+  }));
+
+  const byVendor = new Map<string, { amount: number; count: number }>();
+  for (const expense of expenses) {
+    const entry = byVendor.get(expense.vendor) ?? { amount: 0, count: 0 };
+    entry.amount += expense.amount;
+    entry.count += 1;
+    byVendor.set(expense.vendor, entry);
+  }
+  const vendorRows = Array.from(byVendor.entries())
+    .sort((a, b) => b[1].amount - a[1].amount)
+    .map(([vendor, row]) => ({
+      vendor,
+      ...row,
+      percent: totalExpenses > 0 ? (row.amount / totalExpenses) * 100 : 0,
+    }));
+
+  // Recurring bills aren't actual incurred expenses until logged as one
+  // (see "Log as Expense" on /expenses/recurring) — kept as a separate
+  // "scheduled commitments" figure rather than folded into Total Expenses
+  // above, so this doesn't silently double-count once a bill does get
+  // logged that period.
+  const recurringMonthlyTotal = recurringBills
+    .filter((b) => b.frequency === "monthly" && b.amount != null)
+    .reduce((sum, b) => sum + (b.amount ?? 0), 0);
+  const recurringYearlyTotal = recurringBills
+    .filter((b) => b.frequency === "yearly" && b.amount != null)
+    .reduce((sum, b) => sum + (b.amount ?? 0), 0);
+  const recurringMonthlyEquivalent = recurringMonthlyTotal + recurringYearlyTotal / 12;
+  const recurringVariableCount = recurringBills.filter((b) => b.amount == null).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -243,10 +281,94 @@ export default async function ReportsPage() {
           Expense Breakdown
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Total expenses by category.
+          Total expenses by category and by vendor.
         </p>
-        <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
-          <DonutChart slices={expenseSlices} />
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+            <DonutChart slices={expenseSlices} />
+          </div>
+          <div className="overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-zinc-500">
+                <tr>
+                  <th className="px-5 py-3.5 font-semibold">Category</th>
+                  <th className="px-5 py-3.5 font-semibold">Amount</th>
+                  <th className="px-5 py-3.5 font-semibold">% of Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {categoryRows.map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-5 py-4 text-zinc-900">{row.label}</td>
+                    <td className="px-5 py-4 text-zinc-600">${row.value.toFixed(2)}</td>
+                    <td className="px-5 py-4 text-zinc-600">{row.percent.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {categoryRows.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
+                      No data yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Vendor</th>
+                <th className="px-5 py-3.5 font-semibold"># Expenses</th>
+                <th className="px-5 py-3.5 font-semibold">Amount</th>
+                <th className="px-5 py-3.5 font-semibold">% of Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {vendorRows.map((row) => (
+                <tr key={row.vendor}>
+                  <td className="px-5 py-4 text-zinc-900">{row.vendor}</td>
+                  <td className="px-5 py-4 text-zinc-600">{row.count}</td>
+                  <td className="px-5 py-4 text-zinc-600">${row.amount.toFixed(2)}</td>
+                  <td className="px-5 py-4 text-zinc-600">{row.percent.toFixed(1)}%</td>
+                </tr>
+              ))}
+              {vendorRows.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                    No data yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-black text-ink">Recurring Bills</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Scheduled commitments from{" "}
+          <Link href="/expenses/recurring" className="font-semibold text-brand hover:underline">
+            Recurring Bills
+          </Link>{" "}
+          — not counted in Total Expenses above until actually logged that period, so this
+          won&apos;t double-count once one is.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3">
+          <SummaryCard label="Monthly Total" value={recurringMonthlyTotal} />
+          <SummaryCard label="Yearly Total" value={recurringYearlyTotal} />
+          <SummaryCard
+            label="Effective Monthly Overhead"
+            value={recurringMonthlyEquivalent}
+            sub={
+              recurringVariableCount > 0
+                ? `Plus ${recurringVariableCount} variable-amount bill${recurringVariableCount === 1 ? "" : "s"} not included`
+                : undefined
+            }
+          />
         </div>
       </section>
 

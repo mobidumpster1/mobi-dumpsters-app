@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { hasPermission, requireUser } from "@/lib/session";
+import { logRecurringBillAsExpense } from "./recurringActions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,23 @@ export default async function ExpensesPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
 
-  const expenses = await db.expense.findMany({
-    where: { organizationId: user.effectiveOrganizationId },
-    orderBy: { date: "desc" },
-    include: { equipmentItem: true, booking: { include: { customer: true } } },
-  });
+  const [expenses, recurringBills] = await Promise.all([
+    db.expense.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { date: "desc" },
+      include: { equipmentItem: true, booking: { include: { customer: true } } },
+    }),
+    db.recurringBill.findMany({
+      where: { organizationId: user.effectiveOrganizationId, active: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const paidAmount = expenses
+    .filter((e) => e.status === "paid")
+    .reduce((sum, e) => sum + e.amount, 0);
+  const unpaidAmount = totalAmount - paidAmount;
 
   return (
     <div>
@@ -41,6 +54,72 @@ export default async function ExpensesPage() {
           </Link>
         </div>
       </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+          <div className="text-sm text-zinc-500">Total</div>
+          <div className="mt-1 text-xl font-semibold text-zinc-900 sm:text-2xl">
+            ${totalAmount.toFixed(2)}
+          </div>
+        </div>
+        <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+          <div className="text-sm text-zinc-500">Paid</div>
+          <div className="mt-1 text-xl font-semibold text-green-700 sm:text-2xl">
+            ${paidAmount.toFixed(2)}
+          </div>
+        </div>
+        <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+          <div className="text-sm text-zinc-500">Unpaid</div>
+          <div className="mt-1 text-xl font-semibold text-amber-600 sm:text-2xl">
+            ${unpaidAmount.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {recurringBills.length > 0 && (
+        <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-black text-ink">🔁 Recurring Bills</h2>
+            <Link
+              href="/expenses/recurring"
+              className="text-sm font-semibold text-brand hover:underline"
+            >
+              Manage all
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            Not counted in the totals above until you log one as an actual expense.
+          </p>
+          <div className="mt-3 flex flex-col divide-y divide-zinc-100">
+            {recurringBills.map((bill) => (
+              <div
+                key={bill.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+              >
+                <div>
+                  <span className="font-medium text-zinc-900">{bill.name}</span>
+                  <span className="ml-2 text-xs text-zinc-500">
+                    {bill.category} · {bill.frequency}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-zinc-600">
+                    {bill.amount != null ? `$${bill.amount.toFixed(2)}` : "Variable"}
+                  </span>
+                  <form action={logRecurringBillAsExpense.bind(null, bill.id)}>
+                    <button
+                      type="submit"
+                      className="text-sm font-semibold text-brand hover:underline"
+                    >
+                      Log as Expense
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mobile: card list */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">
