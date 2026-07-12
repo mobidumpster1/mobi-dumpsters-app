@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   "/agreement",
   "/api/cron",
   "/api/webhooks",
+  "/api/embed",
   "/privacy",
   "/terms",
   "/dumpster-rental",
