@@ -36,6 +36,7 @@ export default async function EditEquipmentPage({
       <div className="mt-6">
         <EquipmentItemForm
           action={updateWithId}
+          cancelHref={`/equipment/${item.id}`}
           categories={categories.map((c) => ({
             id: c.id,
             name: c.name,

@@ -63,7 +63,7 @@ export function MediaUploadForm({
       onSubmit={handleSubmit}
       className="mt-3 flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-5"
     >
-      <div className="flex gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Type" htmlFor="type">
           <select
             id="type"

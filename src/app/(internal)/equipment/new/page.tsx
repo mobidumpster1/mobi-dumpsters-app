@@ -25,6 +25,7 @@ export default async function NewEquipmentPage() {
       <div className="mt-6">
         <EquipmentItemForm
           action={createEquipmentItem}
+          cancelHref="/equipment"
           categories={categories.map((c) => ({
             id: c.id,
             name: c.name,

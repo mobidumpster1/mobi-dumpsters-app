@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Field, inputClass } from "@/components/Field";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import type { FieldDefinition } from "@/lib/categoryFields";
 
 type CategoryOption = {
@@ -16,11 +18,13 @@ export function EquipmentItemForm({
   action,
   categories,
   customers,
+  cancelHref,
   initial,
 }: {
   action: (formData: FormData) => void;
   categories: CategoryOption[];
   customers: CustomerOption[];
+  cancelHref: string;
   initial?: {
     categoryId: string;
     label: string;
@@ -41,20 +45,15 @@ export function EquipmentItemForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <Field label="Category" htmlFor="categoryId">
-        <select
+        <SearchableSelect
           id="categoryId"
           name="categoryId"
           required
-          className={inputClass}
+          placeholder="Search rental types…"
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-        >
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
+          onChange={setCategoryId}
+          options={categories.map((category) => ({ id: category.id, label: category.name }))}
+        />
       </Field>
 
       <Field label="Label" htmlFor="label">
@@ -194,6 +193,12 @@ export function EquipmentItemForm({
         >
           Save Equipment
         </button>
+        <Link
+          href={cancelHref}
+          className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+        >
+          Cancel
+        </Link>
       </div>
     </form>
   );
