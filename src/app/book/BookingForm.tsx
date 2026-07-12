@@ -148,10 +148,10 @@ export function BookingForm({
                   <img
                     src={c.imageUrl}
                     alt={c.name}
-                    className="h-24 w-full object-cover"
+                    className="h-28 w-full bg-zinc-50 object-contain"
                   />
                 ) : (
-                  <div className="h-24 w-full bg-zinc-100" />
+                  <div className="h-28 w-full bg-zinc-100" />
                 )}
                 <div className="p-2.5">
                   <p className="text-sm font-semibold text-ink">{c.name}</p>
