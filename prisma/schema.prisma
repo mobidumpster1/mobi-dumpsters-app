@@ -793,6 +793,17 @@ model Lead {
   // hand (usually found on the business's own website) before an outreach
   // email can be sent.
   email           String?
+  // Filled in automatically by the website-scraping enrichment step (see
+  // src/lib/leadEnrichment.ts) — best-effort, since not every business
+  // links these on their site, and never overwrites a value staff typed
+  // in by hand.
+  facebookUrl     String?
+  instagramUrl    String?
+  linkedinUrl     String?
+  // Set the first time enrichment runs against this lead (even if nothing
+  // was found), so "Enrich All" can skip leads already attempted instead
+  // of re-scraping the same site every time it's clicked.
+  enrichedAt      DateTime?
   lastEmailSentAt DateTime?
   // Set via the unsubscribe link in a sequence email (see
   // LeadSequenceEnrollment) — once true, no email sends to this lead

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { searchPlaces } from "@/lib/places";
+import { enrichFromWebsite } from "@/lib/leadEnrichment";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { sendCustomerEmail } from "@/lib/email";
@@ -122,6 +123,85 @@ export async function updateLeadEmail(leadId: string, formData: FormData) {
   });
 
   revalidatePath("/leads");
+}
+
+// Scrapes a single lead's own website for an email address and social
+// links, filling in only whichever fields are still empty — anything a
+// staff member already typed in by hand (via LeadEmailField, etc.) is
+// left alone. Always stamps enrichedAt, even on a zero-result scrape, so
+// "Enrich All" doesn't keep re-hitting the same dead/empty site.
+export async function enrichLead(leadId: string) {
+  const user = await requirePermission("canManageLeads");
+
+  const lead = await db.lead.findFirstOrThrow({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
+  });
+  if (!lead.website) throw new Error("This lead has no website to scrape yet.");
+
+  const result = await enrichFromWebsite(lead.website);
+  await db.lead.update({
+    where: { id: leadId },
+    data: {
+      email: lead.email ?? result.email,
+      facebookUrl: lead.facebookUrl ?? result.facebookUrl,
+      instagramUrl: lead.instagramUrl ?? result.instagramUrl,
+      linkedinUrl: lead.linkedinUrl ?? result.linkedinUrl,
+      enrichedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/leads");
+}
+
+// Runs the same scrape across every not-yet-attempted lead with a website,
+// up to BULK_ENRICH_LIMIT per click — capped so one button press can't run
+// long enough to hit a serverless function timeout — and a few sites at a
+// time (not all sequentially) so a handful of slow/dead sites don't stall
+// the rest.
+const BULK_ENRICH_LIMIT = 20;
+const BULK_ENRICH_CONCURRENCY = 5;
+
+export async function enrichAllLeads() {
+  const user = await requirePermission("canManageLeads");
+
+  const leads = await db.lead.findMany({
+    where: {
+      organizationId: user.effectiveOrganizationId,
+      website: { not: null },
+      enrichedAt: null,
+    },
+    take: BULK_ENRICH_LIMIT,
+    orderBy: { createdAt: "desc" },
+  });
+
+  let found = 0;
+  let index = 0;
+  async function worker() {
+    while (index < leads.length) {
+      const lead = leads[index++];
+      const result = await enrichFromWebsite(lead.website as string);
+      if (result.email || result.facebookUrl || result.instagramUrl || result.linkedinUrl) {
+        found++;
+      }
+      await db.lead.update({
+        where: { id: lead.id },
+        data: {
+          email: lead.email ?? result.email,
+          facebookUrl: lead.facebookUrl ?? result.facebookUrl,
+          instagramUrl: lead.instagramUrl ?? result.instagramUrl,
+          linkedinUrl: lead.linkedinUrl ?? result.linkedinUrl,
+          enrichedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(BULK_ENRICH_CONCURRENCY, leads.length) }, worker)
+  );
+
+  revalidatePath("/leads");
+  return { processed: leads.length, found };
 }
 
 // Sends a saved template to a lead, swapping {{businessName}} for their

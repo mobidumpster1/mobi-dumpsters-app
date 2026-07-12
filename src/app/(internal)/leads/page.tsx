@@ -12,6 +12,7 @@ import { SendTemplatedEmailButton } from "@/components/SendTemplatedEmailButton"
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
 import { ServiceAreaManager } from "@/components/ServiceAreaManager";
 import { EnrollAllButton } from "@/components/EnrollAllButton";
+import { EnrichAllButton } from "@/components/EnrichAllButton";
 import { LocationMap } from "@/components/LocationMap";
 import { LEAD_STATUS_LABELS } from "@/lib/leadStatus";
 import {
@@ -26,6 +27,8 @@ import {
   convertLeadToCustomer,
   addServiceArea,
   removeServiceArea,
+  enrichLead,
+  enrichAllLeads,
 } from "./actions";
 import {
   enrollLeadAction,
@@ -44,6 +47,50 @@ const FREE_SEARCHES_PER_MONTH = 1000;
 
 function titleCase(text: string) {
   return text.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type SocialLead = {
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  linkedinUrl: string | null;
+};
+
+function SocialLinksRow({ lead }: { lead: SocialLead }) {
+  if (!lead.facebookUrl && !lead.instagramUrl && !lead.linkedinUrl) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-2 text-xs">
+      {lead.facebookUrl && (
+        <a
+          href={lead.facebookUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-blue-700 hover:underline"
+        >
+          Facebook
+        </a>
+      )}
+      {lead.instagramUrl && (
+        <a
+          href={lead.instagramUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-pink-700 hover:underline"
+        >
+          Instagram
+        </a>
+      )}
+      {lead.linkedinUrl && (
+        <a
+          href={lead.linkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-sky-700 hover:underline"
+        >
+          LinkedIn
+        </a>
+      )}
+    </div>
+  );
 }
 
 export default async function LeadsPage({
@@ -112,6 +159,7 @@ export default async function LeadsPage({
   const activeTrade = trade && tradeFilters.includes(trade) ? trade : "All";
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
+  const pendingEnrichCount = leads.filter((l) => l.website && !l.enrichedAt).length;
 
   const pins = leads
     .filter((lead) => lead.latitude !== null && lead.longitude !== null)
@@ -207,6 +255,12 @@ export default async function LeadsPage({
       {pins.length > 0 && (
         <div className="mt-6">
           <LocationMap pins={pins} />
+        </div>
+      )}
+
+      {pendingEnrichCount > 0 && (
+        <div className="mt-6">
+          <EnrichAllButton pendingCount={pendingEnrichCount} action={enrichAllLeads} />
         </div>
       )}
 
@@ -331,6 +385,14 @@ export default async function LeadsPage({
                 <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
               )}
             </div>
+            <SocialLinksRow lead={lead} />
+            {lead.website && (
+              <form action={enrichLead.bind(null, lead.id)} className="mt-1">
+                <button type="submit" className="text-xs font-semibold text-brand hover:underline">
+                  {lead.enrichedAt ? "Re-scrape Website" : "Find Contact Info"}
+                </button>
+              </form>
+            )}
             {lead.sequenceEnrollments.length > 0 ? (
               <div className="mt-1 flex items-center justify-between gap-2 text-xs text-zinc-500">
                 <span>
@@ -467,6 +529,14 @@ export default async function LeadsPage({
                       Sent {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
                       total
                     </p>
+                  )}
+                  <SocialLinksRow lead={lead} />
+                  {lead.website && (
+                    <form action={enrichLead.bind(null, lead.id)} className="mt-1">
+                      <button type="submit" className="text-xs font-semibold text-brand hover:underline">
+                        {lead.enrichedAt ? "Re-scrape Website" : "Find Contact Info"}
+                      </button>
+                    </form>
                   )}
                 </td>
                 <td className="min-w-[160px] px-5 py-4">
