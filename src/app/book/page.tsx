@@ -34,6 +34,7 @@ export default async function PublicBookingPage() {
                 id: c.id,
                 name: c.name,
                 description: c.description,
+                dimensions: c.dimensions,
                 imageUrl: c.imageUrl,
                 basePrice: c.basePrice,
                 pricingTiers: c.pricingTiers.map((t) => ({

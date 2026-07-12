@@ -11,6 +11,7 @@ type CategoryOption = {
   id: string;
   name: string;
   description: string | null;
+  dimensions: string | null;
   imageUrl: string | null;
   basePrice: number | null;
   pricingTiers: PricingTier[];
@@ -156,6 +157,9 @@ export function BookingForm({
                   <p className="text-sm font-semibold text-ink">{c.name}</p>
                   {price && (
                     <p className="text-xs text-zinc-500">{price}</p>
+                  )}
+                  {c.dimensions && (
+                    <p className="mt-0.5 text-xs text-zinc-400">{c.dimensions}</p>
                   )}
                 </div>
               </button>

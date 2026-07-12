@@ -55,6 +55,15 @@ export default async function EditCategoryPage({
             className={inputClass}
           />
         </Field>
+        <Field label="Dimensions (optional)" htmlFor="dimensions">
+          <input
+            id="dimensions"
+            name="dimensions"
+            placeholder={`e.g. 16' L x 7' W x 4.5' H`}
+            defaultValue={category.dimensions ?? ""}
+            className={inputClass}
+          />
+        </Field>
         <ImageUploadField
           name="imageUrl"
           label="Photo (shown to customers on the booking page)"

@@ -273,6 +273,12 @@ model EquipmentCategory {
   // Shown next to this category on the public booking page, so customers
   // can see what they're actually renting.
   imageUrl           String?
+  // A single free-text physical size line (e.g. "16' L x 7' W x 4.5' H"),
+  // shown on the public booking page. Deliberately separate from
+  // fieldDefinitions/EquipmentItem.attributes below, which track real
+  // per-unit specs (one dumpster's actual size can differ from another's)
+  // — this is category-level marketing copy, the same for every unit.
+  dimensions         String?
   fieldDefinitions   String       @default("[]")
   // How many days an item of this category can sit at one site before it's
   // flagged as "sitting too long" on the equipment dashboard.

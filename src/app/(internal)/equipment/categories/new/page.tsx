@@ -38,6 +38,14 @@ export default async function NewCategoryPage() {
         <Field label="Description (optional)" htmlFor="description">
           <input id="description" name="description" className={inputClass} />
         </Field>
+        <Field label="Dimensions (optional)" htmlFor="dimensions">
+          <input
+            id="dimensions"
+            name="dimensions"
+            placeholder={`e.g. 16' L x 7' W x 4.5' H`}
+            className={inputClass}
+          />
+        </Field>
         <ImageUploadField
           name="imageUrl"
           label="Photo (shown to customers on the booking page)"
