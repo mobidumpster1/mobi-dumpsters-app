@@ -32,10 +32,7 @@ export default async function SignedAgreementDetailPage({
 
   return (
     <div className="max-w-2xl">
-      <Link href="/agreements" className="text-sm font-semibold text-brand hover:underline">
-        ← Back to Agreements
-      </Link>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
             {signed.agreementTitle}

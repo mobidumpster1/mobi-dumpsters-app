@@ -36,7 +36,11 @@ export default async function EditCategoryPage({
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-black tracking-tight text-ink">Edit Category</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">Edit Rental Type</h1>
+      <p className="mt-1 text-sm text-zinc-500">
+        Photo, price, and dimensions here are what customers see on the
+        booking page for every &quot;{category.name}&quot; item.
+      </p>
       <form action={updateWithId} className="mt-6 flex flex-col gap-4">
         <Field label="Name" htmlFor="name">
           <input

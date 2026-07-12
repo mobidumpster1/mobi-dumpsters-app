@@ -19,11 +19,12 @@ export default async function NewCategoryPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-black tracking-tight text-ink">New Category</h1>
+      <h1 className="text-3xl font-black tracking-tight text-ink">New Rental Type</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        A category is a type of rentable thing, like &quot;Excavator&quot; or
-        &quot;Tiller&quot;. Define what extra fields items of this type
-        should track below.
+        A rental type is a kind of equipment or service you offer, like
+        &quot;Excavator&quot; or &quot;Tiller&quot;. Set its photo, price,
+        and dimensions below — that&apos;s what customers see on the
+        booking page.
       </p>
       <form action={createCategory} className="mt-6 flex flex-col gap-4">
         <Field label="Name" htmlFor="name">
@@ -61,7 +62,7 @@ export default async function NewCategoryPage() {
             type="submit"
             className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
-            Save Category
+            Save Rental Type
           </button>
           <Link
             href="/equipment/categories"

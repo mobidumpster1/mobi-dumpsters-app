@@ -19,18 +19,21 @@ export default async function CategoriesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
-            Equipment Categories
+            Rental Types
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Each category defines the extra fields items of that type track
-            (e.g. size for dumpsters, hour meter for excavators).
+            A rental type is a kind of equipment or service you offer (e.g.
+            &quot;20 Yard Dumpster&quot;, &quot;Excavator&quot;). This is
+            where you set each one&apos;s photo, price, and dimensions —
+            what customers see on the booking page — and click into one
+            below to edit it.
           </p>
         </div>
         <Link
           href="/equipment/categories/new"
           className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
-          + New Category
+          + New Rental Type
         </Link>
       </div>
 

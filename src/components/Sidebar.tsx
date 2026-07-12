@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { OrgBranding } from "@/lib/orgBranding";
 import { ThemeToggle } from "./ThemeToggle";
+import { useUnsavedChanges } from "./UnsavedChangesProvider";
 import { logout } from "@/app/login/actions";
 
 const DEFAULT_LINKS = [
@@ -208,6 +209,43 @@ function ReorderToggle({
   );
 }
 
+// Reused in both the mobile sticky header and the desktop sidebar. Warns
+// before discarding an unsaved edit form (see UnsavedChangesProvider)
+// instead of silently losing it, per Chase's ask.
+function BackButton({ className }: { className: string }) {
+  const router = useRouter();
+  const { isDirty, clearDirty } = useUnsavedChanges();
+
+  function handleClick() {
+    if (isDirty()) {
+      const leave = window.confirm(
+        "You have unsaved changes on this page. Leave without saving?"
+      );
+      if (!leave) return;
+    }
+    clearDirty();
+    router.back();
+  }
+
+  return (
+    <button type="button" onClick={handleClick} className={className}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5 flex-shrink-0"
+      >
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </button>
+  );
+}
+
 function AccountRow({ user }: { user: SidebarUser }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded border-2 border-zinc-800 px-5 py-3 text-sm text-white/90">
@@ -405,12 +443,17 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile top bar */}
+      {/* Mobile top bar — sticky, so the back button stays reachable without
+          scrolling back up on long pages. */}
       <header className={`sticky top-0 z-40 flex items-center justify-between border-b-2 border-zinc-800 ${SHELL_BG} px-4 py-3 md:hidden`}>
-        <Link href="/" className="flex items-center gap-2.5">
-          {logo}
-          <span className="text-base font-bold leading-tight text-white">{branding.businessName}</span>
-        </Link>
+        {pathname === "/" ? (
+          <Link href="/" className="flex items-center gap-2.5">
+            {logo}
+            <span className="text-base font-bold leading-tight text-white">{branding.businessName}</span>
+          </Link>
+        ) : (
+          <BackButton className="-ml-2 flex items-center gap-1.5 rounded px-2 py-1.5 text-base font-bold text-white hover:bg-white/10" />
+        )}
         <ThemeToggle />
       </header>
 
@@ -466,6 +509,9 @@ export function Sidebar({
           {logo}
           <span className="text-lg font-bold leading-tight text-white">{branding.businessName}</span>
         </Link>
+        {pathname !== "/" && (
+          <BackButton className="-mt-4 flex items-center gap-1.5 self-start rounded px-2 py-1.5 text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white" />
+        )}
         <NavLinks
           links={links}
           pathname={pathname}

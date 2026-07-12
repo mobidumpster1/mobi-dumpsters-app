@@ -489,10 +489,7 @@ export default async function CustomerDetailPage({
 
   return (
     <div>
-      <Link href="/customers" className="text-sm font-semibold text-brand hover:underline">
-        ← Back to Customers
-      </Link>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
             {customer.name}

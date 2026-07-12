@@ -75,12 +75,6 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="max-w-2xl">
-      <Link
-        href="/invoices"
-        className="mb-2 inline-block text-sm font-semibold text-brand hover:underline print:hidden"
-      >
-        ← Back to Invoices
-      </Link>
       <div className="mb-6 flex items-center justify-between rounded-lg border-2 border-zinc-900 bg-white p-5">
         <div className="flex items-center gap-3">
           {logoExists && (

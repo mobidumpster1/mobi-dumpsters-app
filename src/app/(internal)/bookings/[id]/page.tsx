@@ -455,10 +455,7 @@ export default async function BookingDetailPage({
 
   return (
     <div>
-      <Link href="/bookings" className="text-sm font-semibold text-brand hover:underline">
-        ← Back to Bookings
-      </Link>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
             Booking for{" "}

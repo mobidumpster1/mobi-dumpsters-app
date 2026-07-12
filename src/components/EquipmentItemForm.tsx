@@ -92,7 +92,7 @@ export function EquipmentItemForm({
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <Field label="Category" htmlFor="categoryId">
+      <Field label="Rental Type" htmlFor="categoryId">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <div className="flex-1">
@@ -114,7 +114,7 @@ export function EquipmentItemForm({
               onClick={() => setShowAddCategory((v) => !v)}
               className="flex-shrink-0 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
             >
-              {showAddCategory ? "Cancel" : "+ New Category"}
+              {showAddCategory ? "Cancel" : "+ New Rental Type"}
             </button>
           </div>
 
@@ -122,7 +122,7 @@ export function EquipmentItemForm({
             <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
               <p className="text-xs text-zinc-500">
                 Adds a new rental type with just a name — you can set its photo,
-                price, and dimensions below once it's selected.
+                price, and dimensions below once it&apos;s selected.
               </p>
               <input
                 placeholder="e.g. Skid Steer"
@@ -139,7 +139,7 @@ export function EquipmentItemForm({
                 disabled={addingCategory}
                 className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
               >
-                {addingCategory ? "Adding…" : "Add Category"}
+                {addingCategory ? "Adding…" : "Add Rental Type"}
               </button>
             </div>
           )}

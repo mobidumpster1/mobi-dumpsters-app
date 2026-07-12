@@ -62,10 +62,7 @@ export default async function EquipmentDetailPage({
 
   return (
     <div>
-      <Link href="/equipment" className="text-sm font-semibold text-brand hover:underline">
-        ← Back to Equipment
-      </Link>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
             {item.label}

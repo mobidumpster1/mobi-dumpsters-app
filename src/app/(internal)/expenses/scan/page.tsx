@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { scanReceipt } from "../scanActions";
 import { Field, inputClass } from "@/components/Field";
 import { isReceiptScanConfigured } from "@/lib/receiptScan";
@@ -50,13 +49,6 @@ export default function ScanReceiptPage() {
           </div>
         </form>
       )}
-
-      <Link
-        href="/expenses"
-        className="mt-4 inline-block text-sm text-zinc-500 hover:underline"
-      >
-        ← Back to Expenses
-      </Link>
     </div>
   );
 }
