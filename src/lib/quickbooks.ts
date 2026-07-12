@@ -201,6 +201,7 @@ export async function listCustomers(
 
 export type QboPurchase = {
   Id: string;
+  DocNumber?: string;
   TxnDate: string;
   TotalAmt: number;
   EntityRef?: { name?: string };

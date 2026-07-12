@@ -127,7 +127,11 @@ export async function importExpensesFromQuickBooks() {
     if (existing) continue;
 
     const firstLine = qp.Line?.find((l) => l.AccountBasedExpenseLineDetail);
-    const vendor = qp.EntityRef?.name ?? "QuickBooks Import";
+    // Most of Chase's QuickBooks expenses have no Payee set — fall back to
+    // the QuickBooks transaction number (visible in QBO's "NO." column) so
+    // each stays distinguishable in the app's list instead of a repeated
+    // generic label, and is still easy to look up on the QuickBooks side.
+    const vendor = qp.EntityRef?.name ?? (qp.DocNumber ? `QuickBooks #${qp.DocNumber}` : "QuickBooks Import");
     const category = firstLine?.AccountBasedExpenseLineDetail?.AccountRef?.name ?? "Uncategorized";
     const date = new Date(qp.TxnDate);
 
