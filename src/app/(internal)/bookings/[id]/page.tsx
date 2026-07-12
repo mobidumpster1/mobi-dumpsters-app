@@ -201,14 +201,14 @@ export default async function BookingDetailPage({
                       step="0.01"
                       name="actualTonnage"
                       placeholder="Tons (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                      className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
                     />
                     <input
                       type="number"
                       step="0.1"
                       name="actualMileage"
                       placeholder="Miles (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-xs`}
+                      className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
                     />
                     <button
                       type="submit"
@@ -287,14 +287,14 @@ export default async function BookingDetailPage({
                         step="0.01"
                         name="actualTonnage"
                         placeholder="Tons (optional)"
-                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
+                        className={`${inputClass} w-36 px-2.5 py-1.5 text-base sm:text-xs`}
                       />
                       <input
                         type="number"
                         step="0.1"
                         name="actualMileage"
                         placeholder="Miles (optional)"
-                        className={`${inputClass} w-36 px-2.5 py-1.5 text-xs`}
+                        className={`${inputClass} w-36 px-2.5 py-1.5 text-base sm:text-xs`}
                       />
                       <button
                         type="submit"

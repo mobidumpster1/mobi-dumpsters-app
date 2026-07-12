@@ -52,7 +52,7 @@ export function FacebookShareBox({
         value={caption}
         onChange={(e) => setCaption(e.target.value)}
         rows={6}
-        className="mt-4 w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm text-zinc-900 focus:border-brand focus:outline-none"
+        className="mt-4 w-full rounded-xl border border-zinc-300 px-4 py-3 text-base text-zinc-900 focus:border-brand focus:outline-none sm:text-sm"
       />
 
       <div className="mt-3 flex flex-wrap gap-3">

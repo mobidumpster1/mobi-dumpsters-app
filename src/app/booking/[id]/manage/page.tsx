@@ -90,12 +90,12 @@ export default async function ManageBookingPage({
                     name="newDate"
                     type="date"
                     required
-                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-base sm:text-sm"
                   />
                   <input
                     name="note"
                     placeholder="Anything else we should know? (optional)"
-                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-base sm:text-sm"
                   />
                   <button
                     type="submit"
@@ -116,7 +116,7 @@ export default async function ManageBookingPage({
                   <input
                     name="note"
                     placeholder="Anything else we should know? (optional)"
-                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm"
+                    className="rounded-xl border border-zinc-300 px-4 py-2.5 text-base sm:text-sm"
                   />
                   <button
                     type="submit"

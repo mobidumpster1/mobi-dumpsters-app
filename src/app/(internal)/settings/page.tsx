@@ -600,7 +600,7 @@ export default async function SettingsPage({
           name="name"
           required
           placeholder="e.g. Byron, GA"
-          className={`${inputClass} flex-1 py-2.5 text-sm`}
+          className={`${inputClass} flex-1 py-2.5 text-base sm:text-sm`}
         />
         <button
           type="submit"

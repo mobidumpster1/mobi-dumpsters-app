@@ -67,7 +67,7 @@ export function EmailTemplateCard({
                 name="body"
                 rows={8}
                 defaultValue={body}
-                className={`${inputClass} font-mono text-sm`}
+                className={`${inputClass} font-mono text-base sm:text-sm`}
               />
             </Field>
             <button

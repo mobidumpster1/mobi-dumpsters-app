@@ -94,7 +94,7 @@ export default async function SequencesPage() {
                 min="1"
                 step="1"
                 defaultValue={outreachSettings.dailySendCap}
-                className={`${inputClass} w-24 py-2 text-sm`}
+                className={`${inputClass} w-24 py-2 text-base sm:text-sm`}
               />
             </Field>
             <button
@@ -193,7 +193,7 @@ export default async function SequencesPage() {
                     id={`template-${sequence.id}`}
                     name="templateId"
                     required
-                    className={`${inputClass} py-2 text-sm`}
+                    className={`${inputClass} py-2 text-base sm:text-sm`}
                   >
                     {templates.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -210,7 +210,7 @@ export default async function SequencesPage() {
                     min="0"
                     step="1"
                     defaultValue="3"
-                    className={`${inputClass} py-2 text-sm`}
+                    className={`${inputClass} py-2 text-base sm:text-sm`}
                   />
                 </Field>
                 <button

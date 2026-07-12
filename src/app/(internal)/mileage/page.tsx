@@ -260,7 +260,7 @@ export default async function MileagePage() {
                   name="odometerEnd"
                   placeholder="Ending mileage"
                   required
-                  className={`${inputClass} flex-1 px-2.5 py-1.5 text-xs`}
+                  className={`${inputClass} flex-1 px-2.5 py-1.5 text-base sm:text-xs`}
                 />
                 <button
                   type="submit"
@@ -337,7 +337,7 @@ export default async function MileagePage() {
                         name="odometerEnd"
                         placeholder="Ending mileage"
                         required
-                        className={`${inputClass} w-28 px-2 py-1 text-xs`}
+                        className={`${inputClass} w-28 px-2 py-1 text-base sm:text-xs`}
                       />
                       <button
                         type="submit"
