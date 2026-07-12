@@ -22,6 +22,12 @@ model Organization {
   name         String
   logoUrl      String?
   primaryColor String?
+  // The hostname (e.g. "book.mobidumpsters.com") that this org's public
+  // /book and /agreement/sign pages are reached at — see
+  // getPublicOrganizationId in src/lib/session.ts. Without this, those
+  // pages had no way to tell organizations apart and just showed
+  // whichever org happened to be first in the table.
+  publicDomain String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -6,6 +6,7 @@ import {
   importCustomersFromQuickBooks,
   importExpensesFromQuickBooks,
   updateBranding,
+  updatePublicDomain,
   updateAgreementSettings,
   updateReviewRequestSettings,
   sendReviewRequestsNow,
@@ -121,6 +122,10 @@ export default async function SettingsPage({
   });
   const emailTemplates = await getAllEmailTemplates(currentUser.effectiveOrganizationId);
   const orgBranding = await getOrgBranding(currentUser.effectiveOrganizationId);
+  const orgDomain = await db.organization.findUnique({
+    where: { id: currentUser.effectiveOrganizationId },
+    select: { publicDomain: true },
+  });
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;
@@ -190,6 +195,39 @@ export default async function SettingsPage({
         >
           Open it →
         </a>
+      </div>
+
+      <div className="mt-6 border-t border-zinc-100 pt-4">
+        <h3 className="text-sm font-semibold text-ink">Custom Domain</h3>
+        <p className="mt-1 text-sm text-zinc-500">
+          Point your own domain (e.g. book.yourbusiness.com) here instead of
+          the default address, so links from your website look like part of
+          your site. Add the domain in Vercel&apos;s project settings and a
+          matching DNS record with your domain host first, then enter it
+          below.
+        </p>
+        <form
+          action={updatePublicDomain}
+          className="mt-3 flex flex-wrap items-end gap-3"
+        >
+          <div className="min-w-0 flex-1">
+            <Field label="Domain" htmlFor="publicDomain">
+              <input
+                id="publicDomain"
+                name="publicDomain"
+                placeholder="book.yourbusiness.com"
+                defaultValue={orgDomain?.publicDomain ?? ""}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Save Domain
+          </button>
+        </form>
       </div>
     </section>
   );

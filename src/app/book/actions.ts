@@ -10,6 +10,7 @@ import { sendNotificationEmail, sendCustomerEmail } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
 import { savePhotoFile } from "@/lib/uploads";
 import { branding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
@@ -274,6 +275,7 @@ export async function submitBookingRequest(formData: FormData) {
   const host = headerList.get("host");
   const agreementUrl = host ? `https://${host}/agreement/view/${signedAgreement.id}` : null;
   try {
+    const orgBranding = await getOrgBranding(organizationId);
     const { subject, body } = await renderEmailTemplate(
       "booking_confirmation",
       {
@@ -286,7 +288,7 @@ export async function submitBookingRequest(formData: FormData) {
           ? `\nYou can view the service agreement you signed here: ${agreementUrl}\n`
           : "",
         phone: branding.smsPhone,
-        businessName: branding.businessName,
+        businessName: orgBranding.businessName,
       },
       organizationId
     );

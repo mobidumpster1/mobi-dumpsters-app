@@ -1,16 +1,19 @@
 import { listBookableCategories } from "@/lib/availability";
 import { BookingForm } from "./BookingForm";
-import { branding } from "@/lib/branding";
 import { getAgreementSettings } from "@/lib/agreement";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { UtmCapture } from "@/components/UtmCapture";
 import { getPublicOrganizationId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicBookingPage() {
-  const categories = await listBookableCategories();
   const organizationId = await getPublicOrganizationId();
-  const agreement = await getAgreementSettings(organizationId);
+  const [categories, agreement, branding] = await Promise.all([
+    listBookableCategories(),
+    getAgreementSettings(organizationId),
+    getOrgBranding(organizationId),
+  ]);
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">

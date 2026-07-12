@@ -167,6 +167,38 @@ export async function updateBranding(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// Strips a pasted "https://book.example.com/" down to the bare hostname
+// "book.example.com" so it matches what getPublicOrganizationId reads off
+// the incoming request's host header — a raw paste with the protocol or a
+// trailing slash would otherwise never match.
+function normalizeDomain(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "");
+}
+
+export async function updatePublicDomain(formData: FormData) {
+  const user = await requireUser();
+  const raw = str(formData, "publicDomain");
+  const publicDomain = raw ? normalizeDomain(raw) : null;
+
+  if (publicDomain) {
+    const existing = await db.organization.findUnique({ where: { publicDomain } });
+    if (existing && existing.id !== user.effectiveOrganizationId) {
+      throw new Error("That domain is already in use by another organization.");
+    }
+  }
+
+  await db.organization.update({
+    where: { id: user.effectiveOrganizationId },
+    data: { publicDomain },
+  });
+
+  revalidatePath("/settings");
+}
+
 export async function updateAgreementSettings(formData: FormData) {
   const user = await requireUser();
   const settings = await getAgreementSettings(user.effectiveOrganizationId);

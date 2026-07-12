@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { branding } from "@/lib/branding";
+import { branding as staticBranding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { formatDate } from "@/lib/date";
 import { requestExtension, requestDumpAndReturn } from "./actions";
 
@@ -25,6 +26,7 @@ export default async function ManageBookingPage({
   });
   if (!booking) notFound();
 
+  const branding = await getOrgBranding(booking.organizationId);
   const activeItems = booking.items.filter((item) => item.actualReturnDate === null);
   const isActive = booking.status === "confirmed" && activeItems.length > 0;
 
@@ -68,7 +70,7 @@ export default async function ManageBookingPage({
           {!isActive && !requested && (
             <p className="mt-4 rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
               This rental doesn't have anything active to request changes on
-              right now. Call or text us at {branding.smsPhone} if you need
+              right now. Call or text us at {staticBranding.smsPhone} if you need
               anything.
             </p>
           )}
@@ -130,7 +132,7 @@ export default async function ManageBookingPage({
           )}
 
           <p className="mt-6 text-center text-xs text-zinc-400">
-            Prefer to talk? Call or text {branding.smsPhone}.
+            Prefer to talk? Call or text {staticBranding.smsPhone}.
           </p>
         </div>
       </div>

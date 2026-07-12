@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { branding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/orgBranding";
+import { getPublicOrganizationId } from "@/lib/session";
 
 export default async function ThankYouPage({
   searchParams,
@@ -7,6 +8,7 @@ export default async function ThankYouPage({
   searchParams: Promise<{ ref?: string; agreement?: string }>;
 }) {
   const { ref, agreement } = await searchParams;
+  const branding = await getOrgBranding(await getPublicOrganizationId());
 
   return (
     <div className="theme-light flex min-h-screen items-center justify-center bg-brand-light px-4">

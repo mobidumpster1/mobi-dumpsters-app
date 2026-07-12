@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { branding } from "@/lib/branding";
+import { branding as staticBranding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { formatDate } from "@/lib/date";
 import { computeBookingStatus } from "@/lib/bookingStatus";
 
@@ -27,12 +28,15 @@ export default async function ViewSignedAgreementPage({
       booking: {
         include: { items: { include: { equipmentItem: { include: { category: true } } } } },
       },
+      customer: true,
     },
   });
   if (!agreement) notFound();
 
   const booking = agreement.booking;
   const total = booking?.items.reduce((sum, item) => sum + item.price, 0) ?? 0;
+  const organizationId = booking?.organizationId ?? agreement.customer?.organizationId;
+  const branding = organizationId ? await getOrgBranding(organizationId) : staticBranding;
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
@@ -100,7 +104,7 @@ export default async function ViewSignedAgreementPage({
         </div>
 
         <p className="mt-6 text-center text-xs text-zinc-400">
-          Questions? Call or text us at {branding.smsPhone}.
+          Questions? Call or text us at {staticBranding.smsPhone}.
         </p>
       </div>
     </div>

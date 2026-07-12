@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
@@ -108,8 +108,27 @@ export async function requireUser(): Promise<SessionUser> {
 // business is actually onboarded, these public routes will need their own
 // way to know which organization they belong to (e.g. a slug or subdomain
 // in the URL), and this function should be replaced at each call site.
+// Public pages (/book, /agreement/sign) have no logged-in session, so
+// there's no organizationId to read off a user — this figures out whose
+// booking page is being viewed from the request's hostname instead (each
+// org sets its own custom domain in Settings, e.g.
+// "book.mobidumpsters.com"). Falls back to whichever org was created
+// first when the hostname isn't recognized — the raw *.vercel.app URL,
+// localhost, or a domain that hasn't been added yet — so nothing breaks
+// before an org has a domain configured.
 export async function getPublicOrganizationId(): Promise<string> {
-  const org = await db.organization.findFirstOrThrow();
+  const headerList = await headers();
+  const host = headerList.get("host")?.split(":")[0]?.toLowerCase();
+
+  if (host) {
+    const matched = await db.organization.findUnique({
+      where: { publicDomain: host },
+      select: { id: true },
+    });
+    if (matched) return matched.id;
+  }
+
+  const org = await db.organization.findFirstOrThrow({ orderBy: { createdAt: "asc" } });
   return org.id;
 }
 

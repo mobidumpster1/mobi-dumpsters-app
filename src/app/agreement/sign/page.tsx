@@ -1,5 +1,5 @@
 import { getAgreementSettings } from "@/lib/agreement";
-import { branding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/orgBranding";
 import { Field, inputClass } from "@/components/Field";
 import { submitSignature } from "./actions";
 import { getPublicOrganizationId } from "@/lib/session";
@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SignAgreementPage() {
   const organizationId = await getPublicOrganizationId();
-  const agreement = await getAgreementSettings(organizationId);
+  const [agreement, branding] = await Promise.all([
+    getAgreementSettings(organizationId),
+    getOrgBranding(organizationId),
+  ]);
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
