@@ -17,6 +17,7 @@ import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { requirePermission, requireUser } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { matchesPermitArea } from "@/lib/permits";
+import { quickAddCustomer } from "@/app/(internal)/customers/actions";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -28,7 +29,23 @@ type BookingItemInput = {
 export async function createBooking(formData: FormData) {
   const user = await requireUser();
 
-  const customerId = str(formData, "customerId");
+  // The "customerId" select is disabled (so it never submits) while the
+  // inline "+ New Customer" fields are open — that customer is created
+  // here, server-side, in the same submission that creates the booking,
+  // so there's no separate client-side "Add Customer" click required and
+  // no window where the still-visible-but-stale select could silently win.
+  let customerId = str(formData, "customerId");
+  const newCustomerName = str(formData, "newCustomerName");
+  if (!customerId && newCustomerName) {
+    const newCustomerFormData = new FormData();
+    newCustomerFormData.set("name", newCustomerName);
+    newCustomerFormData.set("phone", str(formData, "newCustomerPhone") ?? "");
+    newCustomerFormData.set("email", str(formData, "newCustomerEmail") ?? "");
+    newCustomerFormData.set("address", str(formData, "newCustomerAddress") ?? "");
+    newCustomerFormData.set("leadSource", str(formData, "newCustomerLeadSource") ?? "");
+    const newCustomer = await quickAddCustomer(newCustomerFormData);
+    customerId = newCustomer.id;
+  }
   const deliveryAddress = str(formData, "deliveryAddress");
   if (!customerId) throw new Error("Customer is required");
   if (!deliveryAddress) throw new Error("Delivery address is required");
