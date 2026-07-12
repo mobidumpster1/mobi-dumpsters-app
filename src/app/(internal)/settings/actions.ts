@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { getValidConnection, listCustomers } from "@/lib/quickbooks";
+import { getValidConnection, listCustomers, listPurchases } from "@/lib/quickbooks";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { sendPendingReviewRequests } from "@/lib/reviewRequest";
@@ -105,6 +105,48 @@ export async function importCustomersFromQuickBooks() {
 
   revalidatePath("/settings");
   revalidatePath("/customers");
+}
+
+// A QuickBooks Purchase represents money already spent, so every imported
+// row lands as a "paid" Expense — matching how pushExpensePurchase treats
+// app-entered expenses once marked paid. Dedupes on quickbooksPurchaseId,
+// the same field pushExpensePurchase sets, so re-clicking this only picks
+// up purchases entered directly in QuickBooks since the last import —
+// nothing the app itself already pushed gets duplicated back in.
+export async function importExpensesFromQuickBooks() {
+  const user = await requireUser();
+  const connection = await getValidConnection(user.effectiveOrganizationId);
+  if (!connection) throw new Error("Not connected to QuickBooks");
+
+  const qboPurchases = await listPurchases(connection);
+
+  for (const qp of qboPurchases) {
+    const existing = await db.expense.findFirst({
+      where: { organizationId: user.effectiveOrganizationId, quickbooksPurchaseId: qp.Id },
+    });
+    if (existing) continue;
+
+    const firstLine = qp.Line?.find((l) => l.AccountBasedExpenseLineDetail);
+    const vendor = qp.EntityRef?.name ?? "QuickBooks Import";
+    const category = firstLine?.AccountBasedExpenseLineDetail?.AccountRef?.name ?? "Uncategorized";
+    const date = new Date(qp.TxnDate);
+
+    await db.expense.create({
+      data: {
+        organizationId: user.effectiveOrganizationId,
+        vendor,
+        category,
+        amount: qp.TotalAmt ?? firstLine?.Amount ?? 0,
+        date,
+        status: "paid",
+        paidDate: date,
+        quickbooksPurchaseId: qp.Id,
+      },
+    });
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/expenses");
 }
 
 export async function updateBranding(formData: FormData) {

@@ -199,6 +199,31 @@ export async function listCustomers(
   return data.QueryResponse?.Customer ?? [];
 }
 
+export type QboPurchase = {
+  Id: string;
+  TxnDate: string;
+  TotalAmt: number;
+  EntityRef?: { name?: string };
+  Line?: Array<{
+    Amount?: number;
+    Description?: string;
+    AccountBasedExpenseLineDetail?: { AccountRef?: { name?: string } };
+  }>;
+};
+
+// Purchase is the entity QuickBooks Online's own "+ New > Expense" form
+// creates (same entity pushExpensePurchase below writes to) — covers
+// money already spent via cash/check/card, as opposed to an unpaid
+// vendor Bill. `SELECT *` (not named columns) because QBO's query
+// language doesn't reliably return the nested Line array otherwise.
+export async function listPurchases(
+  connection: QuickBooksConnection
+): Promise<QboPurchase[]> {
+  const query = "SELECT * FROM Purchase MAXRESULTS 1000";
+  const data = await qboFetch(connection, `/query?query=${encodeURIComponent(query)}`);
+  return data.QueryResponse?.Purchase ?? [];
+}
+
 async function findOrCreateQboCustomer(
   connection: QuickBooksConnection,
   customer: {

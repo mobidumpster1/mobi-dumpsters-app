@@ -4,6 +4,7 @@ import {
   saveAccountMappings,
   disconnectQuickBooks,
   importCustomersFromQuickBooks,
+  importExpensesFromQuickBooks,
   updateBranding,
   updateAgreementSettings,
   updateReviewRequestSettings,
@@ -479,6 +480,14 @@ export default async function SettingsPage({
                 className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
               >
                 Import Customers from QuickBooks
+              </button>
+            </form>
+            <form action={importExpensesFromQuickBooks}>
+              <button
+                type="submit"
+                className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              >
+                Import Expenses from QuickBooks
               </button>
             </form>
             <form action={disconnectQuickBooks}>
