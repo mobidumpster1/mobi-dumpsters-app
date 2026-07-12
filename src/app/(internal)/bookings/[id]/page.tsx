@@ -71,6 +71,7 @@ export default async function BookingDetailPage({
         photos: { orderBy: { createdAt: "desc" } },
         damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
         serviceRequests: { where: { status: "pending" }, orderBy: { createdAt: "desc" } },
+        signedAgreements: { orderBy: { agreedAt: "desc" } },
       },
     }),
     db.vehicle.findMany({
@@ -512,6 +513,16 @@ export default async function BookingDetailPage({
               className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
             />
           )}
+          {!isPending && !isCancelled && (
+            <Link
+              href={`/bookings/${booking.id}/sign`}
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              {booking.signedAgreements.length > 0
+                ? "✍️ Sign Again"
+                : "✍️ Get Signature"}
+            </Link>
+          )}
           {!isPending &&
             (booking.invoices.length === 0 ? (
               <Link
@@ -553,6 +564,19 @@ export default async function BookingDetailPage({
           )}
         </div>
       </div>
+
+      {booking.signedAgreements.length > 0 && (
+        <p className="mt-4 text-sm text-zinc-500">
+          ✍️ Signed by {booking.signedAgreements[0].signerName} on{" "}
+          {formatDate(booking.signedAgreements[0].agreedAt)} —{" "}
+          <Link
+            href={`/agreements/${booking.signedAgreements[0].id}`}
+            className="font-semibold text-brand hover:underline"
+          >
+            View
+          </Link>
+        </p>
+      )}
 
       {notified === "1" && (
         <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">

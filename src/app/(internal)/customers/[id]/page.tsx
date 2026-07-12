@@ -12,6 +12,7 @@ import {
 } from "../dumpActions";
 import { Field, inputClass } from "@/components/Field";
 import { AddressLink } from "@/components/AddressLink";
+import { DumpReceiptScanField } from "@/components/DumpReceiptScanField";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -187,6 +188,7 @@ export default async function CustomerDetailPage({
           action={addDumpEntryWithId}
           className="mt-3 flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-5"
         >
+          <DumpReceiptScanField />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Date" htmlFor="date">
               <input
@@ -265,6 +267,19 @@ export default async function CustomerDetailPage({
                   >
                     View job
                   </Link>
+                )}
+                {entry.receiptUrl && (
+                  <>
+                    {entry.booking && <span className="text-xs text-zinc-300"> · </span>}
+                    <a
+                      href={entry.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-zinc-500 hover:underline"
+                    >
+                      View receipt
+                    </a>
+                  </>
                 )}
                 {entry.notes && <p className="mt-1 text-xs text-zinc-500">{entry.notes}</p>}
               </div>

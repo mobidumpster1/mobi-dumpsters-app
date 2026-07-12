@@ -220,6 +220,7 @@ model DumpLogEntry {
   weightTons Float
   fee        Float
   notes      String?
+  receiptUrl String?
   createdAt  DateTime @default(now())
 }
 
@@ -1071,6 +1072,7 @@ model SignedAgreement {
   signerPhone    String?
   signerAddress  String?
   ipAddress      String?
+  signatureUrl   String?
   agreedAt       DateTime @default(now())
 
   customerId String?

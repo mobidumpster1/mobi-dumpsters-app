@@ -111,3 +111,100 @@ export async function scanReceiptImage(
       : "Other",
   };
 }
+
+export type ScannedDumpReceipt = {
+  weightTons: number;
+  fee: number;
+  date: string; // YYYY-MM-DD
+};
+
+// Same forced-tool-use vision approach as scanReceiptImage above, just
+// aimed at a landfill/dump ticket instead of a business expense receipt —
+// those print net weight (often in pounds, sometimes tons) and a total
+// fee rather than a vendor/category.
+export async function scanDumpReceiptImage(
+  base64Image: string,
+  mediaType: string
+): Promise<ScannedDumpReceipt> {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error("Receipt scanning isn't configured (missing ANTHROPIC_API_KEY)");
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      tools: [
+        {
+          name: "record_dump_receipt",
+          description: "Records the extracted details of a landfill/dump ticket.",
+          input_schema: {
+            type: "object",
+            properties: {
+              weightTons: {
+                type: "number",
+                description:
+                  "The net/total weight in TONS. If the ticket shows pounds (lbs), convert to tons by dividing by 2000.",
+              },
+              fee: {
+                type: "number",
+                description: "The total fee/amount charged, in dollars",
+              },
+              date: {
+                type: "string",
+                description: "The ticket date in YYYY-MM-DD format",
+              },
+            },
+            required: ["weightTons", "fee", "date"],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "record_dump_receipt" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: base64Image },
+            },
+            {
+              type: "text",
+              text: "Read this landfill/dump receipt and extract the net weight (converted to tons if shown in pounds), the total fee charged, and the ticket date. If the date is unclear or missing, use today's date. If a value is unclear, make your best estimate from the visible numbers.",
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Receipt scan failed: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  const toolUse = (data.content as Array<{ type: string; input?: unknown }> | undefined)?.find(
+    (block) => block.type === "tool_use"
+  );
+  if (!toolUse) {
+    throw new Error("Could not read that receipt — try a clearer photo.");
+  }
+
+  const input = toolUse.input as {
+    weightTons?: number;
+    fee?: number;
+    date?: string;
+  };
+
+  return {
+    weightTons: typeof input.weightTons === "number" ? input.weightTons : 0,
+    fee: typeof input.fee === "number" ? input.fee : 0,
+    date: input.date || new Date().toISOString().slice(0, 10),
+  };
+}

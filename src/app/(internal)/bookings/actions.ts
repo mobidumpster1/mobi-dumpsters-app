@@ -17,6 +17,7 @@ import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { requirePermission, requireUser } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { matchesPermitArea } from "@/lib/permits";
+import { getAgreementSettings } from "@/lib/agreement";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
 
 type BookingItemInput = {
@@ -616,4 +617,48 @@ export async function sendReviewRequestNow(bookingId: string) {
 
   await logAction("booking.review_request_sent", "Booking", bookingId);
   revalidatePath(`/bookings/${bookingId}`);
+}
+
+// For signing on an iPad at the job site — separate from the typed-name
+// checkbox "signature" used for remote/online agreement signing on /book,
+// this captures an actual drawn signature (see SignaturePad) tied
+// directly to the booking and its customer.
+export async function signAgreementForBooking(bookingId: string, formData: FormData) {
+  const user = await requireUser();
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+    include: { customer: true },
+  });
+
+  const signerName = str(formData, "signerName");
+  const signatureUrl = str(formData, "signatureUrl");
+  if (!signerName) throw new Error("Signer name is required");
+  if (!signatureUrl) throw new Error("A signature is required");
+
+  const agreement = await getAgreementSettings(user.effectiveOrganizationId);
+
+  const headerList = await headers();
+  const ipAddress =
+    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    headerList.get("x-real-ip") ??
+    null;
+
+  await db.signedAgreement.create({
+    data: {
+      agreementTitle: agreement.title,
+      agreementText: agreement.content,
+      signerName,
+      signerEmail: booking.customer.email,
+      signerPhone: booking.customer.phone,
+      signerAddress: booking.customer.address ?? booking.deliveryAddress,
+      ipAddress,
+      signatureUrl,
+      customerId: booking.customerId,
+      bookingId: booking.id,
+    },
+  });
+
+  await logAction("booking.agreement_signed", "Booking", bookingId);
+  revalidatePath(`/bookings/${bookingId}`);
+  redirect(`/bookings/${bookingId}`);
 }

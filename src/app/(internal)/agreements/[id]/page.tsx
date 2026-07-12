@@ -109,6 +109,20 @@ export default async function SignedAgreementDetailPage({
         </div>
       </dl>
 
+      {signed.signatureUrl && (
+        <>
+          <h2 className="mt-8 text-xl font-black text-ink">Signature</h2>
+          <div className="mt-3 inline-block rounded-lg border-2 border-zinc-900 bg-white p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={signed.signatureUrl}
+              alt={`${signed.signerName}'s signature`}
+              className="h-32 w-auto"
+            />
+          </div>
+        </>
+      )}
+
       <h2 className="mt-8 text-xl font-black text-ink">
         Agreement Text (as signed)
       </h2>

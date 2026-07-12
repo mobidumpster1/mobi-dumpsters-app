@@ -37,6 +37,12 @@ export function saveDocumentFile(file: File): Promise<string> {
   return saveUploadedFile("documents", crypto.randomUUID(), file);
 }
 
+// Dump/landfill receipts are scanned (see scanDumpReceipt) before the
+// DumpLogEntry row exists yet, same situation as documents above.
+export function saveDumpReceiptFile(file: File): Promise<string> {
+  return saveUploadedFile("dump-receipts", crypto.randomUUID(), file);
+}
+
 // Deletes a previously-uploaded file given the full URL stored on its
 // record. Safe to call even if the file is already gone.
 export async function deleteUploadedFile(url: string): Promise<void> {
