@@ -70,12 +70,7 @@ export default async function EquipmentDetailPage({
           <h1 className="text-3xl font-black tracking-tight text-ink">
             {item.label}
           </h1>
-          <Link
-            href={`/equipment/categories/${item.category.id}/edit`}
-            className="mt-1 inline-block text-zinc-500 hover:text-brand hover:underline"
-          >
-            {item.category.name} — edit photo, price, dimensions
-          </Link>
+          <p className="mt-1 text-zinc-500">{item.category.name}</p>
         </div>
         <Link
           href={`/equipment/${item.id}/edit`}

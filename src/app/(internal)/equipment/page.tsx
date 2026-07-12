@@ -148,14 +148,7 @@ export default async function EquipmentPage({
               <dl className="mt-2 flex flex-col gap-1 text-sm">
                 <div className="flex justify-between gap-2">
                   <dt className="text-zinc-500">Category</dt>
-                  <dd>
-                    <Link
-                      href={`/equipment/categories/${item.category.id}/edit`}
-                      className="text-zinc-700 hover:text-brand hover:underline"
-                    >
-                      {item.category.name}
-                    </Link>
-                  </dd>
+                  <dd className="text-zinc-700">{item.category.name}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-zinc-500">Location / Customer</dt>
@@ -231,14 +224,7 @@ export default async function EquipmentPage({
                       <div className="text-xs text-zinc-500">{item.assetTag}</div>
                     )}
                   </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    <Link
-                      href={`/equipment/categories/${item.category.id}/edit`}
-                      className="hover:text-brand hover:underline"
-                    >
-                      {item.category.name}
-                    </Link>
-                  </td>
+                  <td className="px-5 py-4 text-zinc-600">{item.category.name}</td>
                   <td className="px-5 py-4">
                     <StatusQuickSelect
                       itemId={item.id}

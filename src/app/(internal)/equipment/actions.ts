@@ -10,6 +10,31 @@ import {
 } from "@/lib/categoryFields";
 import { requireUser } from "@/lib/session";
 
+// The equipment form also lets the user set the category's own photo,
+// price, and dimensions inline (instead of a separate "edit category" trip)
+// since those are what customers see on the booking page. Only touched when
+// present — the price field is omitted from the form for tiered-pricing
+// categories, so it's left alone rather than nulled out.
+async function applyCategoryDetails(
+  categoryId: string,
+  organizationId: string,
+  formData: FormData
+) {
+  if (!formData.has("categoryImageUrl")) return;
+  const data: { imageUrl: string | null; dimensions: string | null; basePrice?: number | null } = {
+    imageUrl: str(formData, "categoryImageUrl"),
+    dimensions: str(formData, "categoryDimensions"),
+  };
+  if (formData.has("categoryBasePrice")) {
+    const raw = str(formData, "categoryBasePrice");
+    data.basePrice = raw ? Number(raw) : null;
+  }
+  await db.equipmentCategory.updateMany({
+    where: { id: categoryId, organizationId },
+    data,
+  });
+}
+
 export async function createEquipmentItem(formData: FormData) {
   const user = await requireUser();
   const categoryId = str(formData, "categoryId");
@@ -36,6 +61,8 @@ export async function createEquipmentItem(formData: FormData) {
       attributes: JSON.stringify(attributes),
     },
   });
+
+  await applyCategoryDetails(categoryId, user.effectiveOrganizationId, formData);
 
   redirect(`/equipment/${item.id}`);
 }
@@ -69,6 +96,8 @@ export async function updateEquipmentItem(
       attributes: JSON.stringify(attributes),
     },
   });
+
+  await applyCategoryDetails(categoryId, user.effectiveOrganizationId, formData);
 
   redirect(`/equipment/${itemId}`);
 }

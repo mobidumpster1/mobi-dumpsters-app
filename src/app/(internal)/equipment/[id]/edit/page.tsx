@@ -19,6 +19,7 @@ export default async function EditEquipmentPage({
     db.equipmentCategory.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
+      include: { pricingTiers: { select: { id: true } } },
     }),
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
@@ -41,6 +42,10 @@ export default async function EditEquipmentPage({
             id: c.id,
             name: c.name,
             fieldDefinitions: parseFieldDefinitions(c.fieldDefinitions),
+            imageUrl: c.imageUrl,
+            dimensions: c.dimensions,
+            basePrice: c.basePrice,
+            hasPricingTiers: c.pricingTiers.length > 0,
           }))}
           customers={customers}
           initial={{

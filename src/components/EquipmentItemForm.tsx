@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Field, inputClass } from "@/components/Field";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import { quickAddCategory } from "@/app/(internal)/equipment/categories/actions";
 import type { FieldDefinition } from "@/lib/categoryFields";
 
@@ -11,6 +12,10 @@ type CategoryOption = {
   id: string;
   name: string;
   fieldDefinitions: FieldDefinition[];
+  imageUrl: string | null;
+  dimensions: string | null;
+  basePrice: number | null;
+  hasPricingTiers: boolean;
 };
 
 type CustomerOption = { id: string; name: string };
@@ -63,9 +68,17 @@ export function EquipmentItemForm({
       setCategoryOptions((prev) =>
         prev.some((c) => c.id === category.id)
           ? prev
-          : [...prev, { ...category, fieldDefinitions: [] }].sort((a, b) =>
-              a.name.localeCompare(b.name)
-            )
+          : [
+              ...prev,
+              {
+                ...category,
+                fieldDefinitions: [],
+                imageUrl: null,
+                dimensions: null,
+                basePrice: null,
+                hasPricingTiers: false,
+              },
+            ].sort((a, b) => a.name.localeCompare(b.name))
       );
       setCategoryId(category.id);
       setShowAddCategory(false);
@@ -108,8 +121,8 @@ export function EquipmentItemForm({
           {showAddCategory && (
             <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
               <p className="text-xs text-zinc-500">
-                Adds a new rental type with just a name — set its price, photo, and
-                dimensions later from Equipment → Categories.
+                Adds a new rental type with just a name — you can set its photo,
+                price, and dimensions below once it's selected.
               </p>
               <input
                 placeholder="e.g. Skid Steer"
@@ -132,6 +145,56 @@ export function EquipmentItemForm({
           )}
         </div>
       </Field>
+
+      {selectedCategory && (
+        <div
+          key={categoryId}
+          className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+        >
+          <h3 className="text-sm font-medium text-zinc-700">
+            {selectedCategory.name}: Photo, Price &amp; Dimensions
+          </h3>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Shown to customers on the booking page. Applies to every{" "}
+            {selectedCategory.name} item, not just this one.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <ImageUploadField
+              name="categoryImageUrl"
+              label="Photo"
+              initialUrl={selectedCategory.imageUrl}
+              folder={`categories/${categoryId}`}
+            />
+            {selectedCategory.hasPricingTiers ? (
+              <p className="text-xs text-zinc-500">
+                This category uses tiered pricing — edit price tiers from
+                Equipment → Categories.
+              </p>
+            ) : (
+              <Field label="Price ($)" htmlFor="categoryBasePrice">
+                <input
+                  id="categoryBasePrice"
+                  name="categoryBasePrice"
+                  type="number"
+                  step="any"
+                  min="0"
+                  defaultValue={selectedCategory.basePrice ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+            )}
+            <Field label="Dimensions" htmlFor="categoryDimensions">
+              <input
+                id="categoryDimensions"
+                name="categoryDimensions"
+                placeholder={`e.g. 16' L x 7' W x 4.5' H`}
+                defaultValue={selectedCategory.dimensions ?? ""}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </div>
+      )}
 
       <Field label="Label" htmlFor="label">
         <input
