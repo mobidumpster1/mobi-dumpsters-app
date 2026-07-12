@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { pushExpensePurchase } from "@/lib/quickbooks";
+import { deleteUploadedFile } from "@/lib/uploads";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
@@ -117,4 +118,28 @@ export async function markExpenseUnpaid(expenseId: string) {
   await logAction("expense.marked_unpaid", "Expense", expenseId);
   revalidatePath(`/expenses/${expenseId}`);
   revalidatePath("/expenses");
+}
+
+// Gated by canDeleteRecords (not just canManageExpenses) to match the same
+// stricter permission bookings/invoices use for permanent deletes — a
+// staff member trusted to log/edit expenses isn't necessarily trusted to
+// erase financial records outright.
+export async function deleteExpense(expenseId: string) {
+  const user = await requirePermission("canDeleteRecords");
+
+  const expense = await db.expense.findFirst({
+    where: { id: expenseId, organizationId: user.effectiveOrganizationId },
+    include: { receipts: true },
+  });
+  if (!expense) throw new Error("Expense not found");
+
+  for (const receipt of expense.receipts) {
+    await deleteUploadedFile(receipt.filePath);
+  }
+  await db.expenseReceipt.deleteMany({ where: { expenseId } });
+  await db.expense.delete({ where: { id: expenseId } });
+
+  await logAction("expense.deleted", "Expense", expenseId);
+  revalidatePath("/expenses");
+  redirect("/expenses");
 }

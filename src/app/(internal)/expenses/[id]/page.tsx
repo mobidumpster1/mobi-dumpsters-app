@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
-import { markExpensePaid, markExpenseUnpaid } from "../actions";
+import { markExpensePaid, markExpenseUnpaid, deleteExpense } from "../actions";
 import { uploadExpenseReceipt, deleteExpenseReceipt } from "../receiptActions";
 import { Field, inputClass } from "@/components/Field";
 import { GalleryImage } from "@/components/GalleryImage";
-import { requireUser } from "@/lib/session";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { hasPermission, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function ExpenseDetailPage({
   const markPaidWithId = markExpensePaid.bind(null, expense.id);
   const markUnpaidWithId = markExpenseUnpaid.bind(null, expense.id);
   const uploadReceiptWithId = uploadExpenseReceipt.bind(null, expense.id);
+  const canDelete = hasPermission(user, "canDeleteRecords");
 
   return (
     <div className="max-w-xl">
@@ -51,6 +53,16 @@ export default async function ExpenseDetailPage({
           >
             Edit
           </Link>
+          {canDelete && (
+            <form action={deleteExpense.bind(null, expense.id)}>
+              <ConfirmButton
+                message={`Delete this expense (${expense.vendor}, $${expense.amount.toFixed(2)})? This can't be undone.`}
+                className="rounded-xl border border-red-300 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+              >
+                Delete
+              </ConfirmButton>
+            </form>
+          )}
           <span
             className={`inline-block self-center rounded-full px-3 py-1 text-sm font-black capitalize ${
               expense.status === "paid"

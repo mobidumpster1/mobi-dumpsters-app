@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
+import { Tabs } from "@/components/Tabs";
 import { hasPermission, requireUser } from "@/lib/session";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
@@ -241,27 +242,8 @@ export default async function ReportsPage() {
   const recurringMonthlyEquivalent = recurringMonthlyTotal + recurringYearlyTotal / 12;
   const recurringVariableCount = recurringBills.filter((b) => b.amount == null).length;
 
-  return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-ink">Reports</h1>
-        <p className="mt-1 text-zinc-500">
-          Revenue and expenses across all time, based on invoiced and incurred
-          amounts (not just what&apos;s been collected or paid).
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <SummaryCard label="Total Revenue" value={totalRevenue} />
-        <SummaryCard label="Total Expenses" value={totalExpenses} />
-        <SummaryCard label="Net Profit" value={profit} highlight />
-        <SummaryCard
-          label="Net Outstanding"
-          value={outstandingReceivables - outstandingPayables}
-          sub={`$${outstandingReceivables.toFixed(2)} unpaid invoices, $${outstandingPayables.toFixed(2)} unpaid bills`}
-        />
-      </div>
-
+  const revenueTab = (
+    <>
       <section>
         <h2 className="text-xl font-black text-ink">Revenue</h2>
         <p className="mt-1 text-sm text-zinc-500">
@@ -276,6 +258,59 @@ export default async function ReportsPage() {
         </div>
       </section>
 
+      <section>
+        <h2 className="text-xl font-black text-ink">
+          Monthly Breakdown
+        </h2>
+        <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Month</th>
+                <th className="px-5 py-3.5 font-semibold">Revenue</th>
+                <th className="px-5 py-3.5 font-semibold">Expenses</th>
+                <th className="px-5 py-3.5 font-semibold">Profit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {months.map(([key, data]) => (
+                <tr key={key}>
+                  <td className="px-5 py-4 font-medium text-zinc-900">
+                    {monthLabel(key)}
+                  </td>
+                  <td className="px-5 py-4 text-zinc-600">
+                    ${data.revenue.toFixed(2)}
+                  </td>
+                  <td className="px-5 py-4 text-zinc-600">
+                    ${data.expenses.toFixed(2)}
+                  </td>
+                  <td
+                    className={`px-5 py-4 font-medium ${
+                      data.revenue - data.expenses >= 0
+                        ? "text-green-700"
+                        : "text-red-600"
+                    }`}
+                  >
+                    ${(data.revenue - data.expenses).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+              {months.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                    No data yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+
+  const expensesTab = (
+    <>
       <section>
         <h2 className="text-xl font-black text-ink">
           Expense Breakdown
@@ -371,56 +406,11 @@ export default async function ReportsPage() {
           />
         </div>
       </section>
+    </>
+  );
 
-      <section>
-        <h2 className="text-xl font-black text-ink">
-          Monthly Breakdown
-        </h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-zinc-500">
-              <tr>
-                <th className="px-5 py-3.5 font-semibold">Month</th>
-                <th className="px-5 py-3.5 font-semibold">Revenue</th>
-                <th className="px-5 py-3.5 font-semibold">Expenses</th>
-                <th className="px-5 py-3.5 font-semibold">Profit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {months.map(([key, data]) => (
-                <tr key={key}>
-                  <td className="px-5 py-4 font-medium text-zinc-900">
-                    {monthLabel(key)}
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    ${data.revenue.toFixed(2)}
-                  </td>
-                  <td className="px-5 py-4 text-zinc-600">
-                    ${data.expenses.toFixed(2)}
-                  </td>
-                  <td
-                    className={`px-5 py-4 font-medium ${
-                      data.revenue - data.expenses >= 0
-                        ? "text-green-700"
-                        : "text-red-600"
-                    }`}
-                  >
-                    ${(data.revenue - data.expenses).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-              {months.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
-                    No data yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
+  const customersTab = (
+    <>
       <section>
         <h2 className="text-xl font-black text-ink">
           Revenue by Customer
@@ -508,34 +498,69 @@ export default async function ReportsPage() {
           </table>
         </div>
       </section>
+    </>
+  );
 
-      {equipmentRows.length > 0 && (
-        <section>
-          <h2 className="text-xl font-black text-ink">
-            Cost by Equipment
-          </h2>
-          <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-zinc-500">
-                <tr>
-                  <th className="px-5 py-3.5 font-semibold">Equipment</th>
-                  <th className="px-5 py-3.5 font-semibold">Total Cost</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {equipmentRows.map(([itemId, row]) => (
-                  <tr key={itemId}>
-                    <td className="px-5 py-4 text-zinc-900">{row.label}</td>
-                    <td className="px-5 py-4 text-zinc-600">
-                      ${row.cost.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+  const equipmentTab = equipmentRows.length > 0 && (
+    <section>
+      <h2 className="text-xl font-black text-ink">
+        Cost by Equipment
+      </h2>
+      <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Equipment</th>
+              <th className="px-5 py-3.5 font-semibold">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {equipmentRows.map(([itemId, row]) => (
+              <tr key={itemId}>
+                <td className="px-5 py-4 text-zinc-900">{row.label}</td>
+                <td className="px-5 py-4 text-zinc-600">
+                  ${row.cost.toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
+  const tabs = [
+    { id: "revenue", label: "Revenue", content: revenueTab },
+    { id: "expenses", label: "Expenses", content: expensesTab },
+    { id: "customers", label: "Customers", content: customersTab },
+    ...(equipmentRows.length > 0
+      ? [{ id: "equipment", label: "Equipment", content: equipmentTab }]
+      : []),
+  ];
+  const tabsElement = <Tabs tabs={tabs} initialTab="revenue" />;
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-3xl font-black tracking-tight text-ink">Reports</h1>
+        <p className="mt-1 text-zinc-500">
+          Revenue and expenses across all time, based on invoiced and incurred
+          amounts (not just what&apos;s been collected or paid).
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <SummaryCard label="Total Revenue" value={totalRevenue} />
+        <SummaryCard label="Total Expenses" value={totalExpenses} />
+        <SummaryCard label="Net Profit" value={profit} highlight />
+        <SummaryCard
+          label="Net Outstanding"
+          value={outstandingReceivables - outstandingPayables}
+          sub={`$${outstandingReceivables.toFixed(2)} unpaid invoices, $${outstandingPayables.toFixed(2)} unpaid bills`}
+        />
+      </div>
+
+      {tabsElement}
     </div>
   );
 }

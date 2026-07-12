@@ -4,12 +4,15 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { hasPermission, requireUser } from "@/lib/session";
 import { logRecurringBillAsExpense } from "./recurringActions";
+import { deleteExpense } from "./actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
+  const canDelete = hasPermission(user, "canDeleteRecords");
 
   const [expenses, recurringBills] = await Promise.all([
     db.expense.findMany({
@@ -124,50 +127,58 @@ export default async function ExpensesPage() {
       {/* Mobile: card list */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">
         {expenses.map((expense) => (
-          <Link
-            key={expense.id}
-            href={`/expenses/${expense.id}`}
-            className="block rounded-lg border-2 border-zinc-900 bg-white p-4"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-zinc-900">{expense.vendor}</span>
-              <span
-                className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
-                  expense.status === "paid"
-                    ? "bg-green-600 text-white"
-                    : "bg-amber-500 text-white"
-                }`}
-              >
-                {expense.status}
-              </span>
-            </div>
-            <dl className="mt-2 flex flex-col gap-1 text-sm">
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Date</dt>
-                <dd className="text-zinc-700">{formatDate(expense.date)}</dd>
+          <div key={expense.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
+            <Link href={`/expenses/${expense.id}`} className="block">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-zinc-900">{expense.vendor}</span>
+                <span
+                  className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
+                    expense.status === "paid"
+                      ? "bg-green-600 text-white"
+                      : "bg-amber-500 text-white"
+                  }`}
+                >
+                  {expense.status}
+                </span>
               </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Category</dt>
-                <dd className="text-zinc-700">{expense.category}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Linked To</dt>
-                <dd className="truncate text-zinc-700">
-                  {expense.booking
-                    ? `Job: ${expense.booking.customer.name}`
-                    : expense.equipmentItem
-                      ? expense.equipmentItem.label
-                      : "—"}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-zinc-500">Amount</dt>
-                <dd className="font-medium text-zinc-900">
-                  ${expense.amount.toFixed(2)}
-                </dd>
-              </div>
-            </dl>
-          </Link>
+              <dl className="mt-2 flex flex-col gap-1 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Date</dt>
+                  <dd className="text-zinc-700">{formatDate(expense.date)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Category</dt>
+                  <dd className="text-zinc-700">{expense.category}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Linked To</dt>
+                  <dd className="truncate text-zinc-700">
+                    {expense.booking
+                      ? `Job: ${expense.booking.customer.name}`
+                      : expense.equipmentItem
+                        ? expense.equipmentItem.label
+                        : "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-zinc-500">Amount</dt>
+                  <dd className="font-medium text-zinc-900">
+                    ${expense.amount.toFixed(2)}
+                  </dd>
+                </div>
+              </dl>
+            </Link>
+            {canDelete && (
+              <form action={deleteExpense.bind(null, expense.id)} className="mt-2">
+                <ConfirmButton
+                  message={`Delete this expense (${expense.vendor}, $${expense.amount.toFixed(2)})? This can't be undone.`}
+                  className="text-xs font-semibold text-red-600 hover:underline"
+                >
+                  Delete
+                </ConfirmButton>
+              </form>
+            )}
+          </div>
         ))}
         {expenses.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
@@ -187,6 +198,7 @@ export default async function ExpensesPage() {
               <th className="px-5 py-3.5 font-semibold">Linked To</th>
               <th className="px-5 py-3.5 font-semibold">Amount</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
+              <th className="px-5 py-3.5 font-semibold"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -225,11 +237,23 @@ export default async function ExpensesPage() {
                     {expense.status}
                   </span>
                 </td>
+                <td className="px-5 py-4">
+                  {canDelete && (
+                    <form action={deleteExpense.bind(null, expense.id)}>
+                      <ConfirmButton
+                        message={`Delete this expense (${expense.vendor}, $${expense.amount.toFixed(2)})? This can't be undone.`}
+                        className="text-xs font-semibold text-red-600 hover:underline"
+                      >
+                        Delete
+                      </ConfirmButton>
+                    </form>
+                  )}
+                </td>
               </tr>
             ))}
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
                   No expenses yet.
                 </td>
               </tr>
