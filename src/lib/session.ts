@@ -10,6 +10,7 @@ const PERMISSION_FIELDS = {
   email: true,
   role: true,
   active: true,
+  emailVerifiedAt: true,
   organizationId: true,
   isPlatformAdmin: true,
   canManageInvoices: true,
@@ -32,6 +33,7 @@ export type SessionUser = {
   email: string;
   role: string;
   active: boolean;
+  emailVerifiedAt: Date | null;
   // The user's own organization — their real, permanent identity.
   // Never changes due to impersonation. Use this for "who does this
   // person actually work for," never for scoping business data.

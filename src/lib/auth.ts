@@ -19,6 +19,17 @@ export function verifyPassword(password: string, stored: string): boolean {
   return crypto.timingSafeEqual(hashBuffer, candidateBuffer);
 }
 
+// Raw, high-entropy tokens for one-off links (email verification, password
+// reset) — random and unguessable on their own, unlike a password, so a
+// plain sha256 (not scrypt) of the token is enough for at-rest storage.
+export function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sign(payload: string): string {

@@ -6,9 +6,9 @@ import { login } from "./actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; error?: string }>;
+  searchParams: Promise<{ from?: string; error?: string; reset?: string }>;
 }) {
-  const { from, error } = await searchParams;
+  const { from, error, reset } = await searchParams;
 
   return (
     <div className="theme-light flex min-h-screen items-center justify-center bg-brand-light px-4">
@@ -21,6 +21,11 @@ export default async function LoginPage({
         {error && (
           <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
             Incorrect email or password. Try again.
+          </p>
+        )}
+        {reset && (
+          <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+            Password updated — sign in with your new password.
           </p>
         )}
 
@@ -47,6 +52,12 @@ export default async function LoginPage({
               className={inputClass}
             />
           </Field>
+          <Link
+            href="/forgot-password"
+            className="-mt-2 self-end text-xs font-semibold text-brand hover:underline"
+          >
+            Forgot password?
+          </Link>
           <button
             type="submit"
             className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark"

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { createSessionToken, hashPassword, SESSION_COOKIE } from "@/lib/auth";
+import { sendEmailVerification } from "@/lib/verification";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,6 +48,13 @@ export async function signup(formData: FormData) {
         organizationId: organization.id,
       },
     });
+  });
+
+  await sendEmailVerification({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    organizationName: businessName,
   });
 
   const cookieStore = await cookies();

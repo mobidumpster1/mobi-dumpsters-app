@@ -69,6 +69,12 @@ model User {
   passwordHash String
   role         String  @default("staff") // owner | staff
   active       Boolean @default(true)
+  // Set once the /verify-email link is clicked. Existing accounts (seeded
+  // owner logins, accounts created before this field existed) are
+  // backfilled as already verified — this is about confirming a
+  // freshly-typed signup email actually works, not re-litigating trust
+  // in accounts Chase already controls.
+  emailVerifiedAt DateTime?
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
@@ -93,7 +99,41 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  auditLogs AuditLog[]
+  auditLogs               AuditLog[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+}
+
+// A single-use, short-lived token emailed as a /verify-email?token=... link
+// right after signup (and again on demand via the "Resend" button on the
+// unverified-account banner). Only the sha256 hash is stored — same idea
+// as password hashing, so a database leak alone can't be used to verify
+// (or reset the password of) any account. Creating a new one deletes any
+// prior unused token for the same user, so only the most recent link
+// still works.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Same shape and single-use/hashed-token design as EmailVerificationToken,
+// for the /forgot-password → email link → /reset-password flow. Kept as
+// a separate model (rather than a shared "purpose" column) since the two
+// have very different lifetimes (48h vs 1h) and very different blast
+// radius if guessed.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // A record of a sensitive action for accountability — who marked an invoice

@@ -12,6 +12,9 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 const PUBLIC_PATHS = [
   "/login",
   "/signup",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
   "/book",
   "/agreement",
   "/api/cron",

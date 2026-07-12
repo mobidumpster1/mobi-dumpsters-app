@@ -1,8 +1,10 @@
 import { Sidebar } from "@/components/Sidebar";
+import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { getOrgBranding } from "@/lib/orgBranding";
 import { stopImpersonation } from "@/app/(internal)/platform-admin/actions";
+import { resendVerificationEmailAction } from "@/app/(internal)/verificationActions";
 
 export default async function InternalLayout({
   children,
@@ -28,6 +30,7 @@ export default async function InternalLayout({
       <Sidebar branding={orgBranding} pendingCount={pendingCount} user={user} />
       <main className="w-full min-w-0 flex-1 px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-10 md:pb-10">
         <div className="mx-auto w-full max-w-6xl">
+          {!user.emailVerifiedAt && <VerifyEmailBanner action={resendVerificationEmailAction} />}
           {user.impersonating && (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-900">
               <span>

@@ -13,7 +13,7 @@ export function isEmailConfigured() {
 // so the logo in emails resolves without threading a URL through every
 // call site. Falls back to localhost for local dev, where the image just
 // won't load — expected, not worth working around.
-function siteOrigin() {
+export function siteOrigin() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
