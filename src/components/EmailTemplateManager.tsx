@@ -59,7 +59,7 @@ export function EmailTemplateManager({
             name="name"
             required
             placeholder="e.g. Roofers - Intro"
-            className={`${inputClass} py-2.5 text-sm`}
+            className={`${inputClass} py-2.5 text-base sm:text-sm`}
           />
         </Field>
         <Field label="Subject" htmlFor="templateSubject">
@@ -68,7 +68,7 @@ export function EmailTemplateManager({
             name="subject"
             required
             placeholder={`e.g. Reliable dumpster service for ${placeholderToken}`}
-            className={`${inputClass} py-2.5 text-sm`}
+            className={`${inputClass} py-2.5 text-base sm:text-sm`}
           />
         </Field>
         <Field label="Message" htmlFor="templateBody">
@@ -78,7 +78,7 @@ export function EmailTemplateManager({
             required
             rows={5}
             placeholder={`Hi ${placeholderToken},\n\nWe work with contractors around Byron/Macon on dumpster rentals for job sites...`}
-            className={`${inputClass} text-sm`}
+            className={`${inputClass} text-base sm:text-sm`}
           />
         </Field>
         <div>

@@ -26,7 +26,7 @@ export function LeadNotesField({
         await action(leadId, formData);
         router.refresh();
       }}
-      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-base text-zinc-700 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-xs"
     />
   );
 }

@@ -50,7 +50,7 @@ export function ServiceAreaManager({
           name="name"
           required
           placeholder="e.g. Macon, GA"
-          className={`${inputClass} flex-1 py-2.5 text-sm`}
+          className={`${inputClass} flex-1 py-2.5 text-base sm:text-sm`}
         />
         <button
           type="submit"
