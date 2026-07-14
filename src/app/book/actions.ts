@@ -15,6 +15,8 @@ import { fillBlankCustomerFields } from "@/lib/customerSync";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
 import { getPublicOrganizationId } from "@/lib/session";
+import { createDraftInvoiceForBooking } from "@/lib/invoicing";
+import { createOnlinePaymentLink } from "@/lib/quickbooks";
 
 export async function checkAvailability(
   categoryId: string,
@@ -216,6 +218,13 @@ export async function submitBookingRequest(formData: FormData) {
     },
   });
 
+  // Computed with the same pricing rules staff would get from the
+  // "Create Invoice" button — created now (not just on confirmation) so a
+  // customer choosing to pay online right away (see payBookingInvoiceNow
+  // below) has a real amount to pay against immediately, without waiting
+  // on Chase to review the request first.
+  const invoice = await createDraftInvoiceForBooking(booking.id);
+
   const photoFiles = formData
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
@@ -297,5 +306,74 @@ export async function submitBookingRequest(formData: FormData) {
     console.error("Failed to send booking confirmation email:", error);
   }
 
-  redirect(`/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}`);
+  redirect(
+    `/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}&invoice=${invoice.id}`
+  );
+}
+
+// Public, unauthenticated — a customer clicking "Pay Now" on the thank-you
+// page right after booking, before Chase has confirmed anything. Generates
+// (or reuses) a QuickBooks-hosted invoice link and sends them straight to
+// it. On any failure (QuickBooks not connected, no email on file, etc.)
+// it sends them back to the thank-you page with payError=1 instead of
+// throwing, so a customer never sees a raw crash page — see
+// book/thank-you/page.tsx for the fallback message. The single redirect()
+// call has to happen outside the try/catch: redirect() works by throwing
+// internally, and catching that alongside real errors would break it.
+export async function payBookingInvoiceNow(invoiceId: string) {
+  let redirectTo: string;
+
+  try {
+    const invoice = await db.invoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+      include: {
+        booking: { include: { customer: true } },
+        customer: true,
+      },
+    });
+
+    const customer = invoice.booking?.customer ?? invoice.customer;
+    if (!customer?.email) {
+      throw new Error("No email on file for this booking.");
+    }
+
+    const result = await createOnlinePaymentLink({
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        quickbooksCustomerId: customer.quickbooksCustomerId,
+      },
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amount,
+      issueDate: invoice.issueDate,
+      description: invoice.booking
+        ? `Booking ${invoice.invoiceNumber}`
+        : `Invoice ${invoice.invoiceNumber}`,
+      billEmail: customer.email,
+      existingQboInvoiceId: invoice.quickbooksInvoiceId,
+      organizationId: invoice.organizationId,
+    });
+
+    if (!result) {
+      throw new Error("QuickBooks isn't connected for this business.");
+    }
+
+    await db.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        quickbooksInvoiceId: result.qboInvoiceId,
+        onlinePaymentUrl: result.invoiceLink,
+        onlinePaymentSentAt: new Date(),
+      },
+    });
+
+    redirectTo = result.invoiceLink;
+  } catch (error) {
+    console.error("payBookingInvoiceNow failed:", error);
+    redirectTo = `/book/thank-you?invoice=${invoiceId}&payError=1`;
+  }
+
+  redirect(redirectTo);
 }
