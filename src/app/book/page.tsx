@@ -60,6 +60,7 @@ export default async function PublicBookingPage({
                 name: c.name,
                 description: c.description,
                 dimensions: c.dimensions,
+                bookingNote: c.bookingNote,
                 imageUrl: c.imageUrl,
                 basePrice: c.basePrice,
                 includedDays: c.includedDays,

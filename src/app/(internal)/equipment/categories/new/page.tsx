@@ -47,6 +47,15 @@ export default async function NewCategoryPage() {
             className={inputClass}
           />
         </Field>
+        <Field label="Booking page note (optional)" htmlFor="bookingNote">
+          <textarea
+            id="bookingNote"
+            name="bookingNote"
+            rows={2}
+            placeholder="e.g. Best for light material — for concrete, dirt, brick or roofing, choose the 20 yard."
+            className={inputClass}
+          />
+        </Field>
         <ImageUploadField
           name="imageUrl"
           label="Photo (shown to customers on the booking page)"

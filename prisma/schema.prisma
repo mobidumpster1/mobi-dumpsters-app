@@ -286,6 +286,12 @@ model EquipmentCategory {
   // per-unit specs (one dumpster's actual size can differ from another's)
   // — this is category-level marketing copy, the same for every unit.
   dimensions         String?
+  // A short callout shown on the public booking page below the pricing
+  // details — e.g. "Heavy material (concrete, dirt, brick, roofing): fill
+  // is limited by weight — call before loading." Separate from
+  // `description` so the short marketing blurb (shown on the browse grid)
+  // and this longer usage note (shown on the review step) can differ.
+  bookingNote        String?
   fieldDefinitions   String       @default("[]")
   // How many days an item of this category can sit at one site before it's
   // flagged as "sitting too long" on the equipment dashboard.

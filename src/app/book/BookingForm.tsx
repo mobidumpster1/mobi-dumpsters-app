@@ -12,6 +12,7 @@ type CategoryOption = {
   name: string;
   description: string | null;
   dimensions: string | null;
+  bookingNote: string | null;
   imageUrl: string | null;
   basePrice: number | null;
   includedDays: number | null;
@@ -64,7 +65,7 @@ function includedTerms(c: CategoryOption): string[] {
         ? ` (${c.includedTonnage / c.bundleQuantity} tons per container)`
         : "";
     lines.push(
-      `${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} included${perContainer} — after that, it's $${c.overageTonnageRate.toFixed(2)} for each additional ton`
+      `Included: first ${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} (${(c.includedTonnage * 2000).toLocaleString()} lbs)${perContainer} and first dump at no extra charge`
     );
   }
   if (c.includedMileage != null && c.overageMileageRate != null) {
@@ -72,19 +73,31 @@ function includedTerms(c: CategoryOption): string[] {
       `${c.includedMileage} mile${c.includedMileage === 1 ? "" : "s"} of delivery included — after that, it's $${c.overageMileageRate.toFixed(2)} for each additional mile`
     );
   }
-  // "Extra dump" only applies to rentals with a tonnage overage policy
-  // (dumpsters/trailers) — matches the "additional dump resets the rental
-  // period" language buried in the signed agreement, surfaced here so
-  // it's seen before booking rather than read for the first time in the
-  // fine print.
   if (c.includedTonnage != null && c.overageTonnageRate != null) {
     lines.push(
-      c.includedDays != null && c.overageDayRate != null
-        ? `Fill it up before you're done? We'll empty it and bring it back, but that resets your rental period — any extra days beyond what's included are $${c.overageDayRate.toFixed(2)}/day`
-        : `Fill it up before you're done? We'll empty it and bring it back, but that resets your rental period.`
+      `Weight overage: $${c.overageTonnageRate.toFixed(2)} per ton over ${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} — you'll be notified with documentation before collection`
+    );
+    lines.push(
+      "Extra dump: an additional dump restarts your rental period (priced for the additional days you keep it)"
     );
   }
   return lines;
+}
+
+// Short blurb shown under each duration tier on the review step, matching
+// Chase's real rate-card copy — computed from the same tonnage/bundle
+// fields rather than stored per tier, so it can't drift out of sync with
+// the actual included allowance.
+function deliveryCaption(c: CategoryOption): string {
+  if (c.includedTonnage == null) return "Delivered to your door.";
+  if (c.bundleQuantity > 1) {
+    const perContainer =
+      c.includedTonnage % c.bundleQuantity === 0 ? c.includedTonnage / c.bundleQuantity : null;
+    return perContainer != null
+      ? `${c.bundleQuantity} containers delivered. First ${perContainer} ton${perContainer === 1 ? "" : "s"} & first dump per can.`
+      : `${c.bundleQuantity} containers delivered. First dump per can included.`;
+  }
+  return `Delivered to your door. First ${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} & first dump included.`;
 }
 
 export function BookingForm({
@@ -261,6 +274,30 @@ export function BookingForm({
 
           {selectedCategory.description && (
             <p className="text-sm text-zinc-600">{selectedCategory.description}</p>
+          )}
+
+          {selectedCategory.pricingTiers.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {selectedCategory.pricingTiers.map((tier) => (
+                <div key={tier.id} className="rounded-xl border border-zinc-200 p-3">
+                  <p className="text-sm font-semibold text-ink">{tier.label}</p>
+                  <p className="text-sm font-semibold text-brand">
+                    {tier.price != null ? `$${tier.price.toFixed(2)}` : "Call"}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {tier.price != null
+                      ? deliveryCaption(selectedCategory)
+                      : "Short-term rentals at this length are quoted by job — call for pricing."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {selectedCategory.bookingNote && (
+            <p className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+              {selectedCategory.bookingNote}
+            </p>
           )}
 
           {terms.length > 0 && (
