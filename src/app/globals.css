@@ -99,6 +99,28 @@ body {
   --rt-zinc-900: #18181b;
 }
 
+/* Used only by /book and /agreement/sign when loaded with ?embed=1 — for
+   iframing directly into a dark-themed customer website (see Mobi
+   Dumpsters' own site) instead of standing alone on theme-light's white
+   background, which would look like a bolted-on rectangle. Same --rt-*
+   variable indirection as .dark, just tuned to sit on a true-black page
+   background rather than the internal app's near-black one. */
+.theme-embed {
+  color-scheme: dark;
+  --background: transparent;
+  --foreground: #ffffff;
+  --rt-white: #2a2a2a;
+  --rt-zinc-50: #242424;
+  --rt-zinc-100: #333333;
+  --rt-zinc-200: #3f3f46;
+  --rt-zinc-300: #52525b;
+  --rt-zinc-400: #71717a;
+  --rt-zinc-500: #a1a1aa;
+  --rt-zinc-600: #d4d4d8;
+  --rt-zinc-700: #e4e4e7;
+  --rt-zinc-900: #fafafa;
+}
+
 @media print {
   aside {
     display: none;
