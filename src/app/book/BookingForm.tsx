@@ -20,6 +20,7 @@ type CategoryOption = {
   overageTonnageRate: number | null;
   includedMileage: number | null;
   overageMileageRate: number | null;
+  bundleQuantity: number;
   pricingTiers: PricingTier[];
 };
 
@@ -58,8 +59,12 @@ function includedTerms(c: CategoryOption): string[] {
     );
   }
   if (c.includedTonnage != null && c.overageTonnageRate != null) {
+    const perContainer =
+      c.bundleQuantity > 1 && c.includedTonnage % c.bundleQuantity === 0
+        ? ` (${c.includedTonnage / c.bundleQuantity} tons per container)`
+        : "";
     lines.push(
-      `${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} included — after that, it's $${c.overageTonnageRate.toFixed(2)} for each additional ton`
+      `${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} included${perContainer} — after that, it's $${c.overageTonnageRate.toFixed(2)} for each additional ton`
     );
   }
   if (c.includedMileage != null && c.overageMileageRate != null) {
