@@ -54,17 +54,29 @@ function includedTerms(c: CategoryOption): string[] {
   const lines: string[] = [];
   if (c.includedDays != null && c.overageDayRate != null) {
     lines.push(
-      `Includes ${c.includedDays} day${c.includedDays === 1 ? "" : "s"} — $${c.overageDayRate.toFixed(2)} per extra day after that`
+      `${c.includedDays} day${c.includedDays === 1 ? "" : "s"} included — after that, it's $${c.overageDayRate.toFixed(2)} for each additional day`
     );
   }
   if (c.includedTonnage != null && c.overageTonnageRate != null) {
     lines.push(
-      `Includes ${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} — $${c.overageTonnageRate.toFixed(2)} per extra ton after that`
+      `${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} included — after that, it's $${c.overageTonnageRate.toFixed(2)} for each additional ton`
     );
   }
   if (c.includedMileage != null && c.overageMileageRate != null) {
     lines.push(
-      `Includes ${c.includedMileage} mile${c.includedMileage === 1 ? "" : "s"} — $${c.overageMileageRate.toFixed(2)} per extra mile after that`
+      `${c.includedMileage} mile${c.includedMileage === 1 ? "" : "s"} of delivery included — after that, it's $${c.overageMileageRate.toFixed(2)} for each additional mile`
+    );
+  }
+  // "Extra dump" only applies to rentals with a tonnage overage policy
+  // (dumpsters/trailers) — matches the "additional dump resets the rental
+  // period" language buried in the signed agreement, surfaced here so
+  // it's seen before booking rather than read for the first time in the
+  // fine print.
+  if (c.includedTonnage != null && c.overageTonnageRate != null) {
+    lines.push(
+      c.includedDays != null && c.overageDayRate != null
+        ? `Fill it up before you're done? We'll empty it and bring it back, but that resets your rental period — any extra days beyond what's included are $${c.overageDayRate.toFixed(2)}/day`
+        : `Fill it up before you're done? We'll empty it and bring it back, but that resets your rental period.`
     );
   }
   return lines;
