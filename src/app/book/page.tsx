@@ -62,6 +62,12 @@ export default async function PublicBookingPage({
                 dimensions: c.dimensions,
                 imageUrl: c.imageUrl,
                 basePrice: c.basePrice,
+                includedDays: c.includedDays,
+                overageDayRate: c.overageDayRate,
+                includedTonnage: c.includedTonnage,
+                overageTonnageRate: c.overageTonnageRate,
+                includedMileage: c.includedMileage,
+                overageMileageRate: c.overageMileageRate,
                 pricingTiers: c.pricingTiers.map((t) => ({
                   id: t.id,
                   label: t.label,
