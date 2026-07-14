@@ -81,6 +81,12 @@ function includedTerms(c: CategoryOption): string[] {
       "Extra dump: an additional dump restarts your rental period (priced for the additional days you keep it)"
     );
   }
+  if (c.pricingTiers.length > 0) {
+    const maxDays = Math.max(...c.pricingTiers.map((t) => t.days));
+    lines.push(
+      `Max rental length: ${maxDays} days — need it longer? That's treated as a new rental period.`
+    );
+  }
   return lines;
 }
 
