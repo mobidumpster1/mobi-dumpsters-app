@@ -889,6 +889,11 @@ model Lead {
   // when a lead actually replies to a sequence email — distinct from
   // contactedAt, which is set when staff manually mark a lead contacted.
   repliedAt       DateTime?
+  // Comma-separated, free-form — same storage pattern as Customer.tags
+  // (see src/lib/tags.ts). Used for both general qualification tags
+  // ("Hot Lead", "Referral") and location tags (service area names),
+  // which share one field rather than two since a tag is a tag either way.
+  tags            String       @default("")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -933,6 +938,11 @@ model LeadOutreachSettings {
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id])
   dailySendCap   Int          @default(25)
+  // Straight-line miles from the yard (see branding.yardLatitude/
+  // yardLongitude) beyond which a lead with known coordinates gets an
+  // "outside service area" flag on the Leads page. Informational only —
+  // doesn't hide or block anything, just a visible heads-up.
+  serviceRadiusMiles Int      @default(30)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }

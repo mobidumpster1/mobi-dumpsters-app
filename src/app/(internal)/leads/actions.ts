@@ -10,6 +10,8 @@ import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { sendCustomerEmail } from "@/lib/email";
 import { stopAllActiveEnrollmentsForLead } from "@/lib/leadSequences";
+import { normalizeTagsInput } from "@/lib/tags";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
 
 // Runs a Places search and upserts each match into the saved lead list.
 // Upsert-by-placeId means re-running the same (or an overlapping) search
@@ -109,6 +111,30 @@ export async function updateLeadNotes(leadId: string, formData: FormData) {
   await db.lead.updateMany({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
     data: { notes: str(formData, "notes") },
+  });
+
+  revalidatePath("/leads");
+}
+
+export async function updateLeadTags(leadId: string, formData: FormData) {
+  const user = await requirePermission("canManageLeads");
+
+  await db.lead.updateMany({
+    where: { id: leadId, organizationId: user.effectiveOrganizationId },
+    data: { tags: normalizeTagsInput(str(formData, "tags") ?? "") },
+  });
+
+  revalidatePath("/leads");
+}
+
+export async function updateLeadServiceRadius(formData: FormData) {
+  const user = await requirePermission("canManageLeads");
+  const miles = Math.max(1, Number(str(formData, "serviceRadiusMiles")) || 30);
+
+  const settings = await getLeadOutreachSettings(user.effectiveOrganizationId);
+  await db.leadOutreachSettings.update({
+    where: { id: settings.id },
+    data: { serviceRadiusMiles: miles },
   });
 
   revalidatePath("/leads");

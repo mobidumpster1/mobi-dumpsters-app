@@ -7,6 +7,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { LeadSearchForm } from "@/components/LeadSearchForm";
 import { LeadStatusSelect } from "@/components/LeadStatusSelect";
 import { LeadNotesField } from "@/components/LeadNotesField";
+import { LeadTagsField } from "@/components/LeadTagsField";
 import { LeadEmailField } from "@/components/LeadEmailField";
 import { SendTemplatedEmailButton } from "@/components/SendTemplatedEmailButton";
 import { EmailTemplateManager } from "@/components/EmailTemplateManager";
@@ -19,6 +20,8 @@ import {
   searchAndSaveLeads,
   updateLeadStatus,
   updateLeadNotes,
+  updateLeadTags,
+  updateLeadServiceRadius,
   updateLeadEmail,
   sendLeadEmail,
   createLeadEmailTemplate,
@@ -30,6 +33,10 @@ import {
   enrichLead,
   enrichAllLeads,
 } from "./actions";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
+import { milesBetween } from "@/lib/distance";
+import { parseTags } from "@/lib/tags";
+import { branding } from "@/lib/branding";
 import {
   enrollLeadAction,
   enrollAllVisibleAction,
@@ -93,6 +100,18 @@ function SocialLinksRow({ lead }: { lead: SocialLead }) {
   );
 }
 
+function DistanceBadge({ miles, radiusMiles }: { miles: number; radiusMiles: number }) {
+  const outside = miles > radiusMiles;
+  return (
+    <span
+      className={`text-xs font-medium ${outside ? "text-red-600" : "text-zinc-400"}`}
+      title={outside ? `Outside your ${radiusMiles}-mile service area` : undefined}
+    >
+      {Math.round(miles)} mi{outside ? " — outside service area" : ""}
+    </span>
+  );
+}
+
 export default async function LeadsPage({
   searchParams,
 }: {
@@ -109,8 +128,16 @@ export default async function LeadsPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [leads, searchesUsed, serviceAreas, tradeRows, emailTemplates, sequences, dueFollowUps] =
-    await Promise.all([
+  const [
+    leads,
+    searchesUsed,
+    serviceAreas,
+    tradeRows,
+    emailTemplates,
+    sequences,
+    dueFollowUps,
+    leadOutreachSettings,
+  ] = await Promise.all([
       db.lead.findMany({
         where: {
           organizationId: user.effectiveOrganizationId,
@@ -153,6 +180,7 @@ export default async function LeadsPage({
         include: { lead: true, sequence: true },
         orderBy: { nextDueAt: "asc" },
       }),
+      getLeadOutreachSettings(user.effectiveOrganizationId),
     ]);
 
   const tradeFilters = tradeRows.map((r) => r.tradeCategory as string);
@@ -160,6 +188,28 @@ export default async function LeadsPage({
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
   const pendingEnrichCount = leads.filter((l) => l.website && !l.enrichedAt).length;
+
+  // Tag suggestions offered in the picker: every tag already used on any
+  // lead, plus the org's configured service areas (so a location tag is a
+  // one-click add instead of retyping a city name every time).
+  const usedTags = new Set<string>();
+  for (const lead of leads) {
+    for (const tag of parseTags(lead.tags)) usedTags.add(tag);
+  }
+  // Tags are stored comma-separated, so a suggestion containing its own
+  // comma (service areas are named e.g. "Byron, GA") would get split into
+  // two tags the moment it's saved — strip the state suffix here.
+  for (const area of serviceAreas) usedTags.add(area.name.replace(/,\s*[A-Z]{2}$/, ""));
+  const tagSuggestions = Array.from(usedTags).sort();
+
+  const distanceByLeadId = new Map<string, number>();
+  for (const lead of leads) {
+    if (lead.latitude === null || lead.longitude === null) continue;
+    distanceByLeadId.set(
+      lead.id,
+      milesBetween(branding.yardLatitude, branding.yardLongitude, lead.latitude, lead.longitude)
+    );
+  }
 
   const pins = leads
     .filter((lead) => lead.latitude !== null && lead.longitude !== null)
@@ -247,6 +297,30 @@ export default async function LeadsPage({
           removeAction={deleteLeadEmailTemplate}
         />
       </div>
+
+      <form
+        action={updateLeadServiceRadius}
+        className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
+      >
+        <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
+          Flag leads farther than
+        </label>
+        <input
+          id="serviceRadiusMiles"
+          name="serviceRadiusMiles"
+          type="number"
+          min="1"
+          defaultValue={leadOutreachSettings.serviceRadiusMiles}
+          className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        />
+        <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
+        <button
+          type="submit"
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+        >
+          Save
+        </button>
+      </form>
 
       <div className="mt-4">
         <LeadSearchForm action={searchAndSaveLeads} hasAreas={serviceAreas.length > 0} />
@@ -359,6 +433,14 @@ export default async function LeadsPage({
                   {lead.address ? <AddressLink address={lead.address} /> : "—"}
                 </dd>
               </div>
+              {distanceByLeadId.has(lead.id) && (
+                <div className="flex justify-end">
+                  <DistanceBadge
+                    miles={distanceByLeadId.get(lead.id) as number}
+                    radiusMiles={leadOutreachSettings.serviceRadiusMiles}
+                  />
+                </div>
+              )}
               <div className="flex justify-between gap-2">
                 <dt className="text-zinc-500">Website</dt>
                 <dd className="truncate text-zinc-700">
@@ -426,6 +508,14 @@ export default async function LeadsPage({
                 email{lead._count.emailSends === 1 ? "" : "s"} sent
               </p>
             )}
+            <div className="mt-2">
+              <LeadTagsField
+                leadId={lead.id}
+                currentTags={lead.tags}
+                suggestions={tagSuggestions}
+                action={updateLeadTags}
+              />
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <LeadNotesField
                 leadId={lead.id}
@@ -474,6 +564,7 @@ export default async function LeadsPage({
               <th className="px-5 py-3.5 font-semibold">Address</th>
               <th className="px-5 py-3.5 font-semibold">Website</th>
               <th className="px-5 py-3.5 font-semibold">Email</th>
+              <th className="px-5 py-3.5 font-semibold">Tags</th>
               <th className="px-5 py-3.5 font-semibold">Sequence</th>
               <th className="px-5 py-3.5 font-semibold">Notes</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
@@ -500,6 +591,14 @@ export default async function LeadsPage({
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {lead.address ? <AddressLink address={lead.address} /> : "—"}
+                  {distanceByLeadId.has(lead.id) && (
+                    <div className="mt-0.5">
+                      <DistanceBadge
+                        miles={distanceByLeadId.get(lead.id) as number}
+                        radiusMiles={leadOutreachSettings.serviceRadiusMiles}
+                      />
+                    </div>
+                  )}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {lead.website ? (
@@ -538,6 +637,14 @@ export default async function LeadsPage({
                       </button>
                     </form>
                   )}
+                </td>
+                <td className="min-w-[160px] px-5 py-4">
+                  <LeadTagsField
+                    leadId={lead.id}
+                    currentTags={lead.tags}
+                    suggestions={tagSuggestions}
+                    action={updateLeadTags}
+                  />
                 </td>
                 <td className="min-w-[160px] px-5 py-4">
                   {lead.sequenceEnrollments.length > 0 ? (
