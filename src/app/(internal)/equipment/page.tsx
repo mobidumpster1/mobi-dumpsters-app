@@ -137,16 +137,28 @@ export default async function EquipmentPage({
               className="rounded-lg border-2 border-zinc-900 bg-white p-4"
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <Link
-                    href={`/equipment/${item.id}`}
-                    className="font-medium text-zinc-900 hover:underline"
-                  >
-                    {item.label}
-                  </Link>
-                  {item.assetTag && (
-                    <div className="text-xs text-zinc-500">{item.assetTag}</div>
+                <div className="flex min-w-0 items-center gap-3">
+                  {item.category.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.category.imageUrl}
+                      alt={item.category.name}
+                      className="h-12 w-12 flex-shrink-0 rounded-lg border border-zinc-200 bg-zinc-50 object-contain"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 flex-shrink-0 rounded-lg border border-dashed border-zinc-300 bg-zinc-50" />
                   )}
+                  <div className="min-w-0">
+                    <Link
+                      href={`/equipment/${item.id}`}
+                      className="font-medium text-zinc-900 hover:underline"
+                    >
+                      {item.label}
+                    </Link>
+                    {item.assetTag && (
+                      <div className="text-xs text-zinc-500">{item.assetTag}</div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   <StatusQuickSelect
@@ -230,15 +242,29 @@ export default async function EquipmentPage({
               return (
                 <tr key={item.id} className="hover:bg-zinc-50">
                   <td className="px-5 py-4">
-                    <Link
-                      href={`/equipment/${item.id}`}
-                      className="font-medium text-zinc-900 hover:underline"
-                    >
-                      {item.label}
-                    </Link>
-                    {item.assetTag && (
-                      <div className="text-xs text-zinc-500">{item.assetTag}</div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {item.category.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.category.imageUrl}
+                          alt={item.category.name}
+                          className="h-12 w-12 flex-shrink-0 rounded-lg border border-zinc-200 bg-zinc-50 object-contain"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 flex-shrink-0 rounded-lg border border-dashed border-zinc-300 bg-zinc-50" />
+                      )}
+                      <div>
+                        <Link
+                          href={`/equipment/${item.id}`}
+                          className="font-medium text-zinc-900 hover:underline"
+                        >
+                          {item.label}
+                        </Link>
+                        {item.assetTag && (
+                          <div className="text-xs text-zinc-500">{item.assetTag}</div>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-5 py-4 text-zinc-600">{item.category.name}</td>
                   <td className="px-5 py-4">
