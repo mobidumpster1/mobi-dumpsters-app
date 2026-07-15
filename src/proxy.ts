@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   "/privacy",
   "/terms",
   "/dumpster-rental",
+  "/demolition",
   "/booking",
   "/leads-unsubscribe",
 ];
