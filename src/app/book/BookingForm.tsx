@@ -308,7 +308,7 @@ export function BookingForm({
           )}
 
           {selectedCategory.bookingNote && (
-            <p className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+            <p className="whitespace-pre-line rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
               {selectedCategory.bookingNote}
             </p>
           )}
