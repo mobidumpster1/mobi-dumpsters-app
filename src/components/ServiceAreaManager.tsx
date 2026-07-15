@@ -45,12 +45,12 @@ export function ServiceAreaManager({
         </div>
       )}
 
-      <form action={addAction} className="mt-3 flex gap-2">
+      <form action={addAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input
           name="name"
           required
           placeholder="e.g. Macon, GA"
-          className={`${inputClass} flex-1 py-2.5 text-base sm:text-sm`}
+          className={`${inputClass} min-w-0 flex-1 py-2.5 text-base sm:text-sm`}
         />
         <button
           type="submit"
