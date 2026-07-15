@@ -51,6 +51,15 @@ export default async function EquipmentPage({
           orderBy: { startedAt: "desc" },
           take: 1,
         },
+        // Status flips to "reserved" the moment a booking is created, even
+        // if delivery is a week out — this is the nearest not-yet-started
+        // booking, used to show "available until [date]" instead of a flat
+        // "Reserved" badge that reads as unavailable starting today.
+        bookingItems: {
+          where: { actualReturnDate: null, startDate: { gt: new Date() } },
+          orderBy: { startDate: "asc" },
+          take: 1,
+        },
       },
     }),
     db.equipmentItem.groupBy({
@@ -139,11 +148,18 @@ export default async function EquipmentPage({
                     <div className="text-xs text-zinc-500">{item.assetTag}</div>
                   )}
                 </div>
-                <StatusQuickSelect
-                  itemId={item.id}
-                  currentStatus={item.status}
-                  action={quickSetEquipmentStatus}
-                />
+                <div className="flex flex-col items-end gap-0.5">
+                  <StatusQuickSelect
+                    itemId={item.id}
+                    currentStatus={item.status}
+                    action={quickSetEquipmentStatus}
+                  />
+                  {item.status === "reserved" && item.bookingItems[0] && (
+                    <span className="text-xs text-zinc-400">
+                      Available until {item.bookingItems[0].startDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                </div>
               </div>
               <dl className="mt-2 flex flex-col gap-1 text-sm">
                 <div className="flex justify-between gap-2">
@@ -231,6 +247,11 @@ export default async function EquipmentPage({
                       currentStatus={item.status}
                       action={quickSetEquipmentStatus}
                     />
+                    {item.status === "reserved" && item.bookingItems[0] && (
+                      <p className="mt-0.5 text-xs text-zinc-400">
+                        Available until {item.bookingItems[0].startDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </p>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-zinc-600">
                     {item.currentCustomer

@@ -41,6 +41,15 @@ export default async function EquipmentDetailPage({
         include: { customer: true },
       },
       photos: { orderBy: { createdAt: "desc" } },
+      // Status flips to "reserved" the moment a booking is created, even
+      // if delivery is a week out — this is the nearest not-yet-started
+      // booking, used to show "available until [date]" instead of a flat
+      // "Reserved" badge that reads as unavailable starting today.
+      bookingItems: {
+        where: { actualReturnDate: null, startDate: { gt: new Date() } },
+        orderBy: { startDate: "asc" },
+        take: 1,
+      },
     },
   });
 
@@ -93,6 +102,11 @@ export default async function EquipmentDetailPage({
               currentStatus={item.status}
               action={quickSetEquipmentStatus}
             />
+            {item.status === "reserved" && item.bookingItems[0] && (
+              <p className="mt-1 text-xs text-zinc-400">
+                Available until {formatDateTime(item.bookingItems[0].startDate)}
+              </p>
+            )}
           </dd>
         </div>
         <div>
