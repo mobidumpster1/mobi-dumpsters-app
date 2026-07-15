@@ -319,8 +319,9 @@ model EquipmentCategory {
   bundledAs          EquipmentCategory[] @relation("CategoryBundle")
   bundleQuantity     Int                 @default(1)
 
-  items        EquipmentItem[]
-  pricingTiers PricingTier[]
+  items           EquipmentItem[]
+  pricingTiers    PricingTier[]
+  materialOptions MaterialOption[]
 
   @@unique([organizationId, name])
 }
@@ -339,6 +340,22 @@ model PricingTier {
   price      Float?
   sortOrder  Int               @default(0)
   createdAt  DateTime          @default(now())
+}
+
+// A material a "material delivery"-style category sells by the unit (e.g.
+// "Mulch (Black/Brown/Red)" at $55/yd) — lets the booking page offer a
+// material + quantity picker with a live-calculated price instead of one
+// flat category price, for categories where cost genuinely varies by what's
+// ordered rather than by rental duration (see PricingTier for that case).
+model MaterialOption {
+  id           String            @id @default(cuid())
+  categoryId   String
+  category     EquipmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name         String
+  unit         String // "yd", "ton", "bale", etc. — freeform, just a label
+  pricePerUnit Float
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
 }
 
 // A single physical unit you own (e.g. "Dumpster #1"). `attributes` holds

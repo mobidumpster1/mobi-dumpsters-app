@@ -30,6 +30,7 @@ export async function listBookableCategories() {
     include: {
       items: { where: { status: { notIn: UNBOOKABLE_STATUSES } } },
       pricingTiers: { orderBy: { sortOrder: "asc" } },
+      materialOptions: { orderBy: { sortOrder: "asc" } },
       bundleOfCategory: {
         include: { items: { where: { status: { notIn: UNBOOKABLE_STATUSES } } } },
       },
@@ -39,12 +40,13 @@ export async function listBookableCategories() {
   return categories.filter((category) => {
     const pool = category.bundleOfCategory ? category.bundleOfCategory.items : category.items;
     const hasEnoughUnits = pool.length >= requiredQuantity(category);
-    // Without a base price or at least one priced tier, a booking request
-    // would silently total $0 — hide the category until it's priced rather
-    // than let it appear bookable for free.
+    // Without a base price, a priced tier, or a material price list, a
+    // booking request would silently total $0 — hide the category until
+    // it's priced rather than let it appear bookable for free.
     const hasPricing =
       category.basePrice !== null ||
-      category.pricingTiers.some((tier) => tier.price !== null);
+      category.pricingTiers.some((tier) => tier.price !== null) ||
+      category.materialOptions.length > 0;
     return hasEnoughUnits && hasPricing;
   });
 }

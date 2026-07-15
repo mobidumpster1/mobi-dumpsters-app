@@ -44,6 +44,25 @@ function pricingTiers(formData: FormData) {
   }
 }
 
+function materialOptions(formData: FormData) {
+  const json = formData.get("materialOptionsJson");
+  if (typeof json !== "string") return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((m) => m && typeof m.name === "string" && m.name.trim())
+      .map((m, i) => ({
+        name: m.name,
+        unit: typeof m.unit === "string" && m.unit.trim() ? m.unit : "unit",
+        pricePerUnit: Number(m.pricePerUnit) || 0,
+        sortOrder: i,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 function bundleFields(formData: FormData) {
   const bundleOfCategoryId = str(formData, "bundleOfCategoryId");
   return {
@@ -94,6 +113,7 @@ export async function createCategory(formData: FormData) {
       ...pricingFields(formData),
       ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },
+      materialOptions: { create: materialOptions(formData) },
     },
   });
 
@@ -114,6 +134,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
   });
 
   await db.pricingTier.deleteMany({ where: { categoryId } });
+  await db.materialOption.deleteMany({ where: { categoryId } });
   await db.equipmentCategory.update({
     where: { id: categoryId },
     data: {
@@ -126,6 +147,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
       ...pricingFields(formData),
       ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },
+      materialOptions: { create: materialOptions(formData) },
     },
   });
 

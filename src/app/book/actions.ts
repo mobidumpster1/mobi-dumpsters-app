@@ -17,6 +17,7 @@ import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
 import { getPublicOrganizationId } from "@/lib/session";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createOnlinePaymentLink } from "@/lib/quickbooks";
+import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 
 export async function checkAvailability(
   categoryId: string,
@@ -117,6 +118,8 @@ function addDays(dateStr: string, days: number) {
 export async function submitBookingRequest(formData: FormData) {
   const categoryId = str(formData, "categoryId");
   const tierId = str(formData, "tierId");
+  const materialOptionId = str(formData, "materialOptionId");
+  const materialQuantity = Number(str(formData, "materialQuantity")) || 0;
   const startDateStr = str(formData, "startDate");
   const deliveryTime = str(formData, "deliveryTime") || "09:00";
   const pickupTime = str(formData, "pickupTime") || "09:00";
@@ -137,7 +140,7 @@ export async function submitBookingRequest(formData: FormData) {
   const organizationId = await getPublicOrganizationId();
   const category = await db.equipmentCategory.findFirstOrThrow({
     where: { id: categoryId, organizationId },
-    include: { pricingTiers: true },
+    include: { pricingTiers: true, materialOptions: true },
   });
 
   const tier = tierId
@@ -147,6 +150,22 @@ export async function submitBookingRequest(formData: FormData) {
   if (tier && tier.price === null) {
     throw new Error("That duration requires a call for pricing — please call us instead.");
   }
+
+  // Categories priced by material + quantity (e.g. Material Delivery)
+  // instead of a flat base price or duration tier — recomputed here from
+  // the material's real per-unit price rather than trusting anything the
+  // client sent, same as tier pricing above.
+  const material =
+    category.materialOptions.length > 0
+      ? category.materialOptions.find((m) => m.id === materialOptionId)
+      : undefined;
+  if (category.materialOptions.length > 0) {
+    if (!material) throw new Error("Please choose a material");
+    if (!(materialQuantity > 0)) throw new Error("Please enter a quantity");
+  }
+  const materialQuote = material
+    ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity)
+    : null;
 
   // Rentals (has a tier): pickup is computed from the delivery date plus
   // the tier's duration, at whatever pickup time was requested. One-time
@@ -170,8 +189,16 @@ export async function submitBookingRequest(formData: FormData) {
     );
   }
   const items = available.slice(0, needed);
-  const totalPrice = tier ? (tier.price ?? 0) : (category.basePrice ?? 0);
+  const totalPrice = materialQuote
+    ? materialQuote.total
+    : tier
+      ? (tier.price ?? 0)
+      : (category.basePrice ?? 0);
   const pricePerItem = totalPrice / needed;
+  const materialItemNote =
+    material && materialQuote
+      ? `${materialQuantity} ${material.unit} ${material.name} @ $${material.pricePerUnit.toFixed(2)}/${material.unit}${materialQuote.isCustomQuote ? " (custom quote, price pending confirmation)" : ""}`
+      : null;
 
   let customer = await db.customer.findFirst({ where: { email, organizationId } });
   if (!customer) {
@@ -213,6 +240,7 @@ export async function submitBookingRequest(formData: FormData) {
           startDate,
           expectedReturnDate: endDate,
           price: pricePerItem,
+          notes: materialItemNote,
         })),
       },
     },
@@ -271,7 +299,9 @@ export async function submitBookingRequest(formData: FormData) {
     [
       tier
         ? `${name} requested a ${category.name} (${tier.label}) — delivery ${startDateStr} at ${deliveryTime}, pickup ${addDays(startDateStr, tier.days)} at ${pickupTime}.`
-        : `${name} requested a ${category.name} — ${startDateStr} at ${deliveryTime}.`,
+        : materialItemNote
+          ? `${name} requested ${category.name}: ${materialItemNote} — total $${totalPrice.toFixed(2)} — delivery ${startDateStr} at ${deliveryTime}.`
+          : `${name} requested a ${category.name} — ${startDateStr} at ${deliveryTime}.`,
       "",
       `Address: ${address}`,
       `Phone: ${phone ?? "—"}`,
@@ -289,7 +319,7 @@ export async function submitBookingRequest(formData: FormData) {
       "booking_confirmation",
       {
         customerName: name,
-        categoryAndTier: `${category.name}${tier ? ` (${tier.label})` : ""}`,
+        categoryAndTier: `${category.name}${tier ? ` (${tier.label})` : materialItemNote ? ` (${materialItemNote})` : ""}`,
         startDate: startDateStr,
         endDate: endDate.toISOString().slice(0, 10),
         address,

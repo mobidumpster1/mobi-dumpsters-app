@@ -4,8 +4,10 @@ import { useCallback, useState, useTransition } from "react";
 import { checkAvailability, getUnavailableStartDates, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 
 type PricingTier = { id: string; label: string; days: number; price: number | null };
+type MaterialOption = { id: string; name: string; unit: string; pricePerUnit: number };
 
 type CategoryOption = {
   id: string;
@@ -23,6 +25,7 @@ type CategoryOption = {
   overageMileageRate: number | null;
   bundleQuantity: number;
   pricingTiers: PricingTier[];
+  materialOptions: MaterialOption[];
 };
 
 type Step = "browse" | "review" | "form";
@@ -43,6 +46,12 @@ function priceLabel(c: CategoryOption) {
     if (priced.length === 0) return "Call for pricing";
     const min = Math.min(...priced.map((t) => t.price as number));
     return `From $${min.toFixed(2)}`;
+  }
+  if (c.materialOptions.length > 0) {
+    const cheapest = c.materialOptions.reduce((min, m) =>
+      m.pricePerUnit < min.pricePerUnit ? m : min
+    );
+    return `From $${cheapest.pricePerUnit.toFixed(2)}/${cheapest.unit}`;
   }
   if (c.basePrice != null) return `Starting at $${c.basePrice.toFixed(2)}`;
   return null;
@@ -137,6 +146,20 @@ export function BookingForm({
       ? addDaysToDateStr(startDate, selectedTier.days)
       : undefined;
 
+  const hasMaterials = (selectedCategory?.materialOptions.length ?? 0) > 0;
+  const [materialOptionId, setMaterialOptionId] = useState(
+    () => categories.find((c) => c.id === initialCategoryId)?.materialOptions[0]?.id ?? ""
+  );
+  const [materialQuantity, setMaterialQuantity] = useState("1");
+  const selectedMaterial = selectedCategory?.materialOptions.find(
+    (m) => m.id === materialOptionId
+  );
+  const materialQuantityNum = parseFloat(materialQuantity) || 0;
+  const materialQuote =
+    selectedMaterial && materialQuantityNum > 0
+      ? quoteMaterialDelivery(selectedMaterial.pricePerUnit, materialQuantityNum)
+      : null;
+
   const [availability, setAvailability] = useState<{
     checked: boolean;
     isAvailable: boolean;
@@ -169,6 +192,9 @@ export function BookingForm({
     const nextCategory = categories.find((c) => c.id === nextCategoryId);
     const firstTier = nextCategory?.pricingTiers[0];
     setTierId(firstTier?.id ?? "");
+    const firstMaterial = nextCategory?.materialOptions[0];
+    setMaterialOptionId(firstMaterial?.id ?? "");
+    setMaterialQuantity("1");
     setAvailability({ checked: false, isAvailable: false });
     setStep("review");
   }
@@ -201,7 +227,11 @@ export function BookingForm({
     }
   }
 
-  const bookable = hasTiers ? selectedTier?.price != null : true;
+  const bookable = hasMaterials
+    ? selectedMaterial != null && materialQuantityNum > 0
+    : hasTiers
+      ? selectedTier?.price != null
+      : true;
   const terms = selectedCategory ? includedTerms(selectedCategory) : [];
 
   return (
@@ -307,6 +337,19 @@ export function BookingForm({
             </div>
           )}
 
+          {selectedCategory.materialOptions.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {selectedCategory.materialOptions.map((m) => (
+                <div key={m.id} className="rounded-xl border border-zinc-200 p-3">
+                  <p className="text-sm font-semibold text-ink">{m.name}</p>
+                  <p className="text-sm font-semibold text-brand">
+                    ${m.pricePerUnit.toFixed(2)}/{m.unit}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {selectedCategory.bookingNote && (
             <p className="whitespace-pre-line rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
               {selectedCategory.bookingNote}
@@ -391,6 +434,52 @@ export function BookingForm({
             <p className="text-sm font-medium text-red-600">
               That duration isn&apos;t bookable online — please call us for pricing.
             </p>
+          )}
+
+          {hasMaterials && (
+            <>
+              <Field label="Material" htmlFor="materialOptionId">
+                <select
+                  id="materialOptionId"
+                  name="materialOptionId"
+                  required
+                  className={inputClass}
+                  value={materialOptionId}
+                  onChange={(e) => setMaterialOptionId(e.target.value)}
+                >
+                  {selectedCategory.materialOptions.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} — ${m.pricePerUnit.toFixed(2)}/{m.unit}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label={`Quantity (${selectedMaterial?.unit ?? "units"})`}
+                htmlFor="materialQuantity"
+              >
+                <input
+                  id="materialQuantity"
+                  name="materialQuantity"
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  required
+                  className={inputClass}
+                  value={materialQuantity}
+                  onChange={(e) => setMaterialQuantity(e.target.value)}
+                />
+              </Field>
+              {materialQuote && (
+                <div className="rounded-xl bg-zinc-50 p-3 text-sm">
+                  <p className="font-semibold text-ink">
+                    {materialQuote.isCustomQuote ? "Estimated total" : "Total"}: $
+                    {materialQuote.total.toFixed(2)}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">{materialQuote.note}</p>
+                </div>
+              )}
+            </>
           )}
 
           <Field label="Delivery Date" htmlFor="startDate">

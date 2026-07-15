@@ -6,6 +6,7 @@ import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
+import { MaterialOptionBuilder } from "@/components/MaterialOptionBuilder";
 import { BundleFields } from "@/components/BundleFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
@@ -21,7 +22,10 @@ export default async function EditCategoryPage({
   const [category, categoryOptions] = await Promise.all([
     db.equipmentCategory.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
-      include: { pricingTiers: { orderBy: { sortOrder: "asc" } } },
+      include: {
+        pricingTiers: { orderBy: { sortOrder: "asc" } },
+        materialOptions: { orderBy: { sortOrder: "asc" } },
+      },
     }),
     db.equipmentCategory.findMany({
       where: { id: { not: id }, organizationId: user.effectiveOrganizationId },
@@ -102,6 +106,13 @@ export default async function EditCategoryPage({
             label: t.label,
             days: t.days,
             price: t.price,
+          }))}
+        />
+        <MaterialOptionBuilder
+          initialOptions={category.materialOptions.map((m) => ({
+            name: m.name,
+            unit: m.unit,
+            pricePerUnit: m.pricePerUnit,
           }))}
         />
         <BundleFields

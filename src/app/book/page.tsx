@@ -84,6 +84,12 @@ export default async function PublicBookingPage({
                   days: t.days,
                   price: t.price,
                 })),
+                materialOptions: c.materialOptions.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  unit: m.unit,
+                  pricePerUnit: m.pricePerUnit,
+                })),
               }))}
               agreementTitle={agreement.title}
               agreementContent={agreement.content}

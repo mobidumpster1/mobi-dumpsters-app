@@ -5,6 +5,7 @@ import { Field, inputClass } from "@/components/Field";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
+import { MaterialOptionBuilder } from "@/components/MaterialOptionBuilder";
 import { BundleFields } from "@/components/BundleFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { requireUser } from "@/lib/session";
@@ -65,6 +66,7 @@ export default async function NewCategoryPage() {
         <CategoryFieldBuilder />
         <CategoryPricingFields />
         <PricingTierBuilder />
+        <MaterialOptionBuilder />
         <BundleFields categoryOptions={categoryOptions} />
         <div className="flex gap-3">
           <button
