@@ -157,7 +157,7 @@ export function BookingForm({
   const materialQuantityNum = parseFloat(materialQuantity) || 0;
   const materialQuote =
     selectedMaterial && materialQuantityNum > 0
-      ? quoteMaterialDelivery(selectedMaterial.pricePerUnit, materialQuantityNum)
+      ? quoteMaterialDelivery(selectedMaterial.pricePerUnit, materialQuantityNum, selectedMaterial.unit)
       : null;
 
   const [availability, setAvailability] = useState<{
@@ -206,6 +206,15 @@ export function BookingForm({
     } else if (!hasTiers) {
       runCheck(categoryId, startDate, startDate);
     }
+  }
+
+  // Tapping a material on the review step (instead of the generic
+  // "Continue to Book" button) pre-selects it and jumps straight to the
+  // form step, so someone who already knows what they want doesn't have
+  // to re-pick it from a dropdown a moment later.
+  function onSelectMaterial(nextMaterialOptionId: string) {
+    setMaterialOptionId(nextMaterialOptionId);
+    onContinueToForm();
   }
 
   function onStartDateChange(nextStart: string) {
@@ -338,15 +347,25 @@ export function BookingForm({
           )}
 
           {selectedCategory.materialOptions.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {selectedCategory.materialOptions.map((m) => (
-                <div key={m.id} className="rounded-xl border border-zinc-200 p-3">
-                  <p className="text-sm font-semibold text-ink">{m.name}</p>
-                  <p className="text-sm font-semibold text-brand">
-                    ${m.pricePerUnit.toFixed(2)}/{m.unit}
-                  </p>
-                </div>
-              ))}
+            <div>
+              <p className="mb-2 text-xs text-zinc-400">
+                Tap a material to book it directly.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {selectedCategory.materialOptions.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onSelectMaterial(m.id)}
+                    className="rounded-xl border border-zinc-200 p-3 text-left transition-colors hover:border-brand/50"
+                  >
+                    <p className="text-sm font-semibold text-ink">{m.name}</p>
+                    <p className="text-sm font-semibold text-brand">
+                      ${m.pricePerUnit.toFixed(2)}/{m.unit}
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

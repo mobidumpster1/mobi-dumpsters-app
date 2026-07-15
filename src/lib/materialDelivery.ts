@@ -15,7 +15,8 @@ export type MaterialDeliveryQuote = {
 
 export function quoteMaterialDelivery(
   pricePerUnit: number,
-  quantity: number
+  quantity: number,
+  unit: string = "unit"
 ): MaterialDeliveryQuote {
   const materialTotal = pricePerUnit * quantity;
 
@@ -25,7 +26,7 @@ export function quoteMaterialDelivery(
       deliveryFee: 0,
       total: materialTotal,
       isCustomQuote: true,
-      note: "Custom quote for 10+ units — we'll confirm final pricing before delivery.",
+      note: `Custom quote for orders over 10 ${unit} — we'll confirm final pricing before delivery.`,
     };
   }
 
@@ -48,7 +49,7 @@ export function quoteMaterialDelivery(
     isCustomQuote: false,
     note:
       total > rawTotal
-        ? "$50 delivery fee, bumped up to the $100 order minimum."
-        : "$50 delivery fee.",
+        ? `$50 delivery on orders of 3 ${unit} and under — bumped up to the $100 order minimum.`
+        : `$50 delivery on orders of 3 ${unit} and under.`,
   };
 }

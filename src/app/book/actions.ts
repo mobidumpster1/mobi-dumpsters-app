@@ -164,7 +164,7 @@ export async function submitBookingRequest(formData: FormData) {
     if (!(materialQuantity > 0)) throw new Error("Please enter a quantity");
   }
   const materialQuote = material
-    ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity)
+    ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity, material.unit)
     : null;
 
   // Rentals (has a tier): pickup is computed from the delivery date plus
