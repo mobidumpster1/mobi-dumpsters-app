@@ -30,10 +30,17 @@ export async function searchAndSaveLeads(formData: FormData) {
   if (!query) throw new Error("Search is required");
   const tradeCategory = query.trim().toLowerCase();
 
-  const areas = await db.serviceArea.findMany({
+  const allAreas = await db.serviceArea.findMany({
     where: { organizationId: user.effectiveOrganizationId },
     orderBy: { name: "asc" },
   });
+  // Every checked area runs as its own Places search (and its own quota
+  // hit), so only search the ones actually selected on the form rather
+  // than always hitting all of them — otherwise adding a 9th service area
+  // silently turns every future search into 9 API calls instead of 1.
+  const selectedAreaIds = new Set(formData.getAll("areaIds").map(String));
+  const areas =
+    allAreas.length > 0 ? allAreas.filter((area) => selectedAreaIds.has(area.id)) : [];
   const searches =
     areas.length > 0 ? areas.map((area) => `${query} near ${area.name}`) : [query];
 

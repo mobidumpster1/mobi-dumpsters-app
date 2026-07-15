@@ -323,7 +323,7 @@ export default async function LeadsPage({
       </form>
 
       <div className="mt-4">
-        <LeadSearchForm action={searchAndSaveLeads} hasAreas={serviceAreas.length > 0} />
+        <LeadSearchForm action={searchAndSaveLeads} areas={serviceAreas} />
       </div>
 
       {pins.length > 0 && (
