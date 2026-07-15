@@ -115,15 +115,22 @@ function DistanceBadge({ miles, radiusMiles }: { miles: number; radiusMiles: num
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; trade?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    trade?: string;
+    sort?: string;
+    hideOutOfArea?: string;
+  }>;
 }) {
   const user = await requireUser();
   if (!hasPermission(user, "canManageLeads")) redirect("/");
 
-  const { status, trade } = await searchParams;
+  const { status, trade, sort, hideOutOfArea } = await searchParams;
   const activeStatus = STATUS_FILTERS.includes(status as (typeof STATUS_FILTERS)[number])
     ? (status as (typeof STATUS_FILTERS)[number])
     : "All";
+  const sortByDistance = sort === "distance";
+  const hidingOutOfArea = hideOutOfArea === "1";
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -187,7 +194,6 @@ export default async function LeadsPage({
   const activeTrade = trade && tradeFilters.includes(trade) ? trade : "All";
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
-  const pendingEnrichCount = leads.filter((l) => l.website && !l.enrichedAt).length;
 
   // Tag suggestions offered in the picker: every tag already used on any
   // lead, plus the org's configured service areas (so a location tag is a
@@ -211,7 +217,28 @@ export default async function LeadsPage({
     );
   }
 
-  const pins = leads
+  // Applied in-memory (not in the DB query) since distance is computed
+  // from lat/lng rather than stored — the lead list is small enough per
+  // organization that this is simpler than a raw geo query.
+  let visibleLeads = hidingOutOfArea
+    ? leads.filter((lead) => {
+        const miles = distanceByLeadId.get(lead.id);
+        return miles === undefined || miles <= leadOutreachSettings.serviceRadiusMiles;
+      })
+    : leads;
+
+  if (sortByDistance) {
+    visibleLeads = [...visibleLeads].sort((a, b) => {
+      const da = distanceByLeadId.get(a.id);
+      const db_ = distanceByLeadId.get(b.id);
+      if (da === undefined && db_ === undefined) return 0;
+      if (da === undefined) return 1; // no address on file — push to the end
+      if (db_ === undefined) return -1;
+      return da - db_;
+    });
+  }
+
+  const pins = visibleLeads
     .filter((lead) => lead.latitude !== null && lead.longitude !== null)
     .map((lead) => ({
       id: lead.id,
@@ -220,6 +247,8 @@ export default async function LeadsPage({
       label: lead.name,
       href: "/leads",
     }));
+
+  const pendingEnrichCount = visibleLeads.filter((l) => l.website && !l.enrichedAt).length;
 
   return (
     <div>
@@ -338,10 +367,10 @@ export default async function LeadsPage({
         </div>
       )}
 
-      {sequences.length > 0 && leads.length > 0 && (
+      {sequences.length > 0 && visibleLeads.length > 0 && (
         <div className="mt-6">
           <EnrollAllButton
-            leadIds={leads.map((l) => l.id)}
+            leadIds={visibleLeads.map((l) => l.id)}
             sequences={sequences}
             action={enrollAllVisibleAction}
           />
@@ -353,6 +382,8 @@ export default async function LeadsPage({
           const params = new URLSearchParams();
           if (s !== "All") params.set("status", s);
           if (activeTrade !== "All") params.set("trade", activeTrade);
+          if (sortByDistance) params.set("sort", "distance");
+          if (hidingOutOfArea) params.set("hideOutOfArea", "1");
           const qs = params.toString();
           return (
             <Link
@@ -376,6 +407,8 @@ export default async function LeadsPage({
             const params = new URLSearchParams();
             if (activeStatus !== "All") params.set("status", activeStatus);
             if (t !== "All") params.set("trade", t);
+            if (sortByDistance) params.set("sort", "distance");
+            if (hidingOutOfArea) params.set("hideOutOfArea", "1");
             const qs = params.toString();
             return (
               <Link
@@ -394,9 +427,54 @@ export default async function LeadsPage({
         </div>
       )}
 
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(() => {
+          const sortParams = new URLSearchParams();
+          if (activeStatus !== "All") sortParams.set("status", activeStatus);
+          if (activeTrade !== "All") sortParams.set("trade", activeTrade);
+          if (!sortByDistance) sortParams.set("sort", "distance");
+          if (hidingOutOfArea) sortParams.set("hideOutOfArea", "1");
+          const sortQs = sortParams.toString();
+
+          const hideParams = new URLSearchParams();
+          if (activeStatus !== "All") hideParams.set("status", activeStatus);
+          if (activeTrade !== "All") hideParams.set("trade", activeTrade);
+          if (sortByDistance) hideParams.set("sort", "distance");
+          if (!hidingOutOfArea) hideParams.set("hideOutOfArea", "1");
+          const hideQs = hideParams.toString();
+
+          return (
+            <>
+              <Link
+                href={sortQs ? `/leads?${sortQs}` : "/leads"}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  sortByDistance
+                    ? "bg-brand text-white"
+                    : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                }`}
+              >
+                {sortByDistance ? "✓ Sorted by Distance" : "Sort by Distance"}
+              </Link>
+              <Link
+                href={hideQs ? `/leads?${hideQs}` : "/leads"}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  hidingOutOfArea
+                    ? "bg-brand text-white"
+                    : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                }`}
+              >
+                {hidingOutOfArea
+                  ? `✓ Hiding Leads Over ${leadOutreachSettings.serviceRadiusMiles} mi`
+                  : `Hide Leads Over ${leadOutreachSettings.serviceRadiusMiles} mi`}
+              </Link>
+            </>
+          );
+        })()}
+      </div>
+
       {/* Mobile: card list */}
       <div className="mt-6 flex flex-col gap-3 md:hidden">
-        {leads.map((lead) => (
+        {visibleLeads.map((lead) => (
           <div
             key={lead.id}
             className="rounded-lg border-2 border-zinc-900 bg-white p-4"
@@ -545,7 +623,7 @@ export default async function LeadsPage({
             </div>
           </div>
         ))}
-        {leads.length === 0 && (
+        {visibleLeads.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
             {activeStatus === "All"
               ? "No leads yet — search above to find local businesses."
@@ -572,7 +650,7 @@ export default async function LeadsPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {leads.map((lead) => (
+            {visibleLeads.map((lead) => (
               <tr key={lead.id} className="hover:bg-zinc-50">
                 <td className="px-5 py-4">
                   <div className="font-medium text-zinc-900">{lead.name}</div>
@@ -713,7 +791,7 @@ export default async function LeadsPage({
                 </td>
               </tr>
             ))}
-            {leads.length === 0 && (
+            {visibleLeads.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
                   {activeStatus === "All"
