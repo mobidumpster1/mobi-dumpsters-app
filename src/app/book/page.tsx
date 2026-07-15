@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function PublicBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ embed?: string }>;
+  searchParams: Promise<{ embed?: string; category?: string }>;
 }) {
-  const { embed } = await searchParams;
+  const { embed, category } = await searchParams;
   const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
   const [categories, agreement, branding] = await Promise.all([
@@ -21,6 +21,14 @@ export default async function PublicBookingPage({
     getAgreementSettings(organizationId),
     getOrgBranding(organizationId),
   ]);
+  // Lets a link on Chase's own website (e.g. the Junk Removal section) go
+  // straight to that category's review step, instead of dropping the
+  // customer on the full "what do you need?" grid. Matched by name, not
+  // id, so the link Chase pastes into static HTML doesn't break if a
+  // category gets recreated.
+  const initialCategoryId = category
+    ? categories.find((c) => c.name.toLowerCase() === category.toLowerCase())?.id
+    : undefined;
 
   return (
     <div
@@ -79,6 +87,7 @@ export default async function PublicBookingPage({
               }))}
               agreementTitle={agreement.title}
               agreementContent={agreement.content}
+              initialCategoryId={initialCategoryId}
             />
           )}
         </div>

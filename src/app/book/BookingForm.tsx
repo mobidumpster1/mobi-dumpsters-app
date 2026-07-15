@@ -110,20 +110,27 @@ export function BookingForm({
   categories,
   agreementTitle,
   agreementContent,
+  initialCategoryId,
 }: {
   categories: CategoryOption[];
   agreementTitle: string;
   agreementContent: string;
+  // Set when a link on Chase's own website points straight at one rental
+  // (e.g. "Book Junk Removal Online") — skips the browse grid and opens
+  // directly on that category's review step, same as tapping its card.
+  initialCategoryId?: string;
 }) {
-  const [step, setStep] = useState<Step>("browse");
-  const [categoryId, setCategoryId] = useState("");
+  const [step, setStep] = useState<Step>(initialCategoryId ? "review" : "browse");
+  const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const hasTiers = (selectedCategory?.pricingTiers.length ?? 0) > 0;
 
   const [startDate, setStartDate] = useState(today());
   const [deliveryTime, setDeliveryTime] = useState("09:00");
   const [pickupTime, setPickupTime] = useState("09:00");
-  const [tierId, setTierId] = useState("");
+  const [tierId, setTierId] = useState(
+    () => categories.find((c) => c.id === initialCategoryId)?.pricingTiers[0]?.id ?? ""
+  );
   const selectedTier = selectedCategory?.pricingTiers.find((t) => t.id === tierId);
   const rangeEnd =
     hasTiers && selectedTier?.price != null
