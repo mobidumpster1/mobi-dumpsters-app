@@ -121,6 +121,27 @@ body {
   --rt-zinc-900: #fafafa;
 }
 
+/* Same palette as .theme-embed, but with a solid page background instead
+   of transparent — used when /book, /book/thank-you, and /agreement/sign
+   are visited directly (not iframed), so the standalone page matches
+   Mobi Dumpsters' own dark site instead of relying on a host page behind
+   it for the background color. */
+.theme-public-dark {
+  color-scheme: dark;
+  --background: #1a1a1a;
+  --foreground: #ffffff;
+  --rt-white: #2a2a2a;
+  --rt-zinc-50: #242424;
+  --rt-zinc-100: #333333;
+  --rt-zinc-200: #3f3f46;
+  --rt-zinc-300: #52525b;
+  --rt-zinc-400: #71717a;
+  --rt-zinc-500: #a1a1aa;
+  --rt-zinc-600: #d4d4d8;
+  --rt-zinc-700: #e4e4e7;
+  --rt-zinc-900: #fafafa;
+}
+
 @media print {
   aside {
     display: none;

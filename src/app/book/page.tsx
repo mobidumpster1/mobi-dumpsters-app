@@ -27,7 +27,7 @@ export default async function PublicBookingPage({
       className={
         isEmbed
           ? "theme-embed px-2 py-4"
-          : "theme-light min-h-screen bg-brand-light px-4 py-10"
+          : "theme-public-dark min-h-screen bg-background px-4 py-10"
       }
       style={
         {
