@@ -48,7 +48,12 @@ export function LocationMap({
           defaultCenter={center}
           defaultZoom={defaultZoom}
           mapTypeId="satellite"
-          gestureHandling="greedy"
+          // "cooperative" (not "greedy") so a one-finger swipe scrolls the
+          // page like normal — this map is embedded among other content on
+          // every page it's used, not a full-screen standalone map. Greedy
+          // made the map swallow single-finger scrolls/pinches meant for
+          // the page, which read as "zoom is weird" on mobile.
+          gestureHandling="cooperative"
           disableDefaultUI={false}
           styles={DARK_MAP_STYLE}
         >
