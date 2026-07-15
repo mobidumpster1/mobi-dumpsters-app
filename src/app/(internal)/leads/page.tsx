@@ -340,7 +340,7 @@ export default async function LeadsPage({
           type="number"
           min="1"
           defaultValue={leadOutreachSettings.serviceRadiusMiles}
-          className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
         />
         <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
         <button
