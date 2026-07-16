@@ -537,7 +537,7 @@ export default async function LeadsPage({
                 </dd>
               </div>
             </dl>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
               <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
               {lead.emailOptOut ? (
                 <span className="flex-shrink-0 text-xs font-medium text-zinc-400">Unsubscribed</span>

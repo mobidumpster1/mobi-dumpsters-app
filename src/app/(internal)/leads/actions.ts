@@ -245,11 +245,21 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
   const user = await requirePermission("canManageLeads");
 
   const [lead, template] = await Promise.all([
-    db.lead.findFirstOrThrow({ where: { id: leadId, organizationId: user.effectiveOrganizationId } }),
-    db.leadEmailTemplate.findFirstOrThrow({
+    db.lead.findFirst({ where: { id: leadId, organizationId: user.effectiveOrganizationId } }),
+    db.leadEmailTemplate.findFirst({
       where: { id: templateId, organizationId: user.effectiveOrganizationId },
     }),
   ]);
+
+  if (!lead) {
+    throw new Error("This lead no longer exists — refresh the page and try again.");
+  }
+  // Can happen if the template picked in the dropdown was deleted (e.g. in
+  // another tab) since the page last loaded — refreshing picks up the
+  // current template list instead of a stale one.
+  if (!template) {
+    throw new Error("That template was deleted — refresh the page and pick another one.");
+  }
 
   if (!lead.email) {
     throw new Error("Add an email address for this lead before sending.");

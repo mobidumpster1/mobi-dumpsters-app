@@ -46,11 +46,11 @@ export function SendTemplatedEmailButton({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <select
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
-          className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-xs"
+          className="min-w-0 max-w-full flex-1 truncate rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-xs"
         >
           {templates.map((t) => (
             <option key={t.id} value={t.id}>
