@@ -492,10 +492,16 @@ export function BookingForm({
               {materialQuote && (
                 <div className="rounded-xl bg-zinc-50 p-3 text-sm">
                   <p className="font-semibold text-ink">
-                    {materialQuote.isCustomQuote ? "Estimated total" : "Total"}: $
+                    {materialQuote.isCustomQuote ? "Estimated total" : "Total (before mileage)"}: $
                     {materialQuote.total.toFixed(2)}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">{materialQuote.note}</p>
+                  {!materialQuote.isCustomQuote && (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Deliveries beyond 30 miles of the yard add $3.50/mile — final total is
+                      confirmed once you enter your delivery address below.
+                    </p>
+                  )}
                 </div>
               )}
             </>

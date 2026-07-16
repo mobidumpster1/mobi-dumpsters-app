@@ -18,6 +18,7 @@ import { getPublicOrganizationId } from "@/lib/session";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createOnlinePaymentLink } from "@/lib/quickbooks";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
+import { milesBetween } from "@/lib/distance";
 
 export async function checkAvailability(
   categoryId: string,
@@ -151,6 +152,14 @@ export async function submitBookingRequest(formData: FormData) {
     throw new Error("That duration requires a call for pricing — please call us instead.");
   }
 
+  // Geocoded here (rather than down by the booking's own lat/lng) so a
+  // material delivery quote can factor in the real one-way distance from
+  // the yard, per the $3.50/mile-beyond-30 rule in the service agreement.
+  const geocoded = await geocodeAddress(address);
+  const oneWayMiles = geocoded
+    ? milesBetween(branding.yardLatitude, branding.yardLongitude, geocoded.latitude, geocoded.longitude)
+    : null;
+
   // Categories priced by material + quantity (e.g. Material Delivery)
   // instead of a flat base price or duration tier — recomputed here from
   // the material's real per-unit price rather than trusting anything the
@@ -164,7 +173,7 @@ export async function submitBookingRequest(formData: FormData) {
     if (!(materialQuantity > 0)) throw new Error("Please enter a quantity");
   }
   const materialQuote = material
-    ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity, material.unit)
+    ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity, material.unit, oneWayMiles)
     : null;
 
   // Rentals (has a tier): pickup is computed from the delivery date plus
@@ -197,7 +206,13 @@ export async function submitBookingRequest(formData: FormData) {
   const pricePerItem = totalPrice / needed;
   const materialItemNote =
     material && materialQuote
-      ? `${materialQuantity} ${material.unit} ${material.name} @ $${material.pricePerUnit.toFixed(2)}/${material.unit}${materialQuote.isCustomQuote ? " (custom quote, price pending confirmation)" : ""}`
+      ? `${materialQuantity} ${material.unit} ${material.name} @ $${material.pricePerUnit.toFixed(2)}/${material.unit}` +
+        (materialQuote.isCustomQuote
+          ? " (custom quote, price pending confirmation)"
+          : ` + $${materialQuote.deliveryFee.toFixed(2)} delivery` +
+            (materialQuote.mileageFee > 0
+              ? ` (incl. $${materialQuote.mileageFee.toFixed(2)} mileage, ${oneWayMiles?.toFixed(1)} mi one-way)`
+              : ""))
       : null;
 
   let customer = await db.customer.findFirst({ where: { email, organizationId } });
@@ -222,8 +237,6 @@ export async function submitBookingRequest(formData: FormData) {
   } else {
     await fillBlankCustomerFields(customer, { phone, email, address });
   }
-
-  const geocoded = await geocodeAddress(address);
 
   const booking = await db.booking.create({
     data: {
