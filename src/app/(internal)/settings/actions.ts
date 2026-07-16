@@ -345,3 +345,32 @@ export async function resetEmailTemplateToDefault(key: EmailTemplateKey) {
   await resetEmailTemplate(key, user.effectiveOrganizationId);
   revalidatePath("/settings");
 }
+
+export async function saveWebsiteSnippet(formData: FormData) {
+  const user = await requireUser();
+  const id = str(formData, "id");
+  const name = str(formData, "name");
+  const html = str(formData, "html");
+  if (!name) throw new Error("Name is required");
+  if (!html) throw new Error("HTML is required");
+
+  if (id) {
+    await db.websiteSnippet.updateMany({
+      where: { id, organizationId: user.effectiveOrganizationId },
+      data: { name, html },
+    });
+  } else {
+    await db.websiteSnippet.create({
+      data: { organizationId: user.effectiveOrganizationId, name, html },
+    });
+  }
+  revalidatePath("/settings");
+}
+
+export async function deleteWebsiteSnippet(id: string) {
+  const user = await requireUser();
+  await db.websiteSnippet.deleteMany({
+    where: { id, organizationId: user.effectiveOrganizationId },
+  });
+  revalidatePath("/settings");
+}

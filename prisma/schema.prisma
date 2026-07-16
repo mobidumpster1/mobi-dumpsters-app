@@ -59,6 +59,7 @@ model Organization {
   deliveryReminderSettings DeliveryReminderSettings?
   leadOutreachSettings     LeadOutreachSettings?
   winBackSettings          WinBackSettings?
+  websiteSnippets          WebsiteSnippet[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1095,6 +1096,21 @@ model PermitArea {
   organization   Organization @relation(fields: [organizationId], references: [id])
   name           String
   createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, name])
+}
+
+// A named block of HTML a business owner writes/pastes and saves for reuse
+// on their own website — separate from the auto-generated widget code
+// (which always reflects live pricing/categories and isn't stored here).
+model WebsiteSnippet {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  html           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, name])
 }

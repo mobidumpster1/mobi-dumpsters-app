@@ -20,11 +20,13 @@ export function requiredQuantity(category: { bundleOfCategoryId: string | null; 
 
 // Categories that currently have enough active, working units to be worth
 // showing on the public booking page (accounting for bundle quantity).
-export async function listBookableCategories() {
-  // Public, unauthenticated caller (the online booking page and SEO city
-  // pages) — no session to read an organizationId from, so this uses the
-  // same single-org placeholder as getPublicOrganizationId itself.
-  const organizationId = await getPublicOrganizationId();
+export async function listBookableCategories(organizationId?: string) {
+  // Public, unauthenticated callers (the online booking page and SEO city
+  // pages) have no session to read an organizationId from, so they fall
+  // back to the same single-org placeholder as getPublicOrganizationId
+  // itself. Authenticated callers (e.g. Settings, generating widget code)
+  // pass their real organizationId directly instead.
+  organizationId ??= await getPublicOrganizationId();
   const categories = await db.equipmentCategory.findMany({
     where: { organizationId },
     include: {

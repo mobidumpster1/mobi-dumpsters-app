@@ -20,6 +20,8 @@ import {
   updateWinBackSettings,
   addPermitArea,
   removePermitArea,
+  saveWebsiteSnippet,
+  deleteWebsiteSnippet,
 } from "./actions";
 import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
 import { setPlatformAdmin } from "../platform-admin/actions";
@@ -36,10 +38,15 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { serviceAreas } from "@/lib/serviceAreas";
 import { EmailTemplateCard } from "@/components/EmailTemplateCard";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { CopyTextButton } from "@/components/CopyTextButton";
+import { WebsiteSnippetManager } from "@/components/WebsiteSnippetManager";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Tabs, type TabItem } from "@/components/Tabs";
+import { buildWebsiteWidgets } from "@/lib/websiteWidgets";
+import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { headers } from "next/headers";
 
 // Redirect-back confirmation messages (QuickBooks connect, "Send Now"
 // buttons) need to land on the tab that actually shows them, not whichever
@@ -126,6 +133,22 @@ export default async function SettingsPage({
     where: { id: currentUser.effectiveOrganizationId },
     select: { publicDomain: true },
   });
+  const bookableCategories = await listBookableCategories(currentUser.effectiveOrganizationId);
+  const websiteSnippets = await db.websiteSnippet.findMany({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+    orderBy: { name: "asc" },
+  });
+  // Widget links need an absolute, working URL even before a custom domain
+  // is set — fall back to whatever host this settings page is being viewed
+  // at (same idea as getPublicOrganizationId's fallback).
+  const requestHost = (await headers()).get("host") ?? "localhost:3000";
+  const widgetBaseUrl = orgDomain?.publicDomain
+    ? `https://${orgDomain.publicDomain}`
+    : `${requestHost.startsWith("localhost") ? "http" : "https"}://${requestHost}`;
+  const websiteWidgets = buildWebsiteWidgets(
+    bookableCategories.map((c) => ({ id: c.id, name: c.name })),
+    widgetBaseUrl
+  );
 
   let accounts: QboAccount[] = [];
   let accountsError: string | null = null;
@@ -959,6 +982,64 @@ export default async function SettingsPage({
     </section>
   );
 
+  const websiteWidgetsSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Website Widgets & Embeds</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Ready-to-paste code for your own website, built live from your
+        current categories and pricing — nothing here goes stale, since
+        it&apos;s generated fresh every time you copy it.
+      </p>
+      {!orgDomain?.publicDomain && (
+        <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          These currently point to {widgetBaseUrl} — set a custom domain in
+          the Business tab first so they point to your own domain instead.
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-col gap-3">
+        {websiteWidgets.map((widget) => (
+          <details key={widget.id} className="rounded-xl border border-zinc-200 p-4">
+            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="font-medium text-ink">{widget.title}</span>
+                <span className="mt-0.5 block text-xs text-zinc-500">{widget.description}</span>
+              </span>
+              <span className="flex items-center gap-3">
+                <CopyTextButton
+                  text={widget.html}
+                  label="Copy Embed Code"
+                  className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                />
+                <CopyTextButton
+                  text={widget.directLink}
+                  label="Copy Link"
+                  className="text-xs font-semibold text-brand hover:underline"
+                />
+              </span>
+            </summary>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-zinc-50 p-3 text-xs text-zinc-700">
+              {widget.html}
+            </pre>
+          </details>
+        ))}
+      </div>
+
+      <div className="mt-6 border-t border-zinc-100 pt-4">
+        <h3 className="text-sm font-semibold text-ink">Saved Snippets</h3>
+        <p className="mt-1 text-sm text-zinc-500">
+          Your own custom HTML — a hand-tweaked embed, a promo banner,
+          anything you want to save and reuse.
+        </p>
+        <WebsiteSnippetManager
+          snippets={websiteSnippets}
+          saveAction={saveWebsiteSnippet}
+          deleteAction={deleteWebsiteSnippet}
+        />
+      </div>
+    </section>
+  );
+
   const tabs: TabItem[] = [
     {
       id: "business",
@@ -995,7 +1076,16 @@ export default async function SettingsPage({
       ),
     },
     { id: "integrations", label: "Integrations", content: quickbooksSection },
-    { id: "marketing", label: "Marketing", content: seoSection },
+    {
+      id: "marketing",
+      label: "Marketing",
+      content: (
+        <>
+          {seoSection}
+          {websiteWidgetsSection}
+        </>
+      ),
+    },
   ];
 
   const initialTab = computeInitialTab({ qb_connected, qb_error, reviews_sent, invoices_sent, deliveries_sent });
