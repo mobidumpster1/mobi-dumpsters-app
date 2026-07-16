@@ -60,6 +60,7 @@ model Organization {
   leadOutreachSettings     LeadOutreachSettings?
   winBackSettings          WinBackSettings?
   websiteSnippets          WebsiteSnippet[]
+  stripeConnection         StripeConnection?
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -200,6 +201,15 @@ model Customer {
   // Set once this customer exists in QuickBooks (created here, imported
   // from QuickBooks, or matched during a sync), so we don't create dupes.
   quickbooksCustomerId String?
+  // Card on file, saved via Stripe Elements at booking time or from the
+  // Customer detail page — only Stripe's own references are stored here,
+  // never a raw card number. brand/last4 are display-only, safe to store.
+  // One card per customer for now (not a separate table) — revisit if a
+  // real need for multiple saved cards per customer shows up.
+  stripeCustomerId      String?
+  stripePaymentMethodId String?
+  stripeCardBrand       String?
+  stripeCardLast4       String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
@@ -649,11 +659,16 @@ model Invoice {
   // reuses this same QBO invoice instead of creating a second one.
   quickbooksInvoiceId String?
   quickbooksPaymentId String?
-  // QuickBooks-hosted "pay this invoice online" link, set once a staff
-  // member sends it — customers pay card/ACH directly on Intuit's page, so
-  // no card data ever touches this app.
+  // Legacy QuickBooks-hosted "pay this invoice online" link — superseded by
+  // Stripe (see stripePaymentIntentId below) but left in place for any
+  // invoice that already has one, rather than migrating historical data.
   onlinePaymentUrl    String?
   onlinePaymentSentAt DateTime?
+  // Set once a Stripe charge is created for this invoice (card-on-file
+  // charge or a completed Checkout session) — prevents double-charging and
+  // lets the webhook confirm/reconcile status without guessing which
+  // invoice a given PaymentIntent belongs to.
+  stripePaymentIntentId String?
   // Tracks the most recent automated overdue-payment reminder, so the daily
   // cron can space repeat nags out instead of re-sending every run.
   lastReminderSentAt  DateTime?
@@ -756,6 +771,24 @@ model QuickBooksConnection {
   defaultItemId             String?
   createdAt                 DateTime     @default(now())
   updatedAt                 DateTime     @updatedAt
+}
+
+// A business's own Stripe account credentials — pasted from their Stripe
+// dashboard rather than an OAuth flow, since (unlike QuickBooks) each
+// business is expected to run its own direct Stripe account, not connect
+// through a shared platform account. Handles all customer-facing payment
+// collection; QuickBooks stays purely for the accounting record (see
+// pushInvoicePayment in quickbooks.ts, which a successful Stripe charge
+// also calls).
+model StripeConnection {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  secretKey      String
+  publishableKey String
+  webhookSecret  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 // A single row holding the current service agreement text. Edited from

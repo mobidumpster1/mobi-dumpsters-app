@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { pushInvoicePayment, createOnlinePaymentLink, getQboInvoiceBalance } from "@/lib/quickbooks";
-import { computeInvoiceLineItems } from "@/lib/invoicing";
-import { sendCustomerEmail } from "@/lib/email";
+import { pushInvoicePayment } from "@/lib/quickbooks";
+import { computeInvoiceLineItems, markInvoicePaidViaStripe } from "@/lib/invoicing";
+import { chargeCardOnFile, createCheckoutSession, toCents } from "@/lib/stripe";
+import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { branding } from "@/lib/branding";
-import { requirePermission, requireUser } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function createInvoice(formData: FormData) {
@@ -136,11 +137,12 @@ export async function deleteInvoice(invoiceId: string) {
   redirect("/invoices");
 }
 
-// Sends (or resends) a QuickBooks-hosted "pay this invoice online" link to
-// the customer. No card data ever touches this app — Intuit's page handles
-// the actual charge, requiring QuickBooks Payments to already be enabled on
-// the connected company.
-export async function sendInvoiceForOnlinePayment(invoiceId: string) {
+// Charges the customer's card on file directly — no customer interaction
+// needed, no link to send. This is the primary path once a card is on
+// file; the Stripe webhook (payment_intent.succeeded) is a backstop for
+// the rare case this call succeeds on Stripe's side but never finishes
+// here (server crash, etc).
+export async function chargeInvoiceViaStripe(invoiceId: string) {
   const user = await requirePermission("canManageInvoices");
 
   const invoice = await db.invoice.findFirstOrThrow({
@@ -148,46 +150,62 @@ export async function sendInvoiceForOnlinePayment(invoiceId: string) {
     include: {
       booking: { include: { customer: true } },
       customer: true,
-      lineItems: true,
+    },
+  });
+
+  const customer = invoice.booking?.customer ?? invoice.customer;
+  if (!customer) {
+    throw new Error("This invoice has no customer to charge.");
+  }
+
+  const { paymentIntentId } = await chargeCardOnFile(
+    user.effectiveOrganizationId,
+    { stripeCustomerId: customer.stripeCustomerId, stripePaymentMethodId: customer.stripePaymentMethodId },
+    toCents(invoice.amount),
+    `Invoice ${invoice.invoiceNumber}`,
+    { invoiceId: invoice.id }
+  );
+
+  await markInvoicePaidViaStripe(invoice.id, user.effectiveOrganizationId, paymentIntentId);
+  await logAction("invoice.charged_stripe", "Invoice", invoiceId);
+  revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Fallback for a customer without a saved card yet — emails a
+// Stripe-hosted payment link. Completing it also saves the card
+// (setup_future_usage, see createCheckoutSession) so next time this
+// customer can just be charged directly instead.
+export async function sendInvoiceCheckoutLink(invoiceId: string) {
+  const user = await requirePermission("canManageInvoices");
+
+  const invoice = await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+    include: {
+      booking: { include: { customer: true } },
+      customer: true,
     },
   });
 
   const customer = invoice.booking?.customer ?? invoice.customer;
   if (!customer?.email) {
     throw new Error(
-      "This customer has no email on file — add one before sending an online payment link."
+      "This customer has no email on file — add one before sending a payment link."
     );
   }
 
-  const result = await createOnlinePaymentLink({
-    customer: {
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      quickbooksCustomerId: customer.quickbooksCustomerId,
-    },
-    invoiceNumber: invoice.invoiceNumber,
-    amount: invoice.amount,
-    issueDate: invoice.issueDate,
-    description: invoice.lineItems.map((l) => l.description).join(", ") || invoice.invoiceNumber,
-    billEmail: customer.email,
-    existingQboInvoiceId: invoice.quickbooksInvoiceId,
-    organizationId: user.effectiveOrganizationId,
-  });
+  const result = await createCheckoutSession(
+    user.effectiveOrganizationId,
+    { id: customer.id, name: customer.name, email: customer.email, stripeCustomerId: customer.stripeCustomerId },
+    toCents(invoice.amount),
+    `Invoice ${invoice.invoiceNumber}`,
+    `${siteOrigin()}/invoices/${invoiceId}`,
+    `${siteOrigin()}/invoices/${invoiceId}`,
+    { invoiceId: invoice.id }
+  );
 
   if (!result) {
-    throw new Error("Connect QuickBooks in Settings before sending online payment links.");
+    throw new Error("Connect Stripe in Settings before sending payment links.");
   }
-
-  await db.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      quickbooksInvoiceId: result.qboInvoiceId,
-      onlinePaymentUrl: result.invoiceLink,
-      onlinePaymentSentAt: new Date(),
-    },
-  });
 
   await sendCustomerEmail(
     customer.email,
@@ -197,32 +215,12 @@ export async function sendInvoiceForOnlinePayment(invoiceId: string) {
       "",
       `You can pay invoice ${invoice.invoiceNumber} ($${invoice.amount.toFixed(2)}) online here:`,
       "",
-      result.invoiceLink,
+      result.url,
       "",
       `Thanks,`,
       `- ${branding.businessName}`,
     ].join("\n")
   );
 
-  revalidatePath(`/invoices/${invoiceId}`);
-}
-
-// Manually checks QuickBooks for whether the customer has paid the hosted
-// online invoice yet, marking it paid locally if so. Also run
-// best-effort whenever the invoice page loads (see page.tsx).
-export async function checkOnlinePaymentStatus(invoiceId: string) {
-  const user = await requireUser();
-  const invoice = await db.invoice.findFirstOrThrow({
-    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
-  });
-  if (invoice.quickbooksInvoiceId && invoice.status !== "paid") {
-    const balance = await getQboInvoiceBalance(invoice.quickbooksInvoiceId, user.effectiveOrganizationId);
-    if (balance === 0) {
-      await db.invoice.update({
-        where: { id: invoiceId },
-        data: { status: "paid", paidDate: new Date(), paymentMethod: "QuickBooks Payments (online)" },
-      });
-    }
-  }
   revalidatePath(`/invoices/${invoiceId}`);
 }

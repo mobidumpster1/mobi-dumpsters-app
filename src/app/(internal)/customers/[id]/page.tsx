@@ -17,6 +17,7 @@ import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Tabs } from "@/components/Tabs";
+import { CardOnFileSection } from "../CardOnFileSection";
 import { formatDate } from "@/lib/date";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 import { requireUser } from "@/lib/session";
@@ -590,6 +591,21 @@ export default async function CustomerDetailPage({
           </div>
         )}
       </dl>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h2 className="text-sm font-semibold text-zinc-700">Card on File</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          For deposits, overages, damage, or a quick phone-booking charge —
+          collected once, then charged straight from an invoice.
+        </p>
+        <div className="mt-3">
+          <CardOnFileSection
+            customerId={customer.id}
+            cardBrand={customer.stripeCardBrand}
+            cardLast4={customer.stripeCardLast4}
+          />
+        </div>
+      </div>
 
       <div className="mt-6">
         <Tabs tabs={tabs} initialTab="jobs" />

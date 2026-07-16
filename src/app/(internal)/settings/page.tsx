@@ -22,7 +22,10 @@ import {
   removePermitArea,
   saveWebsiteSnippet,
   deleteWebsiteSnippet,
+  saveStripeConnection,
+  disconnectStripe,
 } from "./actions";
+import { getStripeConnection } from "@/lib/stripe";
 import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
 import { setPlatformAdmin } from "../platform-admin/actions";
 import { getAgreementSettings } from "@/lib/agreement";
@@ -160,6 +163,7 @@ export default async function SettingsPage({
       accountsError = error instanceof Error ? error.message : String(error);
     }
   }
+  const stripeConnection = await getStripeConnection(currentUser.effectiveOrganizationId);
 
   const brandingSection = (
     <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
@@ -560,6 +564,133 @@ export default async function SettingsPage({
               </button>
             </form>
           </div>
+        </div>
+      )}
+    </section>
+  );
+
+  const stripeSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Stripe Payments</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Handles all customer-facing payment collection — cards on file,
+        charges, and payment links. QuickBooks above stays the accounting
+        record; every Stripe payment still shows up there automatically.
+      </p>
+
+      {!stripeConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">Not connected yet.</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Create a free account at stripe.com, then paste your API keys
+            from the Stripe Dashboard (Developers → API keys) below. Use
+            your test keys first to try it out — they start with{" "}
+            <code className="rounded bg-zinc-100 px-1 py-0.5">pk_test_</code>{" "}
+            and{" "}
+            <code className="rounded bg-zinc-100 px-1 py-0.5">sk_test_</code>.
+          </p>
+          <form action={saveStripeConnection} className="mt-4 flex flex-col gap-4">
+            <Field label="Publishable key" htmlFor="publishableKey">
+              <input
+                id="publishableKey"
+                name="publishableKey"
+                required
+                placeholder="pk_test_..."
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Secret key" htmlFor="secretKey">
+              <input
+                id="secretKey"
+                name="secretKey"
+                type="password"
+                required
+                placeholder="sk_test_..."
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Webhook signing secret (optional for now)" htmlFor="webhookSecret">
+              <input
+                id="webhookSecret"
+                name="webhookSecret"
+                type="password"
+                placeholder="whsec_..."
+                className={inputClass}
+              />
+            </Field>
+            <p className="-mt-2 text-xs text-zinc-500">
+              For the webhook secret: in the Stripe Dashboard, add an
+              endpoint pointing to{" "}
+              <code className="rounded bg-zinc-100 px-1 py-0.5">
+                {widgetBaseUrl}/api/webhooks/stripe
+              </code>{" "}
+              listening for <code className="rounded bg-zinc-100 px-1 py-0.5">payment_intent.succeeded</code>{" "}
+              and <code className="rounded bg-zinc-100 px-1 py-0.5">setup_intent.succeeded</code>, then copy
+              its signing secret here.
+            </p>
+            <div>
+              <button
+                type="submit"
+                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              >
+                Save Stripe Keys
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-4">
+          <p className="text-sm text-zinc-500">
+            Connected (
+            {stripeConnection.publishableKey.startsWith("pk_live_") ? "live" : "test"} keys).
+          </p>
+          <form action={saveStripeConnection} className="flex flex-col gap-4 border-t border-zinc-100 pt-4">
+            <Field label="Publishable key" htmlFor="publishableKeyUpdate">
+              <input
+                id="publishableKeyUpdate"
+                name="publishableKey"
+                required
+                defaultValue={stripeConnection.publishableKey}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Secret key" htmlFor="secretKeyUpdate">
+              <input
+                id="secretKeyUpdate"
+                name="secretKey"
+                type="password"
+                required
+                defaultValue={stripeConnection.secretKey}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Webhook signing secret" htmlFor="webhookSecretUpdate">
+              <input
+                id="webhookSecretUpdate"
+                name="webhookSecret"
+                type="password"
+                defaultValue={stripeConnection.webhookSecret ?? ""}
+                placeholder="whsec_..."
+                className={inputClass}
+              />
+            </Field>
+            <div>
+              <button
+                type="submit"
+                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              >
+                Update Stripe Keys
+              </button>
+            </div>
+          </form>
+          <form action={disconnectStripe} className="border-t border-zinc-100 pt-4">
+            <ConfirmButton
+              message="Disconnect Stripe? Staff won't be able to charge cards on file or send payment links until you reconnect."
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              Disconnect
+            </ConfirmButton>
+          </form>
         </div>
       )}
     </section>
@@ -1075,7 +1206,16 @@ export default async function SettingsPage({
         </>
       ),
     },
-    { id: "integrations", label: "Integrations", content: quickbooksSection },
+    {
+      id: "integrations",
+      label: "Integrations",
+      content: (
+        <>
+          {stripeSection}
+          {quickbooksSection}
+        </>
+      ),
+    },
     {
       id: "marketing",
       label: "Marketing",

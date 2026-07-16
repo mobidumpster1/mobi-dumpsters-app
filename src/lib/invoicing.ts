@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { pushInvoicePayment } from "@/lib/quickbooks";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -152,4 +153,73 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
       lineItems: { create: lines },
     },
   });
+}
+
+// Marks an invoice paid after a successful Stripe charge and pushes the
+// payment to QuickBooks — the same pushInvoicePayment call markPaid makes
+// for a manually-recorded payment, just triggered by Stripe instead of a
+// staff member filling in a form. Shared between the "Charge Card on
+// File" action (the primary path) and the Stripe webhook (a
+// belt-and-suspenders backstop in case the direct call never completes —
+// e.g. the server crashes between the charge succeeding and this
+// running). Idempotent: a no-op if the invoice is already marked paid, so
+// it's safe for both paths to call this for the same charge.
+export async function markInvoicePaidViaStripe(
+  invoiceId: string,
+  organizationId: string,
+  paymentIntentId: string
+) {
+  const invoice = await db.invoice.findFirst({
+    where: { id: invoiceId, organizationId },
+    include: {
+      booking: {
+        include: { customer: true, items: { include: { equipmentItem: true } } },
+      },
+      customer: true,
+    },
+  });
+  if (!invoice || invoice.status === "paid") return;
+
+  await db.invoice.update({
+    where: { id: invoice.id },
+    data: {
+      status: "paid",
+      paidDate: new Date(),
+      paymentMethod: "Stripe",
+      stripePaymentIntentId: paymentIntentId,
+    },
+  });
+
+  const customer = invoice.booking?.customer ?? invoice.customer;
+  if (!customer) return;
+
+  try {
+    const result = await pushInvoicePayment({
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        quickbooksCustomerId: customer.quickbooksCustomerId,
+      },
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amount,
+      issueDate: invoice.issueDate,
+      description:
+        invoice.booking?.items.map((item) => item.equipmentItem.label).join(", ") ??
+        invoice.invoiceNumber,
+      existingQboInvoiceId: invoice.quickbooksInvoiceId,
+      organizationId,
+    });
+
+    if (result) {
+      await db.invoice.update({
+        where: { id: invoice.id },
+        data: { quickbooksInvoiceId: result.invoiceId, quickbooksPaymentId: result.paymentId },
+      });
+    }
+  } catch (error) {
+    // A QuickBooks hiccup shouldn't undo the invoice already being paid.
+    console.error("Failed to push Stripe payment to QuickBooks:", error);
+  }
 }

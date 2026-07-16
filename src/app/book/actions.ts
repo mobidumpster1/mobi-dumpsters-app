@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
-import { sendNotificationEmail, sendCustomerEmail } from "@/lib/email";
+import { sendNotificationEmail, sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
 import { savePhotoFile } from "@/lib/uploads";
 import { branding } from "@/lib/branding";
@@ -16,7 +16,7 @@ import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
 import { getPublicOrganizationId } from "@/lib/session";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
-import { createOnlinePaymentLink } from "@/lib/quickbooks";
+import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween } from "@/lib/distance";
 
@@ -355,14 +355,16 @@ export async function submitBookingRequest(formData: FormData) {
 }
 
 // Public, unauthenticated — a customer clicking "Pay Now" on the thank-you
-// page right after booking, before Chase has confirmed anything. Generates
-// (or reuses) a QuickBooks-hosted invoice link and sends them straight to
-// it. On any failure (QuickBooks not connected, no email on file, etc.)
-// it sends them back to the thank-you page with payError=1 instead of
-// throwing, so a customer never sees a raw crash page — see
-// book/thank-you/page.tsx for the fallback message. The single redirect()
-// call has to happen outside the try/catch: redirect() works by throwing
-// internally, and catching that alongside real errors would break it.
+// page right after booking, before Chase has confirmed anything. Sends
+// them to a Stripe-hosted Checkout page (setup_future_usage means paying
+// also saves their card for next time, backfilling one if they skipped
+// the card step during booking). On any failure (Stripe not connected, no
+// email on file, etc.) it sends them back to the thank-you page with
+// payError=1 instead of throwing, so a customer never sees a raw crash
+// page — see book/thank-you/page.tsx for the fallback message. The single
+// redirect() call has to happen outside the try/catch: redirect() works
+// by throwing internally, and catching that alongside real errors would
+// break it.
 export async function payBookingInvoiceNow(invoiceId: string) {
   let redirectTo: string;
 
@@ -380,43 +382,40 @@ export async function payBookingInvoiceNow(invoiceId: string) {
       throw new Error("No email on file for this booking.");
     }
 
-    const result = await createOnlinePaymentLink({
-      customer: {
+    const result = await createCheckoutSession(
+      invoice.organizationId,
+      {
         id: customer.id,
         name: customer.name,
         email: customer.email,
-        phone: customer.phone,
-        quickbooksCustomerId: customer.quickbooksCustomerId,
+        stripeCustomerId: customer.stripeCustomerId,
       },
-      invoiceNumber: invoice.invoiceNumber,
-      amount: invoice.amount,
-      issueDate: invoice.issueDate,
-      description: invoice.booking
-        ? `Booking ${invoice.invoiceNumber}`
-        : `Invoice ${invoice.invoiceNumber}`,
-      billEmail: customer.email,
-      existingQboInvoiceId: invoice.quickbooksInvoiceId,
-      organizationId: invoice.organizationId,
-    });
+      toCents(invoice.amount),
+      invoice.booking ? `Booking ${invoice.invoiceNumber}` : `Invoice ${invoice.invoiceNumber}`,
+      `${siteOrigin()}/book/thank-you?invoice=${invoiceId}&paid=1`,
+      `${siteOrigin()}/book/thank-you?invoice=${invoiceId}`,
+      { invoiceId: invoice.id }
+    );
 
     if (!result) {
-      throw new Error("QuickBooks isn't connected for this business.");
+      throw new Error("Stripe isn't connected for this business.");
     }
 
-    await db.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        quickbooksInvoiceId: result.qboInvoiceId,
-        onlinePaymentUrl: result.invoiceLink,
-        onlinePaymentSentAt: new Date(),
-      },
-    });
-
-    redirectTo = result.invoiceLink;
+    redirectTo = result.url;
   } catch (error) {
     console.error("payBookingInvoiceNow failed:", error);
     redirectTo = `/book/thank-you?invoice=${invoiceId}&payError=1`;
   }
 
   redirect(redirectTo);
+}
+
+// Public, unauthenticated — called directly from the StripeCardForm client
+// component on the thank-you page once Stripe confirms the card, so the
+// card's reference gets saved right away instead of waiting on the
+// webhook alone. organizationId is derived from the invoice rather than
+// trusted from the client, same reasoning as payBookingInvoiceNow above.
+export async function confirmCardSetup(invoiceId: string, setupIntentId: string) {
+  const invoice = await db.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+  await savePaymentMethodFromSetupIntent(invoice.organizationId, setupIntentId);
 }

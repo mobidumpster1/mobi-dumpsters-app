@@ -312,8 +312,6 @@ type QboInvoiceInput = {
   amount: number;
   issueDate: Date;
   description: string;
-  billEmail?: string;
-  allowOnlinePayment?: boolean;
 };
 
 async function createQboInvoice(
@@ -328,10 +326,6 @@ async function createQboInvoice(
       DocNumber: input.invoiceNumber,
       TxnDate: input.issueDate.toISOString().slice(0, 10),
       CustomerRef: { value: qboCustomerId },
-      ...(input.billEmail ? { BillEmail: { Address: input.billEmail } } : {}),
-      ...(input.allowOnlinePayment
-        ? { AllowOnlineCreditCardPayment: true, AllowOnlineACHPayment: true }
-        : {}),
       Line: [
         {
           Amount: input.amount,
@@ -343,59 +337,6 @@ async function createQboInvoice(
     }),
   });
   return invoiceResponse.Invoice.Id as string;
-}
-
-// Creates (or reuses) a QuickBooks invoice with online payment enabled and
-// returns Intuit's hosted "pay this invoice" link — the customer enters
-// their card/bank details directly on Intuit's page, so no card data ever
-// touches this app. Requires QuickBooks Payments to already be enabled on
-// the connected company (a one-time setup Intuit's side, outside this app).
-export async function createOnlinePaymentLink(input: {
-  customer: {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    quickbooksCustomerId: string | null;
-  };
-  invoiceNumber: string;
-  amount: number;
-  issueDate: Date;
-  description: string;
-  billEmail: string;
-  existingQboInvoiceId?: string | null;
-  organizationId: string;
-}): Promise<{ qboInvoiceId: string; invoiceLink: string } | null> {
-  const connection = await getValidConnection(input.organizationId);
-  if (!connection) return null;
-
-  const qboInvoiceId =
-    input.existingQboInvoiceId ??
-    (await (async () => {
-      const [qboCustomerId, itemId] = await Promise.all([
-        findOrCreateQboCustomer(connection, input.customer),
-        ensureDefaultItem(connection),
-      ]);
-      return createQboInvoice(connection, qboCustomerId, itemId, {
-        ...input,
-        allowOnlinePayment: true,
-      });
-    })());
-
-  const data = await qboFetch(connection, `/invoice/${qboInvoiceId}?include=invoiceLink`);
-  return { qboInvoiceId, invoiceLink: data.Invoice.InvoiceLink as string };
-}
-
-// Returns the current balance on a QuickBooks invoice (0 once fully paid),
-// or null if QuickBooks isn't connected.
-export async function getQboInvoiceBalance(
-  qboInvoiceId: string,
-  organizationId: string
-): Promise<number | null> {
-  const connection = await getValidConnection(organizationId);
-  if (!connection) return null;
-  const data = await qboFetch(connection, `/invoice/${qboInvoiceId}`);
-  return data.Invoice.Balance as number;
 }
 
 // Pushes a paid local invoice to QuickBooks as an Invoice + a linked Payment

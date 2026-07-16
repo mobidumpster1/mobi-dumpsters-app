@@ -7,6 +7,7 @@ import { str } from "@/lib/formData";
 import { normalizeTagsInput } from "@/lib/tags";
 import { geocodeAddress } from "@/lib/geocode";
 import { requireUser } from "@/lib/session";
+import { createSetupIntent, savePaymentMethodFromSetupIntent } from "@/lib/stripe";
 
 export async function createCustomer(formData: FormData) {
   const user = await requireUser();
@@ -106,5 +107,36 @@ export async function addCustomerNote(customerId: string, formData: FormData) {
     data: { customerId, content, type },
   });
 
+  revalidatePath(`/customers/${customerId}`);
+}
+
+// Starts a SetupIntent for staff to collect a card over the phone or
+// backfill one for an existing customer — same underlying flow the
+// booking page uses, just triggered manually instead of during checkout.
+export async function startCustomerCardSetup(customerId: string) {
+  const user = await requireUser();
+  const customer = await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
+
+  const result = await createSetupIntent(user.effectiveOrganizationId, {
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    stripeCustomerId: customer.stripeCustomerId,
+  });
+  if (!result) {
+    throw new Error("Connect Stripe in Settings before adding a card.");
+  }
+  return result;
+}
+
+export async function confirmCustomerCardSetup(customerId: string, setupIntentId: string) {
+  const user = await requireUser();
+  await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
+  await savePaymentMethodFromSetupIntent(user.effectiveOrganizationId, setupIntentId);
   revalidatePath(`/customers/${customerId}`);
 }

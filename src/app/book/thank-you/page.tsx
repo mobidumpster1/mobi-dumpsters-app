@@ -2,8 +2,9 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getOrgBranding } from "@/lib/orgBranding";
 import { getPublicOrganizationId } from "@/lib/session";
-import { getValidConnection } from "@/lib/quickbooks";
+import { getStripeConnection, createSetupIntent } from "@/lib/stripe";
 import { payBookingInvoiceNow } from "../actions";
+import { SaveCardSection } from "../SaveCardSection";
 
 export default async function ThankYouPage({
   searchParams,
@@ -15,13 +16,30 @@ export default async function ThankYouPage({
   const branding = await getOrgBranding(organizationId);
 
   const [invoice, connection] = await Promise.all([
-    invoiceId ? db.invoice.findUnique({ where: { id: invoiceId } }) : null,
-    getValidConnection(organizationId),
+    invoiceId
+      ? db.invoice.findUnique({
+          where: { id: invoiceId },
+          include: { booking: { include: { customer: true } }, customer: true },
+        })
+      : null,
+    getStripeConnection(organizationId),
   ]);
 
   // Already paid (e.g. they hit back after paying, or clicked twice).
   const canPayNow = invoice && connection && invoice.status !== "paid";
   const payNowWithId = invoice ? payBookingInvoiceNow.bind(null, invoice.id) : null;
+
+  const customer = invoice?.booking?.customer ?? invoice?.customer ?? null;
+  const cardSetup =
+    connection && invoice && customer && !customer.stripePaymentMethodId
+      ? await createSetupIntent(organizationId, {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          stripeCustomerId: customer.stripeCustomerId,
+        })
+      : null;
 
   return (
     <div className="theme-public-dark flex min-h-screen items-center justify-center bg-background px-4">
@@ -56,9 +74,25 @@ export default async function ThankYouPage({
                   type="submit"
                   className="w-full rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
                 >
-                  Pay ${invoice.amount.toFixed(2)} Now via QuickBooks
+                  Pay ${invoice.amount.toFixed(2)} Now
                 </button>
               </form>
+            )}
+
+            {cardSetup && (
+              <div className="mt-4 border-t border-zinc-200 pt-4">
+                <p className="text-xs font-medium text-zinc-500">
+                  Or just save a card for when the job&apos;s done — no
+                  charge now.
+                </p>
+                <div className="mt-2">
+                  <SaveCardSection
+                    invoiceId={invoice.id}
+                    clientSecret={cardSetup.clientSecret}
+                    publishableKey={cardSetup.publishableKey}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )}

@@ -374,3 +374,25 @@ export async function deleteWebsiteSnippet(id: string) {
   });
   revalidatePath("/settings");
 }
+
+export async function saveStripeConnection(formData: FormData) {
+  const user = await requireUser();
+  const secretKey = str(formData, "secretKey");
+  const publishableKey = str(formData, "publishableKey");
+  const webhookSecret = str(formData, "webhookSecret");
+  if (!secretKey) throw new Error("Secret key is required");
+  if (!publishableKey) throw new Error("Publishable key is required");
+
+  await db.stripeConnection.upsert({
+    where: { organizationId: user.effectiveOrganizationId },
+    create: { organizationId: user.effectiveOrganizationId, secretKey, publishableKey, webhookSecret },
+    update: { secretKey, publishableKey, webhookSecret },
+  });
+  revalidatePath("/settings");
+}
+
+export async function disconnectStripe() {
+  const user = await requireUser();
+  await db.stripeConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
+  revalidatePath("/settings");
+}
