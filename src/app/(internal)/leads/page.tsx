@@ -313,7 +313,7 @@ export default async function LeadsPage({
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <ServiceAreaManager
           areas={serviceAreas}
           addAction={addServiceArea}
