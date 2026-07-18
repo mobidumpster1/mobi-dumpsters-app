@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requirePlanFor } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
 export async function addRecurringBill(formData: FormData) {
   const user = await requirePermission("canManageExpenses");
+  requirePlanFor(user, "pro");
 
   const name = str(formData, "name");
   const category = str(formData, "category");
@@ -39,6 +40,7 @@ export async function addRecurringBill(formData: FormData) {
 
 export async function updateRecurringBill(billId: string, formData: FormData) {
   const user = await requirePermission("canManageExpenses");
+  requirePlanFor(user, "pro");
 
   const name = str(formData, "name");
   const category = str(formData, "category");
@@ -70,6 +72,7 @@ export async function updateRecurringBill(billId: string, formData: FormData) {
 
 export async function toggleRecurringBillActive(billId: string, currentlyActive: boolean) {
   const user = await requirePermission("canManageExpenses");
+  requirePlanFor(user, "pro");
 
   await db.recurringBill.updateMany({
     where: { id: billId, organizationId: user.effectiveOrganizationId },
@@ -80,6 +83,7 @@ export async function toggleRecurringBillActive(billId: string, currentlyActive:
 
 export async function deleteRecurringBill(billId: string) {
   const user = await requirePermission("canManageExpenses");
+  requirePlanFor(user, "pro");
 
   await db.recurringBill.deleteMany({
     where: { id: billId, organizationId: user.effectiveOrganizationId },
@@ -93,6 +97,7 @@ export async function deleteRecurringBill(billId: string) {
 // the recurring bill itself, so it can be logged again next period.
 export async function logRecurringBillAsExpense(billId: string) {
   const user = await requirePermission("canManageExpenses");
+  requirePlanFor(user, "pro");
 
   const bill = await db.recurringBill.findFirstOrThrow({
     where: { id: billId, organizationId: user.effectiveOrganizationId },

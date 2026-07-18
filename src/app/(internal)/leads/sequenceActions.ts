@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requirePlanFor } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { enrollLeadInSequence, sendSequenceStep, stopEnrollment } from "@/lib/leadSequences";
 
 export async function updateDailySendCap(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const capStr = str(formData, "dailySendCap");
   const dailySendCap = capStr ? Math.max(1, Number(capStr) || 0) : 25;
@@ -24,6 +25,7 @@ export async function updateDailySendCap(formData: FormData) {
 
 export async function createSequence(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
@@ -38,6 +40,7 @@ export async function createSequence(formData: FormData) {
 
 export async function toggleSequenceAutoSend(sequenceId: string, autoSend: boolean) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   await db.emailSequence.updateMany({
     where: { id: sequenceId, organizationId: user.effectiveOrganizationId },
     data: { autoSend },
@@ -47,6 +50,7 @@ export async function toggleSequenceAutoSend(sequenceId: string, autoSend: boole
 
 export async function toggleSequenceActive(sequenceId: string, active: boolean) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   await db.emailSequence.updateMany({
     where: { id: sequenceId, organizationId: user.effectiveOrganizationId },
     data: { active },
@@ -57,6 +61,7 @@ export async function toggleSequenceActive(sequenceId: string, active: boolean) 
 
 export async function deleteSequence(sequenceId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   await db.emailSequence.deleteMany({
     where: { id: sequenceId, organizationId: user.effectiveOrganizationId },
   });
@@ -67,6 +72,7 @@ export async function deleteSequence(sequenceId: string) {
 
 export async function addSequenceStep(sequenceId: string, formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const templateId = str(formData, "templateId");
   const delayDaysStr = str(formData, "delayDays");
@@ -87,6 +93,7 @@ export async function addSequenceStep(sequenceId: string, formData: FormData) {
 
 export async function deleteSequenceStep(stepId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   await db.sequenceStep.findFirstOrThrow({
     where: { id: stepId, sequence: { organizationId: user.effectiveOrganizationId } },
@@ -107,6 +114,7 @@ export async function deleteSequenceStep(stepId: string) {
 
 export async function enrollLeadAction(leadId: string, sequenceId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   const result = await enrollLeadInSequence(leadId, sequenceId, user.effectiveOrganizationId);
   if (result === "skipped") {
     throw new Error(
@@ -122,6 +130,7 @@ export async function enrollLeadAction(leadId: string, sequenceId: string) {
 // status) rather than failing the whole batch.
 export async function enrollAllVisibleAction(leadIds: string[], sequenceId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   let enrolled = 0;
   let skipped = 0;
@@ -135,6 +144,10 @@ export async function enrollAllVisibleAction(leadIds: string[], sequenceId: stri
   return { enrolled, skipped };
 }
 
+// Not plan-gated: stopping an enrollment should always be possible (e.g.
+// after downgrading from Pro with sequences already running), matching
+// the same "off switches aren't gated" convention as disconnectTwilio/
+// disconnectStripe/disconnectQuickBooks.
 export async function stopEnrollmentAction(enrollmentId: string) {
   const user = await requirePermission("canManageLeads");
   await stopEnrollment(enrollmentId, "manual", user.effectiveOrganizationId);
@@ -146,6 +159,7 @@ export async function stopEnrollmentAction(enrollmentId: string) {
 // person instead of a schedule.
 export async function sendDueNowAction(enrollmentId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   const result = await sendSequenceStep(enrollmentId, user.effectiveOrganizationId);
   if (!result.ok) throw new Error(result.reason);
   revalidatePath("/leads");

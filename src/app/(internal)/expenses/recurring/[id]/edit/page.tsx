@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Field, inputClass } from "@/components/Field";
 import { updateRecurringBill } from "../../../recurringActions";
-import { requireUser } from "@/lib/session";
+import { hasPlan, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,7 @@ export default async function EditRecurringBillPage({
 }) {
   const { id } = await params;
   const user = await requireUser();
+  if (!hasPlan(user, "pro")) redirect("/expenses");
   const bill = await db.recurringBill.findFirst({
     where: { id, organizationId: user.effectiveOrganizationId },
   });

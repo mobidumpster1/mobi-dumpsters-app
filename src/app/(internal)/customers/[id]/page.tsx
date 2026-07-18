@@ -18,9 +18,15 @@ import { MediaGrid } from "@/components/MediaGrid";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Tabs } from "@/components/Tabs";
 import { CardOnFileSection } from "../CardOnFileSection";
+import { SendSmsForm } from "../SendSmsForm";
+import { CopyTextButton } from "@/components/CopyTextButton";
 import { formatDate } from "@/lib/date";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
-import { requireUser } from "@/lib/session";
+import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES } from "@/lib/quoteStatus";
+import { shortReferralCode } from "@/lib/referralCode";
+import { siteOrigin } from "@/lib/email";
+import { requireUser, hasPlan } from "@/lib/session";
+import { PlanGateNotice } from "@/components/PlanGateNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +53,9 @@ export default async function CustomerDetailPage({
       signedAgreements: { orderBy: { agreedAt: "desc" } },
       dumpLogEntries: { orderBy: { date: "desc" }, include: { booking: true } },
       creditEntries: { orderBy: { createdAt: "desc" } },
+      smsMessages: { orderBy: { createdAt: "asc" } },
+      quotes: { orderBy: { createdAt: "desc" } },
+      referredCustomers: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -496,10 +505,82 @@ export default async function CustomerDetailPage({
     </>
   );
 
+  const messagesTab = (
+    <>
+      <div className="flex flex-col gap-2 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        {customer.smsMessages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex flex-col gap-0.5 ${message.direction === "outbound" ? "items-end" : "items-start"}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                message.direction === "outbound"
+                  ? "bg-brand text-white"
+                  : "bg-zinc-100 text-zinc-900"
+              }`}
+            >
+              {message.body}
+            </div>
+            <p className="text-xs text-zinc-400">
+              {message.createdAt.toLocaleString()}
+              {message.direction === "outbound" && message.status !== "sent" && ` · ${message.status}`}
+            </p>
+          </div>
+        ))}
+        {customer.smsMessages.length === 0 && (
+          <p className="text-center text-zinc-400">No texts yet.</p>
+        )}
+      </div>
+
+      <SendSmsForm customerId={customer.id} />
+    </>
+  );
+
+  const quotesTab = (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        {customer.quotes.map((quote) => (
+          <Link
+            key={quote.id}
+            href={`/quotes/${quote.id}`}
+            className="flex items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3 text-sm hover:bg-zinc-100"
+          >
+            <div>
+              <p className="font-medium text-ink">{quote.quoteNumber}</p>
+              <p className="text-zinc-500">{formatDate(quote.createdAt)}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-ink">${quote.amount.toFixed(2)}</span>
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-xs font-black capitalize ${
+                  QUOTE_STATUS_STYLES[quote.status] ?? "bg-zinc-500 text-white"
+                }`}
+              >
+                {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+              </span>
+            </div>
+          </Link>
+        ))}
+        {customer.quotes.length === 0 && (
+          <p className="text-center text-zinc-400">No quotes yet.</p>
+        )}
+      </div>
+      <Link
+        href={`/quotes/new?customerId=${customer.id}`}
+        className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+      >
+        Create Quote
+      </Link>
+    </div>
+  );
+
   const tabs = [
     { id: "jobs", label: "Jobs & Billing", content: jobsTab },
     { id: "dump", label: "Dump Log & Credit", content: dumpAndCreditTab },
     { id: "media", label: "Photos & Documents", content: mediaTab },
+    { id: "messages", label: "Messages", content: messagesTab },
+    { id: "quotes", label: "Quotes", content: quotesTab },
     { id: "notes", label: "Communication Log", content: notesTab },
   ];
 
@@ -605,6 +686,47 @@ export default async function CustomerDetailPage({
             cardLast4={customer.stripeCardLast4}
           />
         </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h2 className="text-sm font-semibold text-zinc-700">Referrals</h2>
+        {!hasPlan(user, "pro") ? (
+          <PlanGateNotice
+            requiredPlan="pro"
+            description="Give this customer a shareable referral link, and automatically track who they bring in."
+          />
+        ) : (
+          <>
+            <p className="mt-1 text-xs text-zinc-500">
+              Share this link — a new customer who books through it is
+              automatically tracked as {customer.name}&apos;s referral.
+            </p>
+            <div className="mt-3">
+              <CopyTextButton
+                text={`${siteOrigin()}/book?ref=${shortReferralCode(customer.referralCode)}`}
+                label="Copy Referral Link"
+                className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              />
+            </div>
+            {customer.referredCustomers.length > 0 && (
+              <div className="mt-3 border-t border-zinc-100 pt-3">
+                <p className="text-xs font-medium text-zinc-500">Referred</p>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {customer.referredCustomers.map((referred) => (
+                    <li key={referred.id}>
+                      <Link
+                        href={`/customers/${referred.id}`}
+                        className="text-sm text-brand hover:underline"
+                      >
+                        {referred.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mt-6">

@@ -11,6 +11,8 @@ import { sendPendingReviewRequests } from "@/lib/reviewRequest";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { getJobCostingSettings } from "@/lib/jobCostingSettings";
+import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
 import { getWinBackSettings } from "@/lib/winbackSettings";
@@ -19,7 +21,7 @@ import {
   resetEmailTemplate,
   type EmailTemplateKey,
 } from "@/lib/emailTemplates";
-import { requireUser } from "@/lib/session";
+import { requireUser, requirePlanFor } from "@/lib/session";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -30,6 +32,7 @@ function parsePick(formData: FormData, key: string) {
 
 export async function saveAccountMappings(formData: FormData) {
   const user = await requireUser();
+  requirePlanFor(user, "team");
   const connection = await db.quickBooksConnection.findUnique({
     where: { organizationId: user.effectiveOrganizationId },
   });
@@ -62,6 +65,7 @@ export async function disconnectQuickBooks() {
 
 export async function importCustomersFromQuickBooks() {
   const user = await requireUser();
+  requirePlanFor(user, "team");
   const connection = await getValidConnection(user.effectiveOrganizationId);
   if (!connection) throw new Error("Not connected to QuickBooks");
 
@@ -115,6 +119,7 @@ export async function importCustomersFromQuickBooks() {
 // nothing the app itself already pushed gets duplicated back in.
 export async function importExpensesFromQuickBooks() {
   const user = await requireUser();
+  requirePlanFor(user, "team");
   const connection = await getValidConnection(user.effectiveOrganizationId);
   if (!connection) throw new Error("Not connected to QuickBooks");
 
@@ -310,6 +315,34 @@ export async function updateJobNotificationSettings(formData: FormData) {
   revalidatePath("/settings");
 }
 
+export async function updateJobCostingSettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getJobCostingSettings(user.effectiveOrganizationId);
+  const percentStr = str(formData, "marginAlertPercent");
+  const marginAlertPercent = percentStr ? Math.max(0, Math.min(100, Number(percentStr) || 0)) : 20;
+
+  await db.jobCostingSettings.update({
+    where: { id: settings.id },
+    data: { marginAlertPercent },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateAutomationSettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getAutomationSettings(user.effectiveOrganizationId);
+  const capStr = str(formData, "dailyActionCap");
+  const dailyActionCap = capStr ? Math.max(1, Number(capStr) || 200) : 200;
+
+  await db.automationSettings.update({
+    where: { id: settings.id },
+    data: { dailyActionCap },
+  });
+
+  revalidatePath("/settings");
+}
+
 export async function updateDeliveryReminderSettings(formData: FormData) {
   const user = await requireUser();
   const settings = await getDeliveryReminderSettings(user.effectiveOrganizationId);
@@ -348,6 +381,7 @@ export async function resetEmailTemplateToDefault(key: EmailTemplateKey) {
 
 export async function saveWebsiteSnippet(formData: FormData) {
   const user = await requireUser();
+  requirePlanFor(user, "team");
   const id = str(formData, "id");
   const name = str(formData, "name");
   const html = str(formData, "html");
@@ -369,6 +403,7 @@ export async function saveWebsiteSnippet(formData: FormData) {
 
 export async function deleteWebsiteSnippet(id: string) {
   const user = await requireUser();
+  requirePlanFor(user, "team");
   await db.websiteSnippet.deleteMany({
     where: { id, organizationId: user.effectiveOrganizationId },
   });
@@ -394,5 +429,29 @@ export async function saveStripeConnection(formData: FormData) {
 export async function disconnectStripe() {
   const user = await requireUser();
   await db.stripeConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
+  revalidatePath("/settings");
+}
+
+export async function saveTwilioConnection(formData: FormData) {
+  const user = await requireUser();
+  requirePlanFor(user, "pro");
+  const accountSid = str(formData, "accountSid");
+  const authToken = str(formData, "authToken");
+  const phoneNumber = str(formData, "phoneNumber");
+  if (!accountSid) throw new Error("Account SID is required");
+  if (!authToken) throw new Error("Auth token is required");
+  if (!phoneNumber) throw new Error("Twilio phone number is required");
+
+  await db.twilioConnection.upsert({
+    where: { organizationId: user.effectiveOrganizationId },
+    create: { organizationId: user.effectiveOrganizationId, accountSid, authToken, phoneNumber },
+    update: { accountSid, authToken, phoneNumber },
+  });
+  revalidatePath("/settings");
+}
+
+export async function disconnectTwilio() {
+  const user = await requireUser();
+  await db.twilioConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }

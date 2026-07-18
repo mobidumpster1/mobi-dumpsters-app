@@ -3,6 +3,7 @@ import { BookingForm } from "./BookingForm";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getOrgBranding } from "@/lib/orgBranding";
 import { UtmCapture } from "@/components/UtmCapture";
+import { ReferralCapture } from "@/components/ReferralCapture";
 import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 import { getPublicOrganizationId } from "@/lib/session";
 
@@ -45,6 +46,7 @@ export default async function PublicBookingPage({
       }
     >
       <UtmCapture />
+      <ReferralCapture />
       {isEmbed && <EmbedAutoResize />}
       <div className="mx-auto max-w-xl">
         {!isEmbed && (

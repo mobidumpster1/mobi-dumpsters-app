@@ -13,8 +13,13 @@ const DEFAULT_LINKS = [
   { href: "/calendar", label: "Calendar" },
   { href: "/customers", label: "Customers" },
   { href: "/leads", label: "Leads" },
+  { href: "/quotes", label: "Quotes" },
   { href: "/equipment", label: "Equipment" },
   { href: "/mileage", label: "Mileage" },
+  { href: "/maintenance", label: "Maintenance" },
+  { href: "/time", label: "Track Time" },
+  { href: "/reviews", label: "Reviews" },
+  { href: "/automation", label: "Automation" },
   { href: "/bookings", label: "Bookings" },
   { href: "/invoices", label: "Invoices" },
   { href: "/agreements", label: "Agreements" },
@@ -50,25 +55,48 @@ export type SidebarUser = {
   canViewReports: boolean;
   canManageLeads: boolean;
   isPlatformAdmin: boolean;
+  // The effective org's subscription tier — solo | team | pro. Gates
+  // Team/Pro-only features regardless of role, unlike the permission
+  // flags above (which only ever restrict staff, never the owner).
+  plan: string;
 };
 
-// Owner sees everything. Staff see everything except Settings (never
-// togglable — it's how permissions themselves get granted) and whatever
-// they haven't been individually granted access to. Platform Admin is
-// separate from both — it's gated purely on isPlatformAdmin, since it's a
-// cross-organization support capability rather than an in-org permission.
+// session.ts's hasPlan() can't be imported here (it's "server-only"), so
+// this is a small standalone copy of the same rank comparison.
+const PLAN_RANK: Record<string, number> = { solo: 0, team: 1, pro: 2 };
+function planAtLeast(plan: string, minPlan: "team" | "pro"): boolean {
+  return (PLAN_RANK[plan] ?? 0) >= PLAN_RANK[minPlan];
+}
+
+// Owner sees everything a staff permission would gate. Staff see
+// everything except Settings (never togglable — it's how permissions
+// themselves get granted) and whatever they haven't been individually
+// granted access to. Plan gating applies on top of that, to everyone
+// including the owner, since a Solo-plan owner doesn't get Team/Pro
+// features just by being the owner. Platform Admin is separate from both
+// — it's gated purely on isPlatformAdmin, a cross-organization support
+// capability rather than an in-org permission.
 function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
-  const base = user.role === "owner"
+  const permissionFiltered = user.role === "owner"
     ? DEFAULT_LINKS
     : DEFAULT_LINKS.filter((link) => {
-        if (link.href === "/settings") return false;
+        if (link.href === "/settings" || link.href === "/automation") return false;
         if (link.href === "/reports") return user.canViewReports;
         if (link.href === "/documents") return user.canViewReports;
         if (link.href === "/leads") return user.canManageLeads;
         if (link.href === "/expenses") return user.canManageExpenses;
         return true;
       });
-  return base.filter((link) => link.href !== "/platform-admin" || user.isPlatformAdmin);
+  const planFiltered = permissionFiltered.filter((link) => {
+    if (link.href === "/leads" || link.href === "/quotes" || link.href === "/reports") {
+      return planAtLeast(user.plan, "team");
+    }
+    if (link.href === "/time" || link.href === "/reviews" || link.href === "/automation") {
+      return planAtLeast(user.plan, "pro");
+    }
+    return true;
+  });
+  return planFiltered.filter((link) => link.href !== "/platform-admin" || user.isPlatformAdmin);
 }
 
 // Applies a saved href order to the given link list, appending any links

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccount } from "@/lib/quickbooks";
+import { isConfigured as isGoogleBusinessConfigured } from "@/lib/googleBusinessProfile";
 import {
   saveAccountMappings,
   disconnectQuickBooks,
@@ -13,6 +15,8 @@ import {
   updateInvoiceReminderSettings,
   sendInvoiceRemindersNow,
   updateJobNotificationSettings,
+  updateJobCostingSettings,
+  updateAutomationSettings,
   updateDeliveryReminderSettings,
   sendDeliveryRemindersNow,
   saveEmailTemplate,
@@ -24,14 +28,21 @@ import {
   deleteWebsiteSnippet,
   saveStripeConnection,
   disconnectStripe,
+  disconnectTwilio,
 } from "./actions";
 import { getStripeConnection } from "@/lib/stripe";
-import { addStaffUser, updateStaffPermissions, setStaffActive } from "./staffActions";
+import { getTwilioConnection } from "@/lib/twilio";
+import { updateStaffPermissions, setStaffActive } from "./staffActions";
+import { AddStaffForm } from "./AddStaffForm";
+import { TwilioConnectionForm } from "./TwilioConnectionForm";
+import { UpgradeButton, ManageBillingButton } from "./BillingButtons";
 import { setPlatformAdmin } from "../platform-admin/actions";
 import { getAgreementSettings } from "@/lib/agreement";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
+import { getJobCostingSettings } from "@/lib/jobCostingSettings";
+import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { getWinBackSettings } from "@/lib/winbackSettings";
 import { getAllEmailTemplates } from "@/lib/emailTemplates";
@@ -48,8 +59,9 @@ import { Tabs, type TabItem } from "@/components/Tabs";
 import { buildWebsiteWidgets } from "@/lib/websiteWidgets";
 import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requireUser, hasPlan } from "@/lib/session";
 import { headers } from "next/headers";
+import { PlanGateNotice } from "@/components/PlanGateNotice";
 
 // Redirect-back confirmation messages (QuickBooks connect, "Send Now"
 // buttons) need to land on the tab that actually shows them, not whichever
@@ -58,17 +70,31 @@ import { headers } from "next/headers";
 function computeInitialTab(params: {
   qb_connected?: string;
   qb_error?: string;
+  gbp_connected?: string;
+  gbp_error?: string;
   reviews_sent?: string;
   invoices_sent?: string;
   deliveries_sent?: string;
+  billing_success?: string;
+  billing_cancelled?: string;
 }): string {
-  if (params.qb_connected !== undefined || params.qb_error !== undefined) return "integrations";
+  if (
+    params.qb_connected !== undefined ||
+    params.qb_error !== undefined ||
+    params.gbp_connected !== undefined ||
+    params.gbp_error !== undefined
+  ) {
+    return "integrations";
+  }
   if (
     params.reviews_sent !== undefined ||
     params.invoices_sent !== undefined ||
     params.deliveries_sent !== undefined
   ) {
     return "emails";
+  }
+  if (params.billing_success !== undefined || params.billing_cancelled !== undefined) {
+    return "billing";
   }
   return "business";
 }
@@ -81,6 +107,7 @@ const PERMISSION_OPTIONS = [
   { key: "canManageExpenses", label: "Manage expenses & recurring bills" },
   { key: "canViewReports", label: "View profit reports" },
   { key: "canManageLeads", label: "Manage Leads & Win-Back outreach" },
+  { key: "canManageTime", label: "Edit/delete other staff's time entries" },
 ] as const;
 
 function accountOptionValue(account: QboAccount) {
@@ -93,12 +120,16 @@ export default async function SettingsPage({
   searchParams: Promise<{
     qb_connected?: string;
     qb_error?: string;
+    gbp_connected?: string;
+    gbp_error?: string;
     reviews_sent?: string;
     reviews_checked?: string;
     invoices_sent?: string;
     invoices_checked?: string;
     deliveries_sent?: string;
     deliveries_checked?: string;
+    billing_success?: string;
+    billing_cancelled?: string;
   }>;
 }) {
   const currentUser = await requireUser();
@@ -107,14 +138,22 @@ export default async function SettingsPage({
   const {
     qb_connected,
     qb_error,
+    gbp_connected,
+    gbp_error,
     reviews_sent,
     reviews_checked,
     invoices_sent,
     invoices_checked,
     deliveries_sent,
     deliveries_checked,
+    billing_success,
+    billing_cancelled,
   } = await searchParams;
   const configured = isQuickBooksConfigured();
+  const googleBusinessConfigured = isGoogleBusinessConfigured();
+  const googleBusinessConnection = await db.googleBusinessProfileConnection.findUnique({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+  });
   const staffUsers = await db.user.findMany({
     where: { organizationId: currentUser.effectiveOrganizationId },
     orderBy: { createdAt: "asc" },
@@ -124,6 +163,10 @@ export default async function SettingsPage({
   const reviewSettings = await getReviewRequestSettings(currentUser.effectiveOrganizationId);
   const invoiceReminderSettings = await getInvoiceReminderSettings(currentUser.effectiveOrganizationId);
   const jobNotificationSettings = await getJobNotificationSettings(currentUser.effectiveOrganizationId);
+  const jobCostingSettings = await getJobCostingSettings(currentUser.effectiveOrganizationId);
+  const automationSettings = hasPlan(currentUser, "pro")
+    ? await getAutomationSettings(currentUser.effectiveOrganizationId)
+    : null;
   const deliveryReminderSettings = await getDeliveryReminderSettings(currentUser.effectiveOrganizationId);
   const winBackSettings = await getWinBackSettings(currentUser.effectiveOrganizationId);
   const permitAreas = await db.permitArea.findMany({
@@ -164,6 +207,10 @@ export default async function SettingsPage({
     }
   }
   const stripeConnection = await getStripeConnection(currentUser.effectiveOrganizationId);
+  const twilioConnection = await getTwilioConnection(currentUser.effectiveOrganizationId);
+  const platformSubscription = await db.platformSubscription.findUnique({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+  });
 
   const brandingSection = (
     <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
@@ -256,6 +303,76 @@ export default async function SettingsPage({
           </button>
         </form>
       </div>
+    </section>
+  );
+
+  const jobCostingSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Job Costing</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Flags a job whose margin (revenue minus linked expenses, as a
+        percent of revenue) falls below this threshold — shown on each
+        booking&apos;s Job Costing tab and the Reports &rarr; Job Profitability table.
+      </p>
+      <form
+        action={updateJobCostingSettings}
+        className="mt-3 flex flex-wrap items-end gap-3"
+      >
+        <div className="w-32">
+          <Field label="Alert below (%)" htmlFor="marginAlertPercent">
+            <input
+              id="marginAlertPercent"
+              name="marginAlertPercent"
+              type="number"
+              min="0"
+              max="100"
+              defaultValue={jobCostingSettings.marginAlertPercent}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          Save
+        </button>
+      </form>
+    </section>
+  );
+
+  const automationSection = automationSettings && (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Automation Safety Cap</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Hard ceiling on total automated actions (emails, texts, notes) across every rule combined,
+        per day — the outermost safety valve on top of each rule&apos;s own per-run/per-day caps.
+        Manage the rules themselves on the{" "}
+        <Link href="/automation" className="text-brand hover:underline">
+          Automation
+        </Link>{" "}
+        page.
+      </p>
+      <form action={updateAutomationSettings} className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="w-32">
+          <Field label="Actions per day" htmlFor="dailyActionCap">
+            <input
+              id="dailyActionCap"
+              name="dailyActionCap"
+              type="number"
+              min="1"
+              defaultValue={automationSettings.dailyActionCap}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          Save
+        </button>
+      </form>
     </section>
   );
 
@@ -359,6 +476,19 @@ export default async function SettingsPage({
                     {perm.label}
                   </label>
                 ))}
+                <div className="max-w-[200px]">
+                  <Field label="Hourly Rate (for Track Time)" htmlFor={`hourlyRate-${staffUser.id}`}>
+                    <input
+                      id={`hourlyRate-${staffUser.id}`}
+                      name="hourlyRate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      defaultValue={staffUser.hourlyRate ?? ""}
+                      className={`${inputClass} py-2 text-sm`}
+                    />
+                  </Field>
+                </div>
                 <div>
                   <button
                     type="submit"
@@ -373,42 +503,7 @@ export default async function SettingsPage({
         ))}
       </div>
 
-      <form
-        action={addStaffUser}
-        className="mt-4 flex flex-col gap-4 border-t border-zinc-100 pt-4"
-      >
-        <p className="text-sm font-medium text-ink">Add a Staff Account</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Name" htmlFor="staffName">
-            <input id="staffName" name="name" required className={inputClass} />
-          </Field>
-          <Field label="Email" htmlFor="staffEmail">
-            <input
-              id="staffEmail"
-              name="email"
-              type="email"
-              required
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Temporary Password" htmlFor="staffPassword">
-            <input
-              id="staffPassword"
-              name="password"
-              required
-              className={inputClass}
-            />
-          </Field>
-        </div>
-        <div>
-          <button
-            type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-          >
-            + Add Staff Account
-          </button>
-        </div>
-      </form>
+      <AddStaffForm />
     </section>
   );
 
@@ -433,27 +528,36 @@ export default async function SettingsPage({
         </p>
       )}
 
-      {!configured && (
-        <p className="mt-3 text-zinc-500">
-          QuickBooks isn&apos;t set up yet. Add your Intuit Developer Client ID,
-          Client Secret, and redirect URL to the app&apos;s environment settings,
-          then refresh this page.
-        </p>
+      {!hasPlan(currentUser, "team") ? (
+        <PlanGateNotice
+          requiredPlan="team"
+          description="Sync customers, invoices, and expenses straight to your QuickBooks Online account instead of entering them by hand."
+        />
+      ) : (
+        <>
+          {!configured && (
+            <p className="mt-3 text-zinc-500">
+              QuickBooks isn&apos;t set up yet. Add your Intuit Developer Client ID,
+              Client Secret, and redirect URL to the app&apos;s environment settings,
+              then refresh this page.
+            </p>
+          )}
+
+          {configured && !connection && (
+            <div className="mt-4">
+              <p className="text-zinc-500">Not connected yet.</p>
+              <a
+                href="/api/quickbooks/connect"
+                className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              >
+                Connect to QuickBooks
+              </a>
+            </div>
+          )}
+        </>
       )}
 
-      {configured && !connection && (
-        <div className="mt-4">
-          <p className="text-zinc-500">Not connected yet.</p>
-          <a
-            href="/api/quickbooks/connect"
-            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-          >
-            Connect to QuickBooks
-          </a>
-        </div>
-      )}
-
-      {configured && connection && (
+      {hasPlan(currentUser, "team") && configured && connection && (
         <div className="mt-4 flex flex-col gap-6">
           <p className="text-sm text-zinc-500">
             Connected (
@@ -564,6 +668,58 @@ export default async function SettingsPage({
               </button>
             </form>
           </div>
+        </div>
+      )}
+    </section>
+  );
+
+  const googleBusinessSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Google Business Profile</h2>
+
+      {gbp_connected && (
+        <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          Connected to Google Business Profile successfully.
+        </p>
+      )}
+      {gbp_error && (
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          Something went wrong connecting ({gbp_error}). Try again.
+        </p>
+      )}
+
+      {!hasPlan(currentUser, "pro") ? (
+        <PlanGateNotice
+          requiredPlan="pro"
+          description="Sync your Google reviews in automatically and reply to them without leaving the app."
+        />
+      ) : !googleBusinessConfigured ? (
+        <p className="mt-3 text-zinc-500">
+          Google Business Profile isn&apos;t set up yet — this needs a Google-approved API
+          application, a manual review process on Google&apos;s side. Once approved, add the
+          OAuth Client ID, Client Secret, and redirect URL to the app&apos;s environment settings.
+        </p>
+      ) : !googleBusinessConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">Not connected yet.</p>
+          <a
+            href="/api/google-business/connect"
+            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Connect Google Business Profile
+          </a>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="text-sm text-zinc-500">
+            Connected
+            {googleBusinessConnection.locationName
+              ? ` — syncing reviews for ${googleBusinessConnection.locationName}.`
+              : " — pick a location on the Reviews page to finish setup."}
+          </p>
+          <a href="/reviews" className="text-sm font-semibold text-brand hover:underline">
+            Go to Reviews →
+          </a>
         </div>
       )}
     </section>
@@ -686,6 +842,57 @@ export default async function SettingsPage({
           <form action={disconnectStripe} className="border-t border-zinc-100 pt-4">
             <ConfirmButton
               message="Disconnect Stripe? Staff won't be able to charge cards on file or send payment links until you reconnect."
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              Disconnect
+            </ConfirmButton>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+
+  const twilioSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Two-Way Texting</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Text customers straight from their profile, and their replies come
+        back into the app. Powered by Twilio.
+      </p>
+
+      {!twilioConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">Not connected yet.</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Create an account at twilio.com, buy a phone number that can
+            send/receive SMS, then paste your Account SID, Auth Token, and
+            that phone number below (find the SID and token on your
+            Twilio Console dashboard).
+          </p>
+          <TwilioConnectionForm mode="connect" />
+          <p className="-mt-2 text-xs text-zinc-500">
+            In the Twilio Console, set this number&apos;s messaging
+            webhook (and status callback URL) to{" "}
+            <code className="rounded bg-zinc-100 px-1 py-0.5">
+              {widgetBaseUrl}/api/webhooks/twilio
+            </code>{" "}
+            so replies and delivery updates make it back into the app.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-4">
+          <p className="text-sm text-zinc-500">
+            Connected — texting from {twilioConnection.phoneNumber}.
+          </p>
+          <TwilioConnectionForm
+            mode="update"
+            defaultAccountSid={twilioConnection.accountSid}
+            defaultAuthToken={twilioConnection.authToken}
+            defaultPhoneNumber={twilioConnection.phoneNumber}
+          />
+          <form action={disconnectTwilio} className="border-t border-zinc-100 pt-4">
+            <ConfirmButton
+              message="Disconnect Twilio? Staff won't be able to send or receive texts until you reconnect."
               className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
             >
               Disconnect
@@ -1121,52 +1328,102 @@ export default async function SettingsPage({
         current categories and pricing — nothing here goes stale, since
         it&apos;s generated fresh every time you copy it.
       </p>
-      {!orgDomain?.publicDomain && (
-        <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          These currently point to {widgetBaseUrl} — set a custom domain in
-          the Business tab first so they point to your own domain instead.
+      {!hasPlan(currentUser, "team") ? (
+        <PlanGateNotice
+          requiredPlan="team"
+          description="Ready-to-paste widgets for your own website, generated live from your categories and pricing, plus a library of saved custom snippets."
+        />
+      ) : (
+        <>
+          {!orgDomain?.publicDomain && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              These currently point to {widgetBaseUrl} — set a custom domain in
+              the Business tab first so they point to your own domain instead.
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-col gap-3">
+            {websiteWidgets.map((widget) => (
+              <details key={widget.id} className="rounded-xl border border-zinc-200 p-4">
+                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                  <span>
+                    <span className="font-medium text-ink">{widget.title}</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">{widget.description}</span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <CopyTextButton
+                      text={widget.html}
+                      label="Copy Embed Code"
+                      className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    />
+                    <CopyTextButton
+                      text={widget.directLink}
+                      label="Copy Link"
+                      className="text-xs font-semibold text-brand hover:underline"
+                    />
+                  </span>
+                </summary>
+                <pre className="mt-3 overflow-x-auto rounded-lg bg-zinc-50 p-3 text-xs text-zinc-700">
+                  {widget.html}
+                </pre>
+              </details>
+            ))}
+          </div>
+
+          <div className="mt-6 border-t border-zinc-100 pt-4">
+            <h3 className="text-sm font-semibold text-ink">Saved Snippets</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Your own custom HTML — a hand-tweaked embed, a promo banner,
+              anything you want to save and reuse.
+            </p>
+            <WebsiteSnippetManager
+              snippets={websiteSnippets}
+              saveAction={saveWebsiteSnippet}
+              deleteAction={deleteWebsiteSnippet}
+            />
+          </div>
+        </>
+      )}
+    </section>
+  );
+
+  const PLAN_LABELS: Record<string, string> = { solo: "Solo", team: "Team", pro: "Pro" };
+  const billingSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Plan & Billing</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Your subscription to this app itself — separate from the Stripe
+        account above, which is for charging your own customers.
+      </p>
+
+      {billing_success !== undefined && (
+        <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          Plan updated — thanks!
+        </p>
+      )}
+      {billing_cancelled !== undefined && (
+        <p className="mt-3 rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+          Checkout cancelled — you&apos;re still on the {PLAN_LABELS[currentUser.plan]} plan.
         </p>
       )}
 
-      <div className="mt-4 flex flex-col gap-3">
-        {websiteWidgets.map((widget) => (
-          <details key={widget.id} className="rounded-xl border border-zinc-200 p-4">
-            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-              <span>
-                <span className="font-medium text-ink">{widget.title}</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">{widget.description}</span>
-              </span>
-              <span className="flex items-center gap-3">
-                <CopyTextButton
-                  text={widget.html}
-                  label="Copy Embed Code"
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-                />
-                <CopyTextButton
-                  text={widget.directLink}
-                  label="Copy Link"
-                  className="text-xs font-semibold text-brand hover:underline"
-                />
-              </span>
-            </summary>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-zinc-50 p-3 text-xs text-zinc-700">
-              {widget.html}
-            </pre>
-          </details>
-        ))}
-      </div>
+      <p className="mt-4 text-sm text-zinc-500">
+        Current plan:{" "}
+        <span className="font-semibold text-ink">{PLAN_LABELS[currentUser.plan] ?? currentUser.plan}</span>
+        {platformSubscription && platformSubscription.status !== "active" && (
+          <span className="ml-2 text-amber-600">({platformSubscription.status})</span>
+        )}
+      </p>
 
-      <div className="mt-6 border-t border-zinc-100 pt-4">
-        <h3 className="text-sm font-semibold text-ink">Saved Snippets</h3>
-        <p className="mt-1 text-sm text-zinc-500">
-          Your own custom HTML — a hand-tweaked embed, a promo banner,
-          anything you want to save and reuse.
-        </p>
-        <WebsiteSnippetManager
-          snippets={websiteSnippets}
-          saveAction={saveWebsiteSnippet}
-          deleteAction={deleteWebsiteSnippet}
-        />
+      <div className="mt-4 flex flex-wrap gap-3">
+        {currentUser.plan === "solo" && (
+          <>
+            <UpgradeButton targetPlan="team" label="Upgrade to Team" />
+            <UpgradeButton targetPlan="pro" label="Upgrade to Pro" />
+          </>
+        )}
+        {currentUser.plan === "team" && <UpgradeButton targetPlan="pro" label="Upgrade to Pro" />}
+        {platformSubscription && <ManageBillingButton />}
       </div>
     </section>
   );
@@ -1179,10 +1436,13 @@ export default async function SettingsPage({
         <>
           {brandingSection}
           {bookingLinkSection}
+          {jobCostingSection}
+          {automationSection}
         </>
       ),
     },
     { id: "team", label: "Team", content: staffSection },
+    { id: "billing", label: "Plan & Billing", content: billingSection },
     {
       id: "booking",
       label: "Booking & Agreements",
@@ -1212,7 +1472,9 @@ export default async function SettingsPage({
       content: (
         <>
           {stripeSection}
+          {twilioSection}
           {quickbooksSection}
+          {googleBusinessSection}
         </>
       ),
     },
@@ -1228,7 +1490,17 @@ export default async function SettingsPage({
     },
   ];
 
-  const initialTab = computeInitialTab({ qb_connected, qb_error, reviews_sent, invoices_sent, deliveries_sent });
+  const initialTab = computeInitialTab({
+    qb_connected,
+    qb_error,
+    gbp_connected,
+    gbp_error,
+    reviews_sent,
+    invoices_sent,
+    deliveries_sent,
+    billing_success,
+    billing_cancelled,
+  });
 
   return (
     <div className="max-w-4xl">

@@ -18,6 +18,9 @@ const PERMISSION_FIELDS = {
   canManageExpenses: true,
   canViewReports: true,
   canManageLeads: true,
+  canManageTime: true,
+  hourlyRate: true,
+  organization: { select: { plan: true } },
 } as const;
 
 // Set (only by a platform admin, via the Platform Admin page) when
@@ -51,6 +54,14 @@ export type SessionUser = {
   canManageExpenses: boolean;
   canViewReports: boolean;
   canManageLeads: boolean;
+  // Edit/delete other staff's time entries (self-clock needs no
+  // permission at all — anyone can log their own time).
+  canManageTime: boolean;
+  hourlyRate: number | null;
+  // The subscription tier of whichever org is effectively being viewed
+  // (the impersonated org's plan during platform-admin support access,
+  // same as effectiveOrganizationId) — solo | team | pro.
+  plan: string;
 };
 
 export type Permission =
@@ -58,7 +69,8 @@ export type Permission =
   | "canDeleteRecords"
   | "canManageExpenses"
   | "canViewReports"
-  | "canManageLeads";
+  | "canManageLeads"
+  | "canManageTime";
 
 // Deliberately re-checks `active` against the database on every call rather
 // than trusting the signed cookie alone — that's what makes deactivating a
@@ -76,7 +88,10 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   });
   if (!user || !user.active) return null;
 
+  const { organization, ...userFields } = user;
+
   let effectiveOrganizationId = user.organizationId;
+  let plan = organization.plan;
   let impersonating: { id: string; name: string } | null = null;
 
   // Only a platform admin's session ever looks at this cookie — anyone
@@ -84,15 +99,19 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (user.isPlatformAdmin) {
     const impersonatedOrgId = cookieStore.get(IMPERSONATION_COOKIE)?.value;
     if (impersonatedOrgId && impersonatedOrgId !== user.organizationId) {
-      const org = await db.organization.findUnique({ where: { id: impersonatedOrgId } });
+      const org = await db.organization.findUnique({
+        where: { id: impersonatedOrgId },
+        select: { id: true, name: true, plan: true },
+      });
       if (org) {
         effectiveOrganizationId = org.id;
+        plan = org.plan;
         impersonating = { id: org.id, name: org.name };
       }
     }
   }
 
-  return { ...user, effectiveOrganizationId, impersonating };
+  return { ...userFields, effectiveOrganizationId, plan, impersonating };
 }
 
 export async function requireUser(): Promise<SessionUser> {
@@ -143,5 +162,35 @@ export async function requirePermission(permission: Permission): Promise<Session
   if (!hasPermission(user, permission)) {
     throw new Error("You don't have permission to do that.");
   }
+  return user;
+}
+
+const PLAN_RANK: Record<string, number> = { solo: 0, team: 1, pro: 2 };
+
+export function hasPlan(user: SessionUser, minPlan: "team" | "pro"): boolean {
+  return (PLAN_RANK[user.plan] ?? 0) >= PLAN_RANK[minPlan];
+}
+
+const PLAN_LABELS: Record<"team" | "pro", string> = { team: "Team", pro: "Pro" };
+
+// Synchronous check against a SessionUser already in hand (e.g. one just
+// returned by requirePermission) — avoids a redundant requireUser() DB
+// round-trip when an action already guards by permission and just needs
+// to add a plan check alongside it.
+export function requirePlanFor(user: SessionUser, minPlan: "team" | "pro"): void {
+  if (!hasPlan(user, minPlan)) {
+    throw new Error(
+      `This feature needs the ${PLAN_LABELS[minPlan]} plan or higher — upgrade in Settings → Billing.`
+    );
+  }
+}
+
+// Same shape as requirePermission — first line of an action, throws rather
+// than redirecting. Gates a feature by subscription tier instead of a
+// staff permission flag. Use requirePlanFor instead when a SessionUser is
+// already available, to skip a second DB lookup.
+export async function requirePlan(minPlan: "team" | "pro"): Promise<SessionUser> {
+  const user = await requireUser();
+  requirePlanFor(user, minPlan);
   return user;
 }

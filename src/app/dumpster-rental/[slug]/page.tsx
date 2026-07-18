@@ -5,6 +5,7 @@ import { listBookableCategories } from "@/lib/availability";
 import { branding } from "@/lib/branding";
 import { serviceAreas, getServiceArea } from "@/lib/serviceAreas";
 import { UtmCapture } from "@/components/UtmCapture";
+import { ReferralCapture } from "@/components/ReferralCapture";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export default async function LocationPage({
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
       <UtmCapture />
+      <ReferralCapture />
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"

@@ -4,17 +4,23 @@ import { existsSync } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
+import { markPaid, markUnpaid, deleteInvoice } from "../actions";
+import { uploadInvoicePhoto, deleteInvoicePhoto } from "../photoActions";
+import { ChargeCardButton, SendCheckoutLinkButton } from "../InvoicePaymentActions";
 import {
-  markPaid,
-  markUnpaid,
-  deleteInvoice,
-  chargeInvoiceViaStripe,
-  sendInvoiceCheckoutLink,
-} from "../actions";
+  createPaymentSchedule,
+  deleteInstallment,
+  markInstallmentPaid,
+  markInstallmentUnpaid,
+} from "../installmentActions";
+import { ChargeInstallmentButton, SendInstallmentCheckoutLinkButton } from "../InstallmentPaymentActions";
 import { getStripeConnection } from "@/lib/stripe";
 import { Field, inputClass } from "@/components/Field";
 import { PrintButton } from "@/components/PrintButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { MediaUploadForm } from "@/components/MediaUploadForm";
+import { MediaGrid } from "@/components/MediaGrid";
+import { InstallmentScheduleBuilder } from "@/components/InstallmentScheduleBuilder";
 import { branding } from "@/lib/branding";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
 import { requireUser } from "@/lib/session";
@@ -32,6 +38,8 @@ export default async function InvoiceDetailPage({
       booking: { include: { customer: true } },
       customer: true,
       lineItems: { orderBy: { createdAt: "asc" } },
+      photos: { orderBy: { createdAt: "desc" } },
+      installments: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -40,8 +48,6 @@ export default async function InvoiceDetailPage({
   const markPaidWithId = markPaid.bind(null, invoice.id);
   const markUnpaidWithId = markUnpaid.bind(null, invoice.id);
   const deleteInvoiceWithId = deleteInvoice.bind(null, invoice.id);
-  const chargeInvoiceWithId = chargeInvoiceViaStripe.bind(null, invoice.id);
-  const sendCheckoutLinkWithId = sendInvoiceCheckoutLink.bind(null, invoice.id);
   const displayStatus = computeDisplayStatus(invoice.status, invoice.dueDate);
   const customer = invoice.booking?.customer ?? invoice.customer;
   const stripeConnection = await getStripeConnection(user.effectiveOrganizationId);
@@ -191,7 +197,21 @@ export default async function InvoiceDetailPage({
         </table>
       </div>
 
-      {invoice.status !== "paid" && customer && (
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">
+        <h2 className="text-lg font-semibold text-ink">Attachments</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Receipts, signed proof of completion, or anything else worth keeping with this invoice.
+        </p>
+        <MediaUploadForm
+          uploadAction={uploadInvoicePhoto.bind(null, invoice.id)}
+          typeOptions={[{ value: "other", label: "File" }]}
+          defaultType="other"
+          folder={`invoices/${invoice.id}`}
+        />
+        <MediaGrid items={invoice.photos} deleteAction={deleteInvoicePhoto} />
+      </div>
+
+      {invoice.status !== "paid" && customer && invoice.installments.length === 0 && (
         <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">
           <h2 className="text-lg font-semibold text-ink">Payment</h2>
           {!stripeConnection ? (
@@ -208,14 +228,7 @@ export default async function InvoiceDetailPage({
                 </span>{" "}
                 ····{customer.stripeCardLast4}
               </p>
-              <form action={chargeInvoiceWithId} className="mt-3">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-                >
-                  Charge ${invoice.amount.toFixed(2)}
-                </button>
-              </form>
+              <ChargeCardButton invoiceId={invoice.id} amount={invoice.amount} />
             </>
           ) : customer.email ? (
             <>
@@ -224,14 +237,7 @@ export default async function InvoiceDetailPage({
                 Stripe-hosted payment link instead. Paying it also saves
                 their card for next time.
               </p>
-              <form action={sendCheckoutLinkWithId} className="mt-3">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-                >
-                  Send Payment Link
-                </button>
-              </form>
+              <SendCheckoutLinkButton invoiceId={invoice.id} />
             </>
           ) : (
             <p className="mt-1 text-sm text-zinc-400">
@@ -242,8 +248,114 @@ export default async function InvoiceDetailPage({
         </div>
       )}
 
+      {(invoice.installments.length > 0 || invoice.status !== "paid") && (
+        <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">
+          <h2 className="text-lg font-semibold text-ink">Payment Schedule</h2>
+          {invoice.installments.length === 0 ? (
+            <>
+              <p className="mt-1 text-sm text-zinc-500">
+                Split this invoice into scheduled partial payments (e.g. a deposit and a balance)
+                instead of one full charge. Skip this if you&apos;d rather just charge the invoice
+                in full above.
+              </p>
+              <div className="mt-3">
+                <InstallmentScheduleBuilder
+                  invoiceAmount={invoice.amount}
+                  createAction={createPaymentSchedule.bind(null, invoice.id)}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="mt-3 flex flex-col gap-3">
+              {invoice.installments.map((installment) => (
+                <div
+                  key={installment.id}
+                  className="rounded-xl border border-zinc-200 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-zinc-900">
+                        {installment.label} — ${installment.amount.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {installment.dueDate ? `Due ${formatDate(installment.dueDate)}` : "No due date"}
+                      </p>
+                    </div>
+                    {installment.status === "paid" ? (
+                      <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-black text-white">
+                        Paid{installment.paymentMethod ? ` — ${installment.paymentMethod}` : ""}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-black text-white">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+
+                  {installment.status === "paid" ? (
+                    <form action={markInstallmentUnpaid.bind(null, installment.id)} className="mt-3">
+                      <button
+                        type="submit"
+                        className="text-sm font-semibold text-zinc-600 hover:underline"
+                      >
+                        Mark Unpaid
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="mt-3 flex flex-col gap-3">
+                      {customer && stripeConnection && (
+                        customer.stripePaymentMethodId ? (
+                          <ChargeInstallmentButton installmentId={installment.id} amount={installment.amount} />
+                        ) : customer.email ? (
+                          <SendInstallmentCheckoutLinkButton installmentId={installment.id} />
+                        ) : null
+                      )}
+                      <div className="flex flex-wrap items-end gap-2">
+                        <form
+                          action={markInstallmentPaid.bind(null, installment.id)}
+                          className="flex flex-wrap items-end gap-2"
+                        >
+                          <Field label="Payment Method (optional)" htmlFor={`paymentMethod-${installment.id}`}>
+                            <input
+                              id={`paymentMethod-${installment.id}`}
+                              name="paymentMethod"
+                              placeholder="e.g. Cash, Card, Check"
+                              className={inputClass}
+                            />
+                          </Field>
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                          >
+                            Mark Paid
+                          </button>
+                        </form>
+                        <form action={deleteInstallment.bind(null, installment.id)}>
+                          <ConfirmButton
+                            message={`Remove the "${installment.label}" payment from this schedule?`}
+                            className="text-sm font-semibold text-red-600 hover:underline"
+                          >
+                            Remove
+                          </ConfirmButton>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-6 flex items-end justify-between gap-3 print:hidden">
-        {invoice.status === "paid" ? (
+        {invoice.installments.length > 0 ? (
+          // Once a payment schedule exists, paid/unpaid status is driven
+          // entirely by the individual installments above — a whole-invoice
+          // toggle here would desync the two (e.g. marking the invoice paid
+          // while installments still show pending).
+          <div />
+        ) : invoice.status === "paid" ? (
           <form action={markUnpaidWithId}>
             <button
               type="submit"

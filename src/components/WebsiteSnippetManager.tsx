@@ -7,6 +7,10 @@ import { CopyTextButton } from "@/components/CopyTextButton";
 
 type Snippet = { id: string; name: string; html: string };
 
+// Both forms below call the server action directly (not via <form action>)
+// and catch the throw so a rejection — e.g. the Pro-plan gate — shows a
+// friendly inline error instead of crashing to Next's generic error page,
+// same fix already applied to the staff-add, SMS-send, and Twilio flows.
 function SnippetCard({
   snippet,
   saveAction,
@@ -17,6 +21,39 @@ function SnippetCard({
   deleteAction: (id: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState(snippet.name);
+  const [html, setHtml] = useState(snippet.html);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("id", snippet.id);
+      formData.set("name", name);
+      formData.set("html", html);
+      await saveAction(formData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save that snippet.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteAction(snippet.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that snippet.");
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-zinc-200">
@@ -46,44 +83,47 @@ function SnippetCard({
 
       {open && (
         <div className="border-t border-zinc-200 p-4">
-          <form action={saveAction} className="flex flex-col gap-3">
-            <input type="hidden" name="id" value={snippet.id} />
+          <form onSubmit={handleSave} className="flex flex-col gap-3">
             <Field label="Name" htmlFor={`name-${snippet.id}`}>
               <input
                 id={`name-${snippet.id}`}
-                name="name"
-                defaultValue={snippet.name}
                 required
                 className={inputClass}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </Field>
             <Field label="HTML" htmlFor={`html-${snippet.id}`}>
               <textarea
                 id={`html-${snippet.id}`}
-                name="html"
                 rows={10}
-                defaultValue={snippet.html}
                 required
                 className={`${inputClass} font-mono text-base sm:text-sm`}
+                value={html}
+                onChange={(e) => setHtml(e.target.value)}
               />
             </Field>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <div>
               <button
                 type="submit"
-                className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                disabled={saving}
+                className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
               >
-                Save
+                {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </form>
-          <form action={deleteAction.bind(null, snippet.id)} className="mt-3">
+          <div className="mt-3">
             <ConfirmButton
               message={`Delete "${snippet.name}"? This can't be undone.`}
-              className="text-sm text-red-600 hover:underline"
+              className="text-sm text-red-600 hover:underline disabled:opacity-60"
+              onClick={handleDelete}
+              disabled={deleting}
             >
-              Delete
+              {deleting ? "Deleting…" : "Delete"}
             </ConfirmButton>
-          </form>
+          </div>
         </div>
       )}
     </div>
@@ -104,6 +144,29 @@ export function WebsiteSnippetManager({
   deleteAction: (id: string) => Promise<void>;
 }) {
   const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [html, setHtml] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.set("name", name);
+      formData.set("html", html);
+      await saveAction(formData);
+      setName("");
+      setHtml("");
+      setAdding(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save that snippet.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="mt-4 flex flex-col gap-2">
@@ -121,37 +184,35 @@ export function WebsiteSnippetManager({
 
       {adding ? (
         <div className="rounded-xl border border-zinc-200 p-4">
-          <form
-            action={async (formData) => {
-              await saveAction(formData);
-              setAdding(false);
-            }}
-            className="flex flex-col gap-3"
-          >
+          <form onSubmit={handleSave} className="flex flex-col gap-3">
             <Field label="Name" htmlFor="new-snippet-name">
               <input
                 id="new-snippet-name"
-                name="name"
                 required
                 placeholder="e.g. Homepage Banner"
                 className={inputClass}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </Field>
             <Field label="HTML" htmlFor="new-snippet-html">
               <textarea
                 id="new-snippet-html"
-                name="html"
                 rows={8}
                 required
                 className={`${inputClass} font-mono text-base sm:text-sm`}
+                value={html}
+                onChange={(e) => setHtml(e.target.value)}
               />
             </Field>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                disabled={saving}
+                className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
               >
-                Save Snippet
+                {saving ? "Saving…" : "Save Snippet"}
               </button>
               <button
                 type="button"

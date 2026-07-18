@@ -14,6 +14,7 @@ import { getOrgBranding } from "@/lib/orgBranding";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
+import { resolveReferralCode } from "@/lib/referralCode";
 import { getPublicOrganizationId } from "@/lib/session";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
@@ -224,6 +225,18 @@ export async function submitBookingRequest(formData: FormData) {
     // original source stays whatever it was, even if this particular
     // booking happened to come from a different ad click.
     const utmSource = (await cookies()).get("mobi_utm_source")?.value;
+    const referralCodeCookie = (await cookies()).get("mobi_referral_code")?.value;
+    // Referral tracking is a Pro-plan feature — a Team/Solo org's
+    // customers just fall back to the UTM-derived source, same as if no
+    // ?ref= link was ever clicked.
+    const org = await db.organization.findUnique({
+      where: { id: organizationId },
+      select: { plan: true },
+    });
+    const referrer =
+      referralCodeCookie && org?.plan === "pro"
+        ? await resolveReferralCode(organizationId, referralCodeCookie)
+        : null;
     customer = await db.customer.create({
       data: {
         organizationId,
@@ -231,7 +244,10 @@ export async function submitBookingRequest(formData: FormData) {
         phone,
         email,
         address,
-        leadSource: mapUtmSourceToLeadSource(utmSource),
+        // An actual referral is a stronger signal than ad-click
+        // attribution, so it wins over whatever the UTM cookie says.
+        leadSource: referrer ? "referral" : mapUtmSourceToLeadSource(utmSource),
+        referredByCustomerId: referrer?.id,
       },
     });
   } else {

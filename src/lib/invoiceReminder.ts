@@ -15,7 +15,7 @@ const MS_PER_DAY = 86_400_000;
 // applies its own enabled/delayDays/repeatDays — one org turning this off
 // never affects another's.
 export async function sendPendingInvoiceReminders() {
-  const organizations = await db.organization.findMany({ select: { id: true } });
+  const organizations = await db.organization.findMany({ select: { id: true, plan: true } });
 
   let checked = 0;
   let sent = 0;
@@ -23,6 +23,12 @@ export async function sendPendingInvoiceReminders() {
   const skippedOrgs: string[] = [];
 
   for (const org of organizations) {
+    // Automated invoice reminders are a Team+ feature — a downgraded org
+    // shouldn't keep getting them just because the toggle was left on.
+    if (org.plan === "solo") {
+      skippedOrgs.push(org.id);
+      continue;
+    }
     const settings = await getInvoiceReminderSettings(org.id);
     if (!settings.enabled) {
       skippedOrgs.push(org.id);

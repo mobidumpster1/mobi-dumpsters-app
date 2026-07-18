@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { Field, inputClass } from "@/components/Field";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { hasPermission, requireUser } from "@/lib/session";
+import { hasPermission, hasPlan, requireUser } from "@/lib/session";
 import {
-  addRecurringBill,
   toggleRecurringBillActive,
   deleteRecurringBill,
   logRecurringBillAsExpense,
 } from "../recurringActions";
+import { AddRecurringBillForm } from "./AddRecurringBillForm";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +96,7 @@ function BillRow({
 export default async function RecurringBillsPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
+  if (!hasPlan(user, "pro")) redirect("/expenses");
 
   const bills = await db.recurringBill.findMany({
     where: { organizationId: user.effectiveOrganizationId },
@@ -186,67 +186,7 @@ export default async function RecurringBillsPage() {
       </div>
 
       <h2 className="mt-8 text-xl font-black text-ink">Add a Recurring Bill</h2>
-      <form
-        action={addRecurringBill}
-        className="mt-3 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Name" htmlFor="name">
-            <input id="name" name="name" required className={inputClass} placeholder="e.g. Truck" />
-          </Field>
-          <Field label="Category" htmlFor="category">
-            <input
-              id="category"
-              name="category"
-              required
-              className={inputClass}
-              placeholder="e.g. Vehicle Payment"
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Amount (leave blank if variable)" htmlFor="amount">
-            <input id="amount" name="amount" type="number" step="0.01" min="0" className={inputClass} />
-          </Field>
-          <Field label="Frequency" htmlFor="frequency">
-            <select id="frequency" name="frequency" defaultValue="monthly" className={inputClass}>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </Field>
-          <Field label="Payment Method (optional)" htmlFor="paymentMethod">
-            <input
-              id="paymentMethod"
-              name="paymentMethod"
-              className={inputClass}
-              placeholder="e.g. Auto (MOBI Checking)"
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Due Day of Month (for monthly bills)" htmlFor="dueDay">
-            <input id="dueDay" name="dueDay" type="number" min="1" max="31" className={inputClass} />
-          </Field>
-          <Field label="Due Date (for yearly bills)" htmlFor="dueDate">
-            <input id="dueDate" name="dueDate" type="date" className={inputClass} />
-          </Field>
-        </div>
-
-        <Field label="Notes (optional)" htmlFor="notes">
-          <input id="notes" name="notes" className={inputClass} />
-        </Field>
-
-        <div>
-          <button
-            type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-          >
-            Add Bill
-          </button>
-        </div>
-      </form>
+      <AddRecurringBillForm />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { hasPermission, requireUser } from "@/lib/session";
+import { hasPermission, hasPlan, requireUser } from "@/lib/session";
+import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { AddressLink } from "@/components/AddressLink";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { LeadSearchForm } from "@/components/LeadSearchForm";
@@ -124,6 +125,8 @@ export default async function LeadsPage({
 }) {
   const user = await requireUser();
   if (!hasPermission(user, "canManageLeads")) redirect("/");
+  if (!hasPlan(user, "team")) redirect("/");
+  const canOutreach = hasPlan(user, "pro");
 
   const { status, trade, sort, hideOutOfArea } = await searchParams;
   const activeStatus = STATUS_FILTERS.includes(status as (typeof STATUS_FILTERS)[number])
@@ -261,11 +264,19 @@ export default async function LeadsPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/leads/sequences"
-            className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            href="/leads/new"
+            className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
           >
-            Manage Sequences
+            + New Lead
           </Link>
+          {canOutreach && (
+            <Link
+              href="/leads/sequences"
+              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Manage Sequences
+            </Link>
+          )}
           <div
             className={`rounded-xl border px-4 py-2 text-sm font-medium ${
               searchesLeft === 0
@@ -282,7 +293,7 @@ export default async function LeadsPage({
         </div>
       </div>
 
-      {dueFollowUps.length > 0 && (
+      {canOutreach && dueFollowUps.length > 0 && (
         <div className="mt-6 rounded-lg border-2 border-blue-600 bg-blue-50 p-5">
           <h2 className="text-xl font-black text-ink">
             {dueFollowUps.length} Follow-Up{dueFollowUps.length === 1 ? "" : "s"} Due
@@ -313,47 +324,56 @@ export default async function LeadsPage({
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <ServiceAreaManager
-          areas={serviceAreas}
-          addAction={addServiceArea}
-          removeAction={removeServiceArea}
-        />
-        <EmailTemplateManager
-          templates={emailTemplates}
-          placeholderToken="{{businessName}}"
-          addAction={createLeadEmailTemplate}
-          removeAction={deleteLeadEmailTemplate}
-        />
-      </div>
+      {canOutreach ? (
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ServiceAreaManager
+              areas={serviceAreas}
+              addAction={addServiceArea}
+              removeAction={removeServiceArea}
+            />
+            <EmailTemplateManager
+              templates={emailTemplates}
+              placeholderToken="{{businessName}}"
+              addAction={createLeadEmailTemplate}
+              removeAction={deleteLeadEmailTemplate}
+            />
+          </div>
 
-      <form
-        action={updateLeadServiceRadius}
-        className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
-      >
-        <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
-          Flag leads farther than
-        </label>
-        <input
-          id="serviceRadiusMiles"
-          name="serviceRadiusMiles"
-          type="number"
-          min="1"
-          defaultValue={leadOutreachSettings.serviceRadiusMiles}
-          className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
-        />
-        <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
-        <button
-          type="submit"
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          Save
-        </button>
-      </form>
+          <form
+            action={updateLeadServiceRadius}
+            className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
+          >
+            <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
+              Flag leads farther than
+            </label>
+            <input
+              id="serviceRadiusMiles"
+              name="serviceRadiusMiles"
+              type="number"
+              min="1"
+              defaultValue={leadOutreachSettings.serviceRadiusMiles}
+              className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
+            />
+            <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
+            <button
+              type="submit"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Save
+            </button>
+          </form>
 
-      <div className="mt-4">
-        <LeadSearchForm action={searchAndSaveLeads} areas={serviceAreas} />
-      </div>
+          <div className="mt-4">
+            <LeadSearchForm action={searchAndSaveLeads} areas={serviceAreas} />
+          </div>
+        </>
+      ) : (
+        <PlanGateNotice
+          requiredPlan="pro"
+          description="Find local businesses on Google Maps, scrape their contact info, and run automated email outreach sequences — right from this page."
+        />
+      )}
 
       {pins.length > 0 && (
         <div className="mt-6">
@@ -361,13 +381,13 @@ export default async function LeadsPage({
         </div>
       )}
 
-      {pendingEnrichCount > 0 && (
+      {canOutreach && pendingEnrichCount > 0 && (
         <div className="mt-6">
           <EnrichAllButton pendingCount={pendingEnrichCount} action={enrichAllLeads} />
         </div>
       )}
 
-      {sequences.length > 0 && visibleLeads.length > 0 && (
+      {canOutreach && sequences.length > 0 && visibleLeads.length > 0 && (
         <div className="mt-6">
           <EnrollAllButton
             leadIds={visibleLeads.map((l) => l.id)}
@@ -539,47 +559,49 @@ export default async function LeadsPage({
             </dl>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
               <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
-              {lead.emailOptOut ? (
-                <span className="flex-shrink-0 text-xs font-medium text-zinc-400">Unsubscribed</span>
-              ) : (
-                <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
-              )}
+              {canOutreach &&
+                (lead.emailOptOut ? (
+                  <span className="flex-shrink-0 text-xs font-medium text-zinc-400">Unsubscribed</span>
+                ) : (
+                  <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                ))}
             </div>
             <SocialLinksRow lead={lead} />
-            {lead.website && (
+            {canOutreach && lead.website && (
               <form action={enrichLead.bind(null, lead.id)} className="mt-1">
                 <button type="submit" className="text-xs font-semibold text-brand hover:underline">
                   {lead.enrichedAt ? "Re-scrape Website" : "Find Contact Info"}
                 </button>
               </form>
             )}
-            {lead.sequenceEnrollments.length > 0 ? (
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-zinc-500">
-                <span>
-                  In {lead.sequenceEnrollments[0].sequence.name} — step{" "}
-                  {lead.sequenceEnrollments[0].currentStep + 1}
-                </span>
-                <form action={stopEnrollmentAction.bind(null, lead.sequenceEnrollments[0].id)}>
-                  <button type="submit" className="font-semibold text-red-600 hover:underline">
-                    Stop
-                  </button>
-                </form>
-              </div>
-            ) : (
-              !lead.emailOptOut &&
-              sequences.length > 0 && (
-                <div className="mt-1">
-                  <SendTemplatedEmailButton
-                    id={lead.id}
-                    templates={sequences}
-                    action={enrollLeadAction}
-                    idleLabel="Enroll"
-                    busyLabel="Enrolling…"
-                    errorFallback="Couldn't enroll this lead"
-                  />
+            {canOutreach &&
+              (lead.sequenceEnrollments.length > 0 ? (
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                  <span>
+                    In {lead.sequenceEnrollments[0].sequence.name} — step{" "}
+                    {lead.sequenceEnrollments[0].currentStep + 1}
+                  </span>
+                  <form action={stopEnrollmentAction.bind(null, lead.sequenceEnrollments[0].id)}>
+                    <button type="submit" className="font-semibold text-red-600 hover:underline">
+                      Stop
+                    </button>
+                  </form>
                 </div>
-              )
-            )}
+              ) : (
+                !lead.emailOptOut &&
+                sequences.length > 0 && (
+                  <div className="mt-1">
+                    <SendTemplatedEmailButton
+                      id={lead.id}
+                      templates={sequences}
+                      action={enrollLeadAction}
+                      idleLabel="Enroll"
+                      busyLabel="Enrolling…"
+                      errorFallback="Couldn't enroll this lead"
+                    />
+                  </div>
+                )
+              ))}
             {lead.lastEmailSentAt && (
               <p className="mt-1 text-xs text-zinc-400">
                 Last emailed {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
@@ -603,14 +625,22 @@ export default async function LeadsPage({
               {lead.status === "customer" ? (
                 <span className="flex-shrink-0 text-xs font-medium text-green-700">✓ Customer</span>
               ) : (
-                <form action={convertLeadToCustomer.bind(null, lead.id)}>
-                  <button
-                    type="submit"
+                <>
+                  <Link
+                    href={`/quotes/new?leadId=${lead.id}`}
                     className="flex-shrink-0 text-xs font-semibold text-brand hover:underline"
                   >
-                    Convert
-                  </button>
-                </form>
+                    Create Quote
+                  </Link>
+                  <form action={convertLeadToCustomer.bind(null, lead.id)}>
+                    <button
+                      type="submit"
+                      className="flex-shrink-0 text-xs font-semibold text-brand hover:underline"
+                    >
+                      Convert
+                    </button>
+                  </form>
+                </>
               )}
               <form action={deleteLead.bind(null, lead.id)}>
                 <ConfirmButton
@@ -694,21 +724,25 @@ export default async function LeadsPage({
                 </td>
                 <td className="min-w-[180px] px-5 py-4">
                   <LeadEmailField leadId={lead.id} currentEmail={lead.email} action={updateLeadEmail} />
-                  <div className="mt-1">
-                    {lead.emailOptOut ? (
-                      <span className="text-xs font-medium text-zinc-400">Unsubscribed</span>
-                    ) : (
-                      <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
-                    )}
-                  </div>
-                  {lead.lastEmailSentAt && (
-                    <p className="mt-1 text-xs text-zinc-400">
-                      Sent {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
-                      total
-                    </p>
+                  {canOutreach && (
+                    <>
+                      <div className="mt-1">
+                        {lead.emailOptOut ? (
+                          <span className="text-xs font-medium text-zinc-400">Unsubscribed</span>
+                        ) : (
+                          <SendTemplatedEmailButton id={lead.id} templates={emailTemplates} action={sendLeadEmail} />
+                        )}
+                      </div>
+                      {lead.lastEmailSentAt && (
+                        <p className="mt-1 text-xs text-zinc-400">
+                          Sent {lead.lastEmailSentAt.toLocaleDateString()} · {lead._count.emailSends}{" "}
+                          total
+                        </p>
+                      )}
+                    </>
                   )}
                   <SocialLinksRow lead={lead} />
-                  {lead.website && (
+                  {canOutreach && lead.website && (
                     <form action={enrichLead.bind(null, lead.id)} className="mt-1">
                       <button type="submit" className="text-xs font-semibold text-brand hover:underline">
                         {lead.enrichedAt ? "Re-scrape Website" : "Find Contact Info"}
@@ -725,7 +759,7 @@ export default async function LeadsPage({
                   />
                 </td>
                 <td className="min-w-[160px] px-5 py-4">
-                  {lead.sequenceEnrollments.length > 0 ? (
+                  {canOutreach && (lead.sequenceEnrollments.length > 0 ? (
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-zinc-600">
                         {lead.sequenceEnrollments[0].sequence.name} — step{" "}
@@ -749,7 +783,7 @@ export default async function LeadsPage({
                         errorFallback="Couldn't enroll this lead"
                       />
                     )
-                  )}
+                  ))}
                 </td>
                 <td className="px-5 py-4">
                   <LeadNotesField
@@ -770,14 +804,22 @@ export default async function LeadsPage({
                     {lead.status === "customer" ? (
                       <span className="text-xs font-medium text-green-700">✓ Customer</span>
                     ) : (
-                      <form action={convertLeadToCustomer.bind(null, lead.id)}>
-                        <button
-                          type="submit"
+                      <>
+                        <Link
+                          href={`/quotes/new?leadId=${lead.id}`}
                           className="text-xs font-semibold text-brand hover:underline"
                         >
-                          Convert
-                        </button>
-                      </form>
+                          Create Quote
+                        </Link>
+                        <form action={convertLeadToCustomer.bind(null, lead.id)}>
+                          <button
+                            type="submit"
+                            className="text-xs font-semibold text-brand hover:underline"
+                          >
+                            Convert
+                          </button>
+                        </form>
+                      </>
                     )}
                     <form action={deleteLead.bind(null, lead.id)}>
                       <ConfirmButton

@@ -31,6 +31,14 @@ model Organization {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Which subscription tier this organization is on — solo | team | pro.
+  // Denormalized here (rather than only living on PlatformSubscription
+  // below) so every gating check is a plain scalar read, no join, same
+  // shape as the canManageX flags on User. Defaults to "solo" (free) —
+  // only upgrading to team/pro ever creates a real PlatformSubscription row.
+  plan                     String                     @default("solo")
+  platformSubscription     PlatformSubscription?
+
   users                    User[]
   customers                Customer[]
   bookings                 Booking[]
@@ -56,11 +64,21 @@ model Organization {
   reviewRequestSettings    ReviewRequestSettings?
   invoiceReminderSettings  InvoiceReminderSettings?
   jobNotificationSettings  JobNotificationSettings?
+  jobCostingSettings       JobCostingSettings?
   deliveryReminderSettings DeliveryReminderSettings?
   leadOutreachSettings     LeadOutreachSettings?
   winBackSettings          WinBackSettings?
   websiteSnippets          WebsiteSnippet[]
   stripeConnection         StripeConnection?
+  twilioConnection         TwilioConnection?
+  smsMessages              CustomerSmsMessage[]
+  quotes                   Quote[]
+  maintenanceLogEntries    MaintenanceLogEntry[]
+  timeEntries              TimeEntry[]
+  googleBusinessProfileConnection GoogleBusinessProfileConnection?
+  googleReviews            GoogleReview[]
+  automationRules          AutomationRule[]
+  automationSettings       AutomationSettings?
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -104,12 +122,20 @@ model User {
   // from normal activity.
   isPlatformAdmin Boolean @default(false)
 
+  // Track Time (Pro): a default hourly rate used to price this user's
+  // clocked hours, and whether they can edit/delete other staff's time
+  // entries (separate from canManageInvoices etc. since editing someone
+  // else's clock record is a distinct trust level from booking work).
+  hourlyRate    Float?
+  canManageTime Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   auditLogs               AuditLog[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  timeEntries             TimeEntry[]
 }
 
 // A single-use, short-lived token emailed as a /verify-email?token=... link
@@ -210,6 +236,18 @@ model Customer {
   stripePaymentMethodId String?
   stripeCardBrand       String?
   stripeCardLast4       String?
+  // A unique code for this customer's own referral link
+  // (mobidumpsters.com/book?ref=<code>). Stored value is a plain cuid;
+  // every place it's displayed/linked instead renders a short
+  // human-friendly form via src/lib/referralCode.ts, so the actual shared
+  // link is memorable without a second lookup column.
+  referralCode         String       @unique @default(cuid())
+  // Set once, at creation, from the ?ref= link that brought this customer
+  // in — never overwritten later, same rule as leadSource. Self-relation:
+  // the customer whose link was used.
+  referredByCustomerId String?
+  referredByCustomer   Customer?    @relation("CustomerReferrals", fields: [referredByCustomerId], references: [id])
+  referredCustomers    Customer[]   @relation("CustomerReferrals")
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
@@ -223,6 +261,9 @@ model Customer {
   dumpLogEntries   DumpLogEntry[]
   creditEntries    CustomerCreditEntry[]
   winBackSends     WinBackSend[]
+  smsMessages      CustomerSmsMessage[]
+  leads            Lead[]
+  quotes           Quote[]
 }
 
 // One dump event for a customer's rental — a customer can request more
@@ -400,6 +441,8 @@ model EquipmentItem {
   photos            EquipmentPhoto[]
   mileageLogEntries MileageLogEntry[]
   damageReports     DamageReport[]
+  quoteLineItems    QuoteLineItem[]
+  maintenanceLogEntries MaintenanceLogEntry[]
 }
 
 // A company-owned vehicle (a truck used to tow/deliver equipment) —
@@ -418,6 +461,7 @@ model Vehicle {
   mileageLogEntries MileageLogEntry[]
   bookings          Booking[]
   documents         Document[]
+  maintenanceLogEntries MaintenanceLogEntry[]
 }
 
 // A compliance document with an expiry date — insurance policy, vehicle
@@ -464,6 +508,34 @@ model MileageLogEntry {
   notes           String?
   source          String         @default("manual") // manual | samsara
   createdAt       DateTime       @default(now())
+}
+
+// A service/maintenance event for a company vehicle or piece of rental
+// equipment — oil change, repair, inspection, etc. Distinct from Document
+// (a compliance paper with an expiry date) and MileageLogEntry (a single
+// trip's mileage): this is the repair/upkeep history itself. Dual-optional
+// FK mirrors MileageLogEntry — exactly one of vehicleId/equipmentItemId is
+// expected to be set, enforced in the action, not the schema.
+model MaintenanceLogEntry {
+  id                String         @id @default(cuid())
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id])
+  vehicleId         String?
+  vehicle           Vehicle?       @relation(fields: [vehicleId], references: [id])
+  equipmentItemId   String?
+  equipmentItem     EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
+  type              String // oil_change | tire_rotation | repair | inspection | other
+  description       String
+  date              DateTime
+  cost              Float?
+  vendor            String?
+  odometerAtService Float?
+  // Mirrors Document.expiresOn — same alert-banner mechanism (see
+  // src/lib/maintenance.ts) gets reused for "service due soon."
+  nextServiceDue    DateTime?
+  receiptUrl        String?
+  notes             String?
+  createdAt         DateTime       @default(now())
 }
 
 // A log of where a piece of equipment has been over time. A null endedAt
@@ -554,6 +626,8 @@ model Booking {
   dumpLogEntries    DumpLogEntry[]
   damageReports     DamageReport[]
   serviceRequests   ServiceRequest[]
+  quote             Quote?
+  timeEntries       TimeEntry[]
 }
 
 // A customer-initiated request against an active booking, made from the
@@ -674,7 +748,9 @@ model Invoice {
   lastReminderSentAt  DateTime?
   createdAt           DateTime     @default(now())
 
-  lineItems InvoiceLineItem[]
+  lineItems    InvoiceLineItem[]
+  photos       InvoicePhoto[]
+  installments InvoiceInstallment[]
 }
 
 // One line on an invoice — base rental, an overage charge, or an add-on.
@@ -688,6 +764,117 @@ model InvoiceLineItem {
   // base | overage_days | overage_tonnage | overage_mileage | addon | other
   type        String   @default("other")
   createdAt   DateTime @default(now())
+}
+
+// A file attached to an invoice (e.g. a signed proof of completion, a
+// supplier receipt worth keeping with the bill). Same shape as Photo, but
+// its own model per this codebase's convention of one dedicated model per
+// parent type (see CustomerPhoto alongside the Booking-only Photo) rather
+// than a shared polymorphic table.
+model InvoicePhoto {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  type      String   @default("other")
+  mediaType String   @default("photo") // photo | video
+  caption   String?
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
+// One scheduled partial payment against an Invoice (e.g. "Deposit" due at
+// booking, "Balance" due at delivery). An Invoice with no installments
+// behaves exactly as before (single full-amount charge) — every existing
+// invoice/charge/webhook path keeps working unchanged.
+model InvoiceInstallment {
+  id                    String    @id @default(cuid())
+  invoiceId             String
+  invoice               Invoice   @relation(fields: [invoiceId], references: [id])
+  label                 String // e.g. "Deposit", "Balance"
+  amount                Float
+  dueDate               DateTime?
+  status                String    @default("pending") // pending | paid
+  paidDate              DateTime?
+  paymentMethod         String?
+  stripePaymentIntentId String?
+  createdAt             DateTime  @default(now())
+}
+
+// A price proposal sent to a Lead and/or Customer before any Booking
+// exists — the pipeline's "close the deal" step. leadId/customerId are
+// both optional and at least one is always set at creation: a cold-pipeline
+// Lead with no Customer yet, or an existing repeat Customer getting a new
+// job priced out, or (after the lead converts) both, pointing at the same
+// person. publicToken is a plain bearer link (like the Stripe Checkout
+// links already used here) — a quote link only lets someone view pricing
+// and accept/decline, no account or payment mutation capability, so this
+// doesn't need the hashed-token-table treatment EmailVerificationToken
+// gets for a real account-security flow.
+model Quote {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id])
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id])
+  quoteNumber    String       @unique
+  status         String       @default("draft") // draft | sent | accepted | declined | expired
+  amount         Float
+  // The real total based on which optional lines the customer kept at
+  // acceptance — null until accepted. `amount` stays the original
+  // full-price snapshot shown when sent.
+  acceptedAmount Float?
+  notes          String?
+  // A rough requested date shown to the customer — not a scheduling
+  // commitment. The Booking created on acceptance still lands in "pending"
+  // for staff to confirm real dates, same as any other booking request.
+  proposedDate DateTime?
+  publicToken  String    @unique @default(cuid())
+  sentAt       DateTime?
+  respondedAt  DateTime?
+  // Set once acceptance has created a real Booking, so the public page and
+  // staff UI can link straight to it instead of just showing "Accepted".
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lineItems QuoteLineItem[]
+  photos    QuotePhoto[]
+}
+
+// One line on a quote — either priced against a real EquipmentItem (which
+// lets acceptance build a real BookingItem to reserve) or a free-text line
+// with no equipmentItemId, which becomes a booking-level note instead.
+model QuoteLineItem {
+  id              String         @id @default(cuid())
+  quoteId         String
+  quote           Quote          @relation(fields: [quoteId], references: [id])
+  equipmentItemId String?
+  equipmentItem   EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
+  description     String
+  amount          Float
+  quantity        Float          @default(1)
+  // A customer-selectable add-on shown pre-checked on the public quote
+  // page (opt-out, not opt-in) — deselecting it excludes the line from
+  // acceptedAmount and the booking notes summary built at acceptance.
+  optional        Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+}
+
+// A file attached to a quote (e.g. a reference photo of the job site).
+// Same shape/rationale as InvoicePhoto — its own dedicated model rather
+// than a shared polymorphic table.
+model QuotePhoto {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id])
+  type      String   @default("other")
+  mediaType String   @default("photo") // photo | video
+  caption   String?
+  filePath  String
+  createdAt DateTime @default(now())
 }
 
 // Money going out: fuel, dump fees, subcontractors, equipment purchases,
@@ -773,6 +960,25 @@ model QuickBooksConnection {
   updatedAt                 DateTime     @updatedAt
 }
 
+// The Stripe subscription that bills an organization for its Solo/Team/Pro
+// plan — this is Chase's own single platform Stripe account (env-var
+// credentials, see src/lib/platformBilling.ts), completely separate from
+// StripeConnection below, which is each business's own Stripe account for
+// charging their own customers. Only exists once an org upgrades past the
+// free "solo" default; Organization.plan is the fast field actually
+// checked for gating, this just tracks the Stripe-side relationship.
+model PlatformSubscription {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  stripeCustomerId     String
+  stripeSubscriptionId String
+  status               String // active | past_due | canceled | trialing
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
 // A business's own Stripe account credentials — pasted from their Stripe
 // dashboard rather than an OAuth flow, since (unlike QuickBooks) each
 // business is expected to run its own direct Stripe account, not connect
@@ -789,6 +995,39 @@ model StripeConnection {
   webhookSecret  String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+// A business's own Twilio account credentials — pasted from their Twilio
+// console, same "direct account, no OAuth" convention as StripeConnection.
+model TwilioConnection {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  accountSid     String
+  authToken      String
+  // The Twilio number texts send from and receive on, E.164 (e.g. +14785550100).
+  phoneNumber    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// One real text message, either direction — the actual conversation
+// thread with a customer. Separate from CustomerNote (a manual staff log
+// of "what happened", e.g. "called to confirm delivery") since this is an
+// automatically-populated record of real sent/received SMS traffic.
+model CustomerSmsMessage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id])
+  direction      String       // outbound | inbound
+  body           String
+  status         String       @default("sent") // sent | delivered | failed | received
+  // Twilio's message SID — lets the status-callback webhook find and
+  // update this exact row (delivered/failed) after the initial send.
+  twilioSid      String?
+  createdAt      DateTime     @default(now())
 }
 
 // A single row holding the current service agreement text. Edited from
@@ -845,6 +1084,19 @@ model JobNotificationSettings {
   createdAt      DateTime     @default(now())
 }
 
+// Controls the margin-alert threshold used on a booking's Job Costing tab
+// and the Reports "Job Profitability" table — a job whose
+// (revenue-cost)/revenue falls below this percent is flagged. Singleton
+// row, same pattern as JobNotificationSettings.
+model JobCostingSettings {
+  id                 String       @id @default(cuid())
+  organizationId     String       @unique
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  marginAlertPercent Int          @default(20)
+  updatedAt          DateTime     @updatedAt
+  createdAt          DateTime     @default(now())
+}
+
 // Controls the automated "your delivery is coming up" reminder email, sent
 // a configurable number of hours before a booking item's scheduled start.
 // Singleton row, same pattern as ReviewRequestSettings.
@@ -879,10 +1131,24 @@ model Lead {
   id              String       @id @default(cuid())
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id])
-  placeId         String       @unique
+  // Optional because leads aren't only found via Google Places anymore —
+  // one manually logged from a phone call or text has no placeId. Postgres
+  // allows multiple NULLs under a unique constraint, so this doesn't
+  // affect the upsert-by-placeId dedup that searchAndSaveLeads relies on.
+  placeId         String?      @unique
   name            String
   phone           String?
   address         String?
+  // How this lead reached us — phone_call | text_message | walk_in |
+  // referral | google_places_search | website. Mirrors Customer.leadSource
+  // in spirit, but kept separate: a Lead is pre-conversion outreach, a
+  // Customer's leadSource is ad-attribution for a real booking.
+  source          String?
+  // Set once this lead converts to a real Customer (see
+  // convertLeadToCustomer / quote acceptance), so the pipeline stays
+  // traceable end-to-end instead of a one-way copy with no link back.
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id])
   // Returned directly by the Places search itself (no separate geocoding
   // call needed) — used to plot leads on the map.
   latitude        Float?
@@ -896,7 +1162,7 @@ model Lead {
   tradeCategory   String?
   rating          Float?
   searchQuery     String?
-  status          String       @default("new") // new | contacted | interested | not_interested | customer
+  status          String       @default("new") // new | contacted | interested | quoted | not_interested | customer
   notes           String?
   contactedAt     DateTime?
   // Google Places doesn't return email addresses, so this is filled in by
@@ -933,6 +1199,7 @@ model Lead {
 
   sequenceEnrollments LeadSequenceEnrollment[]
   emailSends          LeadEmailSend[]
+  quotes              Quote[]
 }
 
 // A full history of every outreach email actually sent to a lead — one
@@ -1146,6 +1413,127 @@ model WebsiteSnippet {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, name])
+}
+
+// One staff member's worked span, either self-logged via the Clock
+// In/Out button (source "clock") or hand-entered after the fact
+// (source "manual"). hourlyRate snapshots User.hourlyRate at creation
+// (same precedent as Quote.amount) so a later rate change never
+// rewrites already-logged time.
+model TimeEntry {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  bookingId      String?
+  booking        Booking?     @relation(fields: [bookingId], references: [id])
+  clockIn        DateTime
+  clockOut       DateTime?
+  hourlyRate     Float?
+  source         String       @default("manual") // manual | clock
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// One org's connection to a Google Business Profile location, cloned
+// structurally from QuickBooksConnection — the only other real
+// OAuth2+refresh-token integration in this app. One location per org.
+model GoogleBusinessProfileConnection {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  accountId            String
+  locationId           String?
+  locationName         String?
+  accessToken          String
+  refreshToken         String
+  accessTokenExpiresAt DateTime
+  // Lets staff pause the daily auto-sync without fully disconnecting (and
+  // losing the location selection) — manual "Sync Now" on the Reviews page
+  // still works regardless of this flag.
+  syncEnabled          Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+// A review synced in from Google (never created here). Replies are
+// always a manual, staff-composed action — replyPostedAt is only set
+// once a reply has actually been pushed back to Google.
+model GoogleReview {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  googleReviewId  String       @unique
+  reviewerName    String
+  starRating      Int
+  comment         String?
+  createTime      DateTime
+  replyComment    String?
+  replyUpdateTime DateTime?
+  replyPostedAt   DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// A staff-configured "when X happens, do Y" rule. v1 caps a rule at one
+// trigger plus at most one flat condition, and limits actions to
+// send_email/send_sms/create_customer_note — no mutating actions.
+// Owner-only to create/edit given the blast-radius risk.
+model AutomationRule {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+
+  triggerEntity String // lead | booking | invoice | quote | customer
+  triggerField  String @default("status")
+  triggerValue  String? // null = pure-existence trigger (e.g. customer created)
+
+  conditionField    String?
+  conditionOperator String? // equals | not_equals | greater_than | less_than
+  conditionValue    String?
+
+  actionType    String // send_email | send_sms | create_customer_note
+  actionSubject String? // send_email only
+  actionBody    String // {{var}} interpolated, same syntax as EmailTemplate
+
+  enabled   Boolean  @default(false)
+  maxPerRun Int      @default(25)
+  maxPerDay Int      @default(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions AutomationRuleExecution[]
+}
+
+// The generalized version of the *SentAt / lastReminderSentAt marker
+// every existing cron feature already uses — the fire-once guard that
+// stops a rule from re-triggering on an entity it's already acted on.
+model AutomationRuleExecution {
+  id         String         @id @default(cuid())
+  ruleId     String
+  rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  entityType String // Lead | Booking | Invoice | Quote | Customer
+  entityId   String
+  status     String   @default("sent") // sent | failed
+  error      String?
+  executedAt DateTime @default(now())
+
+  @@unique([ruleId, entityType, entityId])
+}
+
+// Hard daily ceiling on total automated actions across every rule
+// combined for one org — the outermost safety valve, independent of
+// each individual rule's own maxPerDay.
+model AutomationSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  dailyActionCap Int          @default(200)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // A record of one customer agreeing to the service agreement — either as a

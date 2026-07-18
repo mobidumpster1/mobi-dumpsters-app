@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { listBookableCategories } from "@/lib/availability";
 import { branding } from "@/lib/branding";
 import { UtmCapture } from "@/components/UtmCapture";
+import { ReferralCapture } from "@/components/ReferralCapture";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export default async function DemolitionPage() {
   return (
     <div className="theme-public-dark min-h-screen bg-background px-4 py-10">
       <UtmCapture />
+      <ReferralCapture />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -15,7 +15,7 @@ import { renderEmailTemplate } from "@/lib/emailTemplates";
 // applies its own enabled/delayDays/googleReviewUrl — one org turning this
 // off, or using a different delay, never affects another's.
 export async function sendPendingReviewRequests() {
-  const organizations = await db.organization.findMany({ select: { id: true } });
+  const organizations = await db.organization.findMany({ select: { id: true, plan: true } });
 
   let checked = 0;
   let sent = 0;
@@ -23,6 +23,12 @@ export async function sendPendingReviewRequests() {
   const skippedOrgs: string[] = [];
 
   for (const org of organizations) {
+    // Automated review requests are a Team+ feature — a downgraded org
+    // shouldn't keep getting them just because the toggle was left on.
+    if (org.plan === "solo") {
+      skippedOrgs.push(org.id);
+      continue;
+    }
     const settings = await getReviewRequestSettings(org.id);
     if (!settings.enabled || !settings.googleReviewUrl) {
       skippedOrgs.push(org.id);

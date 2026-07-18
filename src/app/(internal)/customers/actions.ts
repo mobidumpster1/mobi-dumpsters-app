@@ -6,8 +6,9 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { normalizeTagsInput } from "@/lib/tags";
 import { geocodeAddress } from "@/lib/geocode";
-import { requireUser } from "@/lib/session";
+import { requireUser, requirePlanFor } from "@/lib/session";
 import { createSetupIntent, savePaymentMethodFromSetupIntent } from "@/lib/stripe";
+import { sendCustomerSms } from "@/lib/twilio";
 
 export async function createCustomer(formData: FormData) {
   const user = await requireUser();
@@ -138,5 +139,21 @@ export async function confirmCustomerCardSetup(customerId: string, setupIntentId
     where: { id: customerId, organizationId: user.effectiveOrganizationId },
   });
   await savePaymentMethodFromSetupIntent(user.effectiveOrganizationId, setupIntentId);
+  revalidatePath(`/customers/${customerId}`);
+}
+
+// Called directly from a client component (not a plain <form action>) so a
+// failed send (bad Twilio credentials, invalid phone, etc) surfaces as an
+// inline error instead of crashing to Next's generic error page.
+export async function sendCustomerSmsMessage(customerId: string, body: string) {
+  const user = await requireUser();
+  requirePlanFor(user, "pro");
+  if (!body.trim()) throw new Error("Message can't be empty");
+
+  const customer = await db.customer.findFirstOrThrow({
+    where: { id: customerId, organizationId: user.effectiveOrganizationId },
+  });
+
+  await sendCustomerSms(user.effectiveOrganizationId, { id: customer.id, phone: customer.phone }, body);
   revalidatePath(`/customers/${customerId}`);
 }

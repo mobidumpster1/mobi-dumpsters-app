@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/lead-sequences",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/google-review-sync",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/automation-rules",
+      "schedule": "0 18 * * *"
     }
   ]
 }

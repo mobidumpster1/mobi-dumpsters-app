@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { searchPlaces } from "@/lib/places";
 import { enrichFromWebsite } from "@/lib/leadEnrichment";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requirePlanFor } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 import { sendCustomerEmail } from "@/lib/email";
 import { stopAllActiveEnrollmentsForLead } from "@/lib/leadSequences";
@@ -25,6 +25,7 @@ import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
 // retype the area every time.
 export async function searchAndSaveLeads(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const query = str(formData, "query");
   if (!query) throw new Error("Search is required");
@@ -92,8 +93,37 @@ export async function searchAndSaveLeads(formData: FormData) {
   revalidatePath("/leads");
 }
 
+// Manual lead capture — for a phone call or text inquiry that never
+// touches Google Places or the website. Mirrors quickAddCustomer's
+// simplicity: just the fields staff would actually have on hand right
+// after hanging up the phone.
+export async function createLead(formData: FormData) {
+  const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
+
+  const name = str(formData, "name");
+  if (!name) throw new Error("Name is required");
+
+  await db.lead.create({
+    data: {
+      organizationId: user.effectiveOrganizationId,
+      name,
+      phone: str(formData, "phone"),
+      email: str(formData, "email"),
+      address: str(formData, "address"),
+      source: str(formData, "source"),
+      notes: str(formData, "notes"),
+      status: "new",
+    },
+  });
+
+  revalidatePath("/leads");
+  redirect("/leads");
+}
+
 export async function updateLeadStatus(leadId: string, status: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   await db.lead.updateMany({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -114,6 +144,7 @@ export async function updateLeadStatus(leadId: string, status: string) {
 
 export async function updateLeadNotes(leadId: string, formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   await db.lead.updateMany({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -125,6 +156,7 @@ export async function updateLeadNotes(leadId: string, formData: FormData) {
 
 export async function updateLeadTags(leadId: string, formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   await db.lead.updateMany({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -136,6 +168,7 @@ export async function updateLeadTags(leadId: string, formData: FormData) {
 
 export async function updateLeadServiceRadius(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
   const miles = Math.max(1, Number(str(formData, "serviceRadiusMiles")) || 30);
 
   const settings = await getLeadOutreachSettings(user.effectiveOrganizationId);
@@ -149,6 +182,7 @@ export async function updateLeadServiceRadius(formData: FormData) {
 
 export async function updateLeadEmail(leadId: string, formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   await db.lead.updateMany({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -165,6 +199,7 @@ export async function updateLeadEmail(leadId: string, formData: FormData) {
 // "Enrich All" doesn't keep re-hitting the same dead/empty site.
 export async function enrichLead(leadId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const lead = await db.lead.findFirstOrThrow({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -196,6 +231,7 @@ const BULK_ENRICH_CONCURRENCY = 5;
 
 export async function enrichAllLeads() {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const leads = await db.lead.findMany({
     where: {
@@ -243,6 +279,7 @@ export async function enrichAllLeads() {
 // the whole point is a staff member clicking "Send" and knowing it worked.
 export async function sendLeadEmail(leadId: string, templateId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const [lead, template] = await Promise.all([
     db.lead.findFirst({ where: { id: leadId, organizationId: user.effectiveOrganizationId } }),
@@ -284,6 +321,7 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
 
 export async function createLeadEmailTemplate(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const name = str(formData, "name");
   const subject = str(formData, "subject");
@@ -300,6 +338,7 @@ export async function createLeadEmailTemplate(formData: FormData) {
 
 export async function deleteLeadEmailTemplate(templateId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   await db.leadEmailTemplate.deleteMany({
     where: { id: templateId, organizationId: user.effectiveOrganizationId },
@@ -309,6 +348,7 @@ export async function deleteLeadEmailTemplate(templateId: string) {
 
 export async function deleteLead(leadId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   await db.lead.deleteMany({ where: { id: leadId, organizationId: user.effectiveOrganizationId } });
   await logAction("lead.deleted", "Lead", leadId);
@@ -321,6 +361,7 @@ export async function deleteLead(leadId: string) {
 // converting through this button instead of adding the customer by hand.
 export async function convertLeadToCustomer(leadId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "team");
 
   const lead = await db.lead.findFirstOrThrow({
     where: { id: leadId, organizationId: user.effectiveOrganizationId },
@@ -338,7 +379,10 @@ export async function convertLeadToCustomer(leadId: string) {
     },
   });
 
-  await db.lead.update({ where: { id: leadId }, data: { status: "customer" } });
+  await db.lead.update({
+    where: { id: leadId },
+    data: { status: "customer", customerId: customer.id },
+  });
 
   revalidatePath("/leads");
   redirect(`/customers/${customer.id}`);
@@ -346,6 +390,7 @@ export async function convertLeadToCustomer(leadId: string) {
 
 export async function addServiceArea(formData: FormData) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   const name = str(formData, "name");
   if (!name) throw new Error("Area name is required");
@@ -361,6 +406,7 @@ export async function addServiceArea(formData: FormData) {
 
 export async function removeServiceArea(areaId: string) {
   const user = await requirePermission("canManageLeads");
+  requirePlanFor(user, "pro");
 
   await db.serviceArea.deleteMany({
     where: { id: areaId, organizationId: user.effectiveOrganizationId },

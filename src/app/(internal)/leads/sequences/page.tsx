@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { hasPermission, requireUser } from "@/lib/session";
+import { hasPermission, hasPlan, requireUser } from "@/lib/session";
 import { Field, inputClass } from "@/components/Field";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function SequencesPage() {
   const user = await requireUser();
   if (!hasPermission(user, "canManageLeads")) redirect("/");
+  if (!hasPlan(user, "pro")) redirect("/leads");
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -70,8 +71,8 @@ export default async function SequencesPage() {
         <h2 className="text-sm font-semibold text-zinc-700">Sending Limits</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Caps how many Auto-Send emails go out per day, even if more leads are due — a big batch
-          firing all at once looks automated and can hurt your sending domain's reputation.
-          Doesn't apply to manual sequences or one-click sends, since a person sending those is
+          firing all at once looks automated and can hurt your sending domain&apos;s reputation.
+          Doesn&apos;t apply to manual sequences or one-click sends, since a person sending those is
           already self-paced. Checked once a day; if more leads are due than the cap allows, the
           oldest-due ones go out first and the rest wait for tomorrow.
         </p>

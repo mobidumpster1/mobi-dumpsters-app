@@ -25,6 +25,15 @@ export async function addStaffUser(formData: FormData) {
     throw new Error("Name, email, and a temporary password are all required.");
   }
 
+  if (owner.plan === "solo") {
+    const seatCount = await db.user.count({ where: { organizationId: owner.organizationId } });
+    if (seatCount >= 1) {
+      throw new Error("Solo plan is limited to 1 user — upgrade to Team in Settings → Billing to add staff.");
+    }
+  }
+
+  const hourlyRateStr = str(formData, "hourlyRate");
+
   const newUser = await db.user.create({
     data: {
       name,
@@ -32,6 +41,8 @@ export async function addStaffUser(formData: FormData) {
       passwordHash: hashPassword(password),
       role: "staff",
       organizationId: owner.organizationId,
+      hourlyRate: hourlyRateStr ? Number(hourlyRateStr) : null,
+      canManageTime: formData.get("canManageTime") === "on",
     },
   });
 
@@ -45,16 +56,21 @@ const PERMISSION_KEYS = [
   "canManageExpenses",
   "canViewReports",
   "canManageLeads",
+  "canManageTime",
 ] as const;
 
-// One form per staff row submits all five checkboxes at once — unchecked
-// boxes simply aren't present in FormData, so each key defaults to false.
+// One form per staff row submits all permission checkboxes plus the
+// hourly rate at once — unchecked boxes simply aren't present in
+// FormData, so each key defaults to false.
 export async function updateStaffPermissions(userId: string, formData: FormData) {
   await requireOwner();
 
-  const data = Object.fromEntries(
+  const data: Record<string, boolean | number | null> = Object.fromEntries(
     PERMISSION_KEYS.map((key) => [key, formData.get(key) === "on"])
   );
+
+  const hourlyRateStr = str(formData, "hourlyRate");
+  data.hourlyRate = hourlyRateStr ? Number(hourlyRateStr) : null;
 
   await db.user.update({ where: { id: userId }, data });
   await logAction("user.permissions_updated", "User", userId);

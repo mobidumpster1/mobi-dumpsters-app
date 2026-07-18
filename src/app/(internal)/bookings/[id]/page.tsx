@@ -17,6 +17,10 @@ import { uploadPhoto, deletePhoto } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
 import { setPermitRequired, updatePermit } from "../permitActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
+import { computeJobMargin, marginStyle } from "@/lib/jobCosting";
+import { getJobCostingSettings } from "@/lib/jobCostingSettings";
+import { computeLaborCost } from "@/lib/timeTracking";
+import { ClockInOutButton } from "@/components/ClockInOutButton";
 import { matchesPermitArea, PERMIT_STATUS_LABELS } from "@/lib/permits";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
@@ -30,7 +34,7 @@ import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { FacebookShareBox } from "@/components/FacebookShareBox";
 import { Tabs } from "@/components/Tabs";
 import { branding } from "@/lib/branding";
-import { requireUser } from "@/lib/session";
+import { requireUser, hasPlan } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +61,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, permitAreas] = await Promise.all([
+  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -68,10 +72,12 @@ export default async function BookingDetailPage({
           },
         },
         invoices: true,
+        expenses: true,
         photos: { orderBy: { createdAt: "desc" } },
         damageReports: { orderBy: { createdAt: "desc" }, include: { equipmentItem: true } },
         serviceRequests: { where: { status: "pending" }, orderBy: { createdAt: "desc" } },
         signedAgreements: { orderBy: { agreedAt: "desc" } },
+        timeEntries: { orderBy: { clockIn: "desc" }, include: { user: true } },
       },
     }),
     db.vehicle.findMany({
@@ -79,6 +85,12 @@ export default async function BookingDetailPage({
       orderBy: { label: "asc" },
     }),
     db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
+    getJobCostingSettings(user.effectiveOrganizationId),
+    hasPlan(user, "pro")
+      ? db.timeEntry.findFirst({
+          where: { userId: user.id, organizationId: user.effectiveOrganizationId, clockOut: null },
+        })
+      : Promise.resolve(null),
   ]);
 
   if (!booking) notFound();
@@ -420,6 +432,126 @@ export default async function BookingDetailPage({
     </>
   );
 
+  const jobRevenue = booking.invoices.reduce((sum, inv) => sum + inv.amount, 0);
+  const materialCost = booking.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const laborTotals = computeLaborCost(booking.timeEntries);
+  const jobCost = materialCost + laborTotals.cost;
+  const jobMargin = computeJobMargin(jobRevenue, jobCost);
+  const marginThreshold = jobCostingSettings.marginAlertPercent;
+
+  const costingTab = (
+    <>
+      <div>
+        <h2 className="text-xl font-black text-ink">Job Costing</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Revenue from this job&apos;s invoice(s) against expenses linked to it under Expenses plus
+          any logged labor time below.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5 sm:grid-cols-3">
+        <div>
+          <p className="text-sm text-zinc-500">Revenue</p>
+          <p className="text-2xl font-black text-ink">${jobRevenue.toFixed(2)}</p>
+        </div>
+        <div>
+          <p className="text-sm text-zinc-500">Cost</p>
+          <p className="text-2xl font-black text-ink">${jobCost.toFixed(2)}</p>
+          <p className="text-xs text-zinc-500">
+            ${materialCost.toFixed(2)} materials + ${laborTotals.cost.toFixed(2)} labor
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-zinc-500">Margin</p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="text-2xl font-black text-ink">
+              {jobMargin.marginPercent === null ? "—" : `${jobMargin.marginPercent.toFixed(0)}%`}
+            </p>
+            {jobMargin.marginPercent !== null && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${marginStyle(jobMargin.marginPercent, marginThreshold)}`}
+              >
+                {jobMargin.marginPercent < marginThreshold ? "Below target" : "On target"}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      {booking.expenses.length === 0 ? (
+        <p className="text-sm text-zinc-400">
+          No expenses linked to this job yet — link one from{" "}
+          <Link href="/expenses" className="text-brand hover:underline">
+            Expenses
+          </Link>
+          .
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Vendor</th>
+                <th className="px-5 py-3.5 font-semibold">Category</th>
+                <th className="px-5 py-3.5 font-semibold">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {booking.expenses.map((exp) => (
+                <tr key={exp.id}>
+                  <td className="px-5 py-4 font-medium text-zinc-900">{exp.vendor}</td>
+                  <td className="px-5 py-4 text-zinc-600">{exp.category}</td>
+                  <td className="px-5 py-4 text-zinc-600">${exp.amount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-ink">Labor Time</h3>
+        <ClockInOutButton openEntryId={openTimeEntry?.id ?? null} bookingId={booking.id} />
+      </div>
+      {booking.timeEntries.length === 0 ? (
+        <p className="text-sm text-zinc-400">No time logged against this job yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-5 py-3.5 font-semibold">Staff</th>
+                <th className="px-5 py-3.5 font-semibold">Clocked</th>
+                <th className="px-5 py-3.5 font-semibold">Hours</th>
+                <th className="px-5 py-3.5 font-semibold">Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {booking.timeEntries.map((entry) => {
+                const hours = entry.clockOut
+                  ? (entry.clockOut.getTime() - entry.clockIn.getTime()) / 3_600_000
+                  : null;
+                return (
+                  <tr key={entry.id}>
+                    <td className="px-5 py-4 font-medium text-zinc-900">{entry.user.name}</td>
+                    <td className="px-5 py-4 text-zinc-600">
+                      {entry.clockIn.toLocaleString()}
+                      {entry.clockOut ? "" : " (in progress)"}
+                    </td>
+                    <td className="px-5 py-4 text-zinc-600">
+                      {hours != null ? hours.toFixed(2) : "—"}
+                    </td>
+                    <td className="px-5 py-4 text-zinc-600">
+                      {hours != null ? `$${(hours * (entry.hourlyRate ?? 0)).toFixed(2)}` : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
   const mediaTab = (
     <>
       <MediaUploadForm
@@ -450,6 +582,9 @@ export default async function BookingDetailPage({
 
   const tabs = [
     { id: "overview", label: "Overview", content: overviewTab },
+    ...(hasPlan(user, "pro")
+      ? [{ id: "costing", label: "Job Costing", content: costingTab }]
+      : []),
     { id: "damage", label: "Damage Reports", content: damageReportsTab },
     { id: "media", label: "Photos & Videos", content: mediaTab },
   ];

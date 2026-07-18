@@ -5,13 +5,18 @@ import { markDelivered, markReturned, resolveServiceRequest } from "./bookings/a
 import { LocationMap } from "@/components/LocationMap";
 import { AddressLink } from "@/components/AddressLink";
 import { DirectionsButton } from "@/components/DirectionsButton";
+import { RouteDirectionsButton } from "@/components/RouteDirectionsButton";
+import { nearestNeighborRoute } from "@/lib/routeOptimizer";
+import { branding } from "@/lib/branding";
 import {
   DOCUMENT_EXPIRY_ALERT_DAYS,
   DOCUMENT_TYPE_LABELS,
   documentUrgency,
   utcStartOfToday,
 } from "@/lib/documents";
-import { requireUser } from "@/lib/session";
+import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
+import { requireUser, hasPlan } from "@/lib/session";
+import { PlanGateNotice } from "@/components/PlanGateNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -98,14 +103,24 @@ function DispatchCard({
 
 export default async function DispatchPage() {
   const user = await requireUser();
+  const canRouteOptimize = hasPlan(user, "pro");
   const today = startOfToday();
   const weekEnd = daysFromNow(7);
   const docToday = utcStartOfToday();
   const docAlertCutoff = new Date(docToday);
   docAlertCutoff.setUTCDate(docAlertCutoff.getUTCDate() + DOCUMENT_EXPIRY_ALERT_DAYS);
+  const maintenanceAlertCutoff = new Date(docToday);
+  maintenanceAlertCutoff.setUTCDate(maintenanceAlertCutoff.getUTCDate() + MAINTENANCE_DUE_ALERT_DAYS);
 
-  const [deliveries, pickups, activeBookings, pendingBookings, serviceRequests, expiringDocuments] =
-    await Promise.all([
+  const [
+    deliveries,
+    pickups,
+    activeBookings,
+    pendingBookings,
+    serviceRequests,
+    expiringDocuments,
+    dueMaintenanceEntries,
+  ] = await Promise.all([
       db.bookingItem.findMany({
         where: {
           deliveredAt: null,
@@ -149,6 +164,14 @@ export default async function DispatchPage() {
         include: { vehicle: true },
         orderBy: { expiresOn: "asc" },
       }),
+      db.maintenanceLogEntry.findMany({
+        where: {
+          nextServiceDue: { lte: maintenanceAlertCutoff },
+          organizationId: user.effectiveOrganizationId,
+        },
+        include: { vehicle: true, equipmentItem: true },
+        orderBy: { nextServiceDue: "asc" },
+      }),
     ]);
 
   // Pin both equipment that's already out at a site and deliveries that are
@@ -180,6 +203,65 @@ export default async function DispatchPage() {
     });
   }
   const pins = Array.from(pinsByBooking.values());
+
+  // Today's suggested route: every delivery/pickup due today or overdue,
+  // combined into one loop (a truck usually does both in the same run),
+  // ordered with a free greedy nearest-neighbor pass starting from the
+  // yard — recomputed on every load, not persisted or reorderable in v1.
+  const todayEnd = daysFromNow(1);
+  type RouteStopInfo = {
+    id: string;
+    lat: number;
+    lng: number;
+    customerName: string;
+    address: string;
+    href: string;
+    kind: "Delivery" | "Pickup";
+  };
+  const stopsByBooking = new Map<string, RouteStopInfo>();
+  for (const item of deliveries) {
+    const booking = item.booking;
+    if (booking.latitude == null || booking.longitude == null) continue;
+    if (item.startDate.getTime() >= todayEnd.getTime()) continue;
+    if (stopsByBooking.has(booking.id)) continue;
+    stopsByBooking.set(booking.id, {
+      id: booking.id,
+      lat: booking.latitude,
+      lng: booking.longitude,
+      customerName: booking.customer.name,
+      address: booking.deliveryAddress,
+      href: `/bookings/${booking.id}`,
+      kind: "Delivery",
+    });
+  }
+  for (const item of pickups) {
+    const booking = item.booking;
+    if (booking.latitude == null || booking.longitude == null) continue;
+    if (item.expectedReturnDate.getTime() >= todayEnd.getTime()) continue;
+    if (stopsByBooking.has(booking.id)) continue;
+    stopsByBooking.set(booking.id, {
+      id: booking.id,
+      lat: booking.latitude,
+      lng: booking.longitude,
+      customerName: booking.customer.name,
+      address: booking.deliveryAddress,
+      href: `/bookings/${booking.id}`,
+      kind: "Pickup",
+    });
+  }
+  const todaysStops = Array.from(stopsByBooking.values());
+  const yard = { lat: branding.yardLatitude, lng: branding.yardLongitude };
+  const routeOrder = nearestNeighborRoute(yard, todaysStops);
+  const orderedStops = routeOrder
+    .map((id) => todaysStops.find((s) => s.id === id))
+    .filter((s): s is RouteStopInfo => s != null);
+  const routePins = orderedStops.map((stop, i) => ({
+    id: stop.id,
+    lat: stop.lat,
+    lng: stop.lng,
+    label: `${i + 1}. ${stop.kind}: ${stop.customerName} — ${stop.address}`,
+    href: stop.href,
+  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -280,6 +362,91 @@ export default async function DispatchPage() {
               );
             })}
           </div>
+        </section>
+      )}
+
+      {dueMaintenanceEntries.length > 0 && (
+        <section className="rounded-lg border-2 border-amber-500 bg-amber-50 p-5">
+          <h2 className="text-xl font-black text-ink">
+            {dueMaintenanceEntries.length} Service{dueMaintenanceEntries.length === 1 ? "" : "s"} Due
+            Soon
+          </h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {dueMaintenanceEntries.map((entry) => {
+              const u = maintenanceUrgency(entry.nextServiceDue!, docToday);
+              return (
+                <Link
+                  key={entry.id}
+                  href="/maintenance"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 shadow-sm hover:bg-amber-50/50"
+                >
+                  <div>
+                    <span className="font-medium text-zinc-900">
+                      {entry.vehicle?.label ?? entry.equipmentItem?.label ?? "—"}
+                    </span>
+                    <span className="ml-2 text-sm text-zinc-500">
+                      {MAINTENANCE_TYPE_LABELS[entry.type] ?? entry.type}
+                    </span>
+                  </div>
+                  <span className={`text-sm ${u.className}`}>{u.text}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {todaysStops.length > 0 && (
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-ink">Suggested Route</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Today&apos;s deliveries and pickups, ordered for an efficient loop from the yard.
+              </p>
+            </div>
+            {canRouteOptimize && (
+              <RouteDirectionsButton
+                origin={yard}
+                stops={orderedStops.map((s) => ({ lat: s.lat, lng: s.lng }))}
+              />
+            )}
+          </div>
+          {canRouteOptimize ? (
+            <>
+              <div className="mt-3">
+                <LocationMap pins={routePins} heightClassName="h-80" />
+              </div>
+              <ol className="mt-3 flex flex-col gap-2">
+                {orderedStops.map((stop, i) => (
+                  <li
+                    key={stop.id}
+                    className="flex items-center gap-3 rounded-lg border-2 border-zinc-900 bg-white px-4 py-3"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-white">
+                      {i + 1}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-black text-white ${
+                        stop.kind === "Delivery" ? "bg-blue-600" : "bg-purple-600"
+                      }`}
+                    >
+                      {stop.kind}
+                    </span>
+                    <Link href={stop.href} className="min-w-0 flex-1 hover:underline">
+                      <span className="font-medium text-zinc-900">{stop.customerName}</span>
+                      <span className="ml-2 text-sm text-zinc-500">{stop.address}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <PlanGateNotice
+              requiredPlan="pro"
+              description="Auto-order today's deliveries and pickups into an efficient loop from the yard, with a one-click Google Maps route."
+            />
+          )}
         </section>
       )}
 

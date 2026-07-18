@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getAnyStripeConnection, constructWebhookEvent, savePaymentMethodFromSetupIntent } from "@/lib/stripe";
-import { markInvoicePaidViaStripe } from "@/lib/invoicing";
+import { markInvoicePaidViaStripe, markInstallmentPaidViaStripe } from "@/lib/invoicing";
 
 // Belt-and-suspenders backstop for the two places that already handle
 // their own success case directly (chargeCardOnFile's caller marks the
@@ -32,8 +32,11 @@ export async function POST(request: Request) {
 
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const installmentId = paymentIntent.metadata?.installmentId;
     const invoiceId = paymentIntent.metadata?.invoiceId;
-    if (invoiceId) {
+    if (installmentId) {
+      await markInstallmentPaidViaStripe(installmentId, connection.organizationId, paymentIntent.id);
+    } else if (invoiceId) {
       await markInvoicePaidViaStripe(invoiceId, connection.organizationId, paymentIntent.id);
     }
   } else if (event.type === "setup_intent.succeeded") {
