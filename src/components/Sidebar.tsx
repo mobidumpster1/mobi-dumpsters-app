@@ -14,22 +14,50 @@ const DEFAULT_LINKS = [
   { href: "/customers", label: "Customers" },
   { href: "/leads", label: "Leads" },
   { href: "/quotes", label: "Quotes" },
+  { href: "/bookings", label: "Bookings" },
   { href: "/equipment", label: "Equipment" },
   { href: "/mileage", label: "Mileage" },
   { href: "/maintenance", label: "Maintenance" },
   { href: "/time", label: "Track Time" },
-  { href: "/reviews", label: "Reviews" },
-  { href: "/automation", label: "Automation" },
-  { href: "/bookings", label: "Bookings" },
-  { href: "/invoices", label: "Invoices" },
   { href: "/agreements", label: "Agreements" },
   { href: "/gallery", label: "Gallery" },
-  { href: "/expenses", label: "Expenses" },
   { href: "/documents", label: "Documents" },
+  { href: "/invoices", label: "Invoices" },
+  { href: "/expenses", label: "Expenses" },
   { href: "/reports", label: "Reports" },
+  { href: "/reviews", label: "Reviews" },
+  { href: "/automation", label: "Automation" },
   { href: "/settings", label: "Settings" },
   { href: "/platform-admin", label: "Platform Admin" },
 ];
+
+// Purely a visual grouping label for the nav — doesn't affect permission
+// filtering, plan gating, or the existing reorder mechanics at all. A
+// group's header only ever appears above a run of links that are actually
+// in the (already-filtered) list, so a plan/permission that hides every
+// link in a group hides that group's header too, for free.
+const GROUP_FOR_HREF: Record<string, string> = {
+  "/": "Overview",
+  "/calendar": "Overview",
+  "/customers": "Sales",
+  "/leads": "Sales",
+  "/quotes": "Sales",
+  "/bookings": "Jobs",
+  "/equipment": "Jobs",
+  "/mileage": "Jobs",
+  "/maintenance": "Jobs",
+  "/agreements": "Jobs",
+  "/gallery": "Jobs",
+  "/documents": "Jobs",
+  "/time": "Jobs",
+  "/invoices": "Money",
+  "/expenses": "Money",
+  "/reports": "Money",
+  "/reviews": "Growth",
+  "/automation": "Growth",
+  "/settings": "Admin",
+  "/platform-admin": "Admin",
+};
 
 // The 3 highest-frequency screens for someone checking the app one-handed
 // in a truck, always reachable without opening the full nav — everything
@@ -197,24 +225,41 @@ function NavLinks({
           </>
         );
 
+        const group = GROUP_FOR_HREF[link.href];
+        const previousGroup = index > 0 ? GROUP_FOR_HREF[links[index - 1].href] : null;
+        const groupHeader = group && group !== previousGroup && (
+          <div
+            key={`${group}-header`}
+            className={`px-5 ${index === 0 ? "pt-0" : "pt-3"} pb-1 text-xs font-black uppercase tracking-wider text-white/40`}
+          >
+            {group}
+          </div>
+        );
+
         if (reordering) {
           return (
-            <div key={link.href} className={rowClass}>
-              {label}
-              <MoveArrows
-                onMoveUp={() => onMove(index, -1)}
-                onMoveDown={() => onMove(index, 1)}
-                disableUp={index === 0}
-                disableDown={index === links.length - 1}
-              />
+            <div key={link.href} className="contents">
+              {groupHeader}
+              <div className={rowClass}>
+                {label}
+                <MoveArrows
+                  onMoveUp={() => onMove(index, -1)}
+                  onMoveDown={() => onMove(index, 1)}
+                  disableUp={index === 0}
+                  disableDown={index === links.length - 1}
+                />
+              </div>
             </div>
           );
         }
 
         return (
-          <Link key={link.href} href={link.href} onClick={onNavigate} className={rowClass}>
-            {label}
-          </Link>
+          <div key={link.href} className="contents">
+            {groupHeader}
+            <Link href={link.href} onClick={onNavigate} className={rowClass}>
+              {label}
+            </Link>
+          </div>
         );
       })}
     </nav>
