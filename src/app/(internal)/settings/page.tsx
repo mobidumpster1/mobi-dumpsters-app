@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccount } from "@/lib/quickbooks";
 import { isConfigured as isGoogleBusinessConfigured } from "@/lib/googleBusinessProfile";
 import { isConfigured as isGoogleAdsConfigured } from "@/lib/googleAds";
+import { isConfigured as isSearchConsoleConfigured } from "@/lib/googleSearchConsole";
 import {
   saveAccountMappings,
   disconnectQuickBooks,
@@ -75,6 +76,8 @@ function computeInitialTab(params: {
   gbp_error?: string;
   ads_connected?: string;
   ads_error?: string;
+  search_console_connected?: string;
+  search_console_error?: string;
   reviews_sent?: string;
   invoices_sent?: string;
   deliveries_sent?: string;
@@ -87,7 +90,9 @@ function computeInitialTab(params: {
     params.gbp_connected !== undefined ||
     params.gbp_error !== undefined ||
     params.ads_connected !== undefined ||
-    params.ads_error !== undefined
+    params.ads_error !== undefined ||
+    params.search_console_connected !== undefined ||
+    params.search_console_error !== undefined
   ) {
     return "integrations";
   }
@@ -129,6 +134,8 @@ export default async function SettingsPage({
     gbp_error?: string;
     ads_connected?: string;
     ads_error?: string;
+    search_console_connected?: string;
+    search_console_error?: string;
     reviews_sent?: string;
     reviews_checked?: string;
     invoices_sent?: string;
@@ -149,6 +156,8 @@ export default async function SettingsPage({
     gbp_error,
     ads_connected,
     ads_error,
+    search_console_connected,
+    search_console_error,
     reviews_sent,
     reviews_checked,
     invoices_sent,
@@ -165,6 +174,10 @@ export default async function SettingsPage({
   });
   const googleAdsConfigured = isGoogleAdsConfigured();
   const googleAdsConnection = await db.googleAdsConnection.findUnique({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+  });
+  const searchConsoleConfigured = isSearchConsoleConfigured();
+  const searchConsoleConnection = await db.searchConsoleConnection.findUnique({
     where: { organizationId: currentUser.effectiveOrganizationId },
   });
   const staffUsers = await db.user.findMany({
@@ -791,6 +804,71 @@ export default async function SettingsPage({
           {googleAdsConnection.lastSyncError && (
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
               Last sync failed: {googleAdsConnection.lastSyncError}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+
+  const searchConsoleSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Search Console (Local SEO)</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Read-only — pulls a weekly Search Analytics snapshot and flags page-2 queries
+        worth targeting and pages with a declining click-through rate. Never submits a
+        sitemap, requests indexing, or changes anything about the property.
+      </p>
+
+      {search_console_connected && (
+        <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          Connected to Search Console successfully.
+        </p>
+      )}
+      {search_console_error && (
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          Something went wrong connecting ({search_console_error}). Try again.
+        </p>
+      )}
+
+      {!hasPlan(currentUser, "pro") ? (
+        <PlanGateNotice
+          requiredPlan="pro"
+          description="Get automatic local SEO opportunity tracking for your service area."
+        />
+      ) : !searchConsoleConfigured ? (
+        <p className="mt-3 text-zinc-500">
+          Search Console isn&apos;t set up yet — needs a Google Cloud OAuth Client ID,
+          Client Secret, and redirect URL added to the app&apos;s environment settings.
+          Unlike Google Ads, there&apos;s no separate developer token or Google review to
+          wait on — just enable the Search Console API on the same Google Cloud project
+          and add the client credentials (can reuse the Google Ads OAuth client above if
+          you&apos;d rather manage one instead of two).
+        </p>
+      ) : !searchConsoleConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">
+            Not connected yet. The Google account you connect with must already have{" "}
+            mobidumpsters.com verified as a property in Search Console.
+          </p>
+          <a
+            href="/api/google-search-console/connect"
+            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Connect Search Console
+          </a>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="text-sm text-zinc-500">
+            Connected to {searchConsoleConnection.siteUrl} — synced weekly.
+            {searchConsoleConnection.lastSyncedAt
+              ? ` Last synced ${searchConsoleConnection.lastSyncedAt.toLocaleString()}.`
+              : " Waiting on the first sync."}
+          </p>
+          {searchConsoleConnection.lastSyncError && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              Last sync failed: {searchConsoleConnection.lastSyncError}
             </p>
           )}
         </div>
@@ -1549,6 +1627,7 @@ export default async function SettingsPage({
           {quickbooksSection}
           {googleBusinessSection}
           {googleAdsSection}
+          {searchConsoleSection}
         </>
       ),
     },
@@ -1571,6 +1650,8 @@ export default async function SettingsPage({
     gbp_error,
     ads_connected,
     ads_error,
+    search_console_connected,
+    search_console_error,
     reviews_sent,
     invoices_sent,
     deliveries_sent,

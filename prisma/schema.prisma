@@ -82,6 +82,8 @@ model Organization {
   googleAdsConnection      GoogleAdsConnection?
   adsPerformance           AdsPerformance[]
   marketingRecommendations MarketingRecommendation[]
+  searchConsoleConnection  SearchConsoleConnection?
+  seoPerformance           SeoPerformance[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1605,6 +1607,51 @@ model MarketingRecommendation {
   updatedAt       DateTime     @updatedAt
 
   @@unique([organizationId, source, type, relatedEntityId])
+}
+
+// Read-only OAuth link to one verified Search Console property per org —
+// same shape as GoogleAdsConnection/GoogleBusinessProfileConnection.
+// Requesting only the readonly scope means nothing in this app can submit
+// a sitemap, request indexing, or change anything about the property.
+model SearchConsoleConnection {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  // Search Console's own site identifier — either a URL-prefix property
+  // ("https://mobidumpsters.com/") or a domain property ("sc-domain:
+  // mobidumpsters.com"), whichever the connected login has verified.
+  siteUrl              String
+  accessToken          String
+  refreshToken         String
+  accessTokenExpiresAt DateTime
+  lastSyncedAt         DateTime?
+  lastSyncError        String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+// One (query, page) pair's Search Analytics numbers for one weekly pull —
+// upserted so a re-run never double-counts. serviceArea/serviceType are
+// populated by classifyQuery() at fetch time (keyword match against the
+// 5 service-area towns and 4 service types) so Phase 3's dashboard can
+// filter/group without re-parsing query text on every read.
+model SeoPerformance {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  weekStart      DateTime
+  query          String
+  page           String
+  clicks         Int          @default(0)
+  impressions    Int          @default(0)
+  ctr            Float        @default(0)
+  position       Float        @default(0)
+  serviceArea    String? // Macon | Warner Robins | Perry | Fort Valley | Milledgeville
+  serviceType    String? // dumpster_rental | junk_removal | demolition | material_delivery
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, weekStart, query, page])
 }
 
 // A record of one customer agreeing to the service agreement — either as a
