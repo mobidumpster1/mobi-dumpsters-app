@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/automation-rules",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/google-ads-sync",
+      "schedule": "0 19 * * *"
     }
   ]
 }

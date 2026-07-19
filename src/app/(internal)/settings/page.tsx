@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccount } from "@/lib/quickbooks";
 import { isConfigured as isGoogleBusinessConfigured } from "@/lib/googleBusinessProfile";
+import { isConfigured as isGoogleAdsConfigured } from "@/lib/googleAds";
 import {
   saveAccountMappings,
   disconnectQuickBooks,
@@ -72,6 +73,8 @@ function computeInitialTab(params: {
   qb_error?: string;
   gbp_connected?: string;
   gbp_error?: string;
+  ads_connected?: string;
+  ads_error?: string;
   reviews_sent?: string;
   invoices_sent?: string;
   deliveries_sent?: string;
@@ -82,7 +85,9 @@ function computeInitialTab(params: {
     params.qb_connected !== undefined ||
     params.qb_error !== undefined ||
     params.gbp_connected !== undefined ||
-    params.gbp_error !== undefined
+    params.gbp_error !== undefined ||
+    params.ads_connected !== undefined ||
+    params.ads_error !== undefined
   ) {
     return "integrations";
   }
@@ -122,6 +127,8 @@ export default async function SettingsPage({
     qb_error?: string;
     gbp_connected?: string;
     gbp_error?: string;
+    ads_connected?: string;
+    ads_error?: string;
     reviews_sent?: string;
     reviews_checked?: string;
     invoices_sent?: string;
@@ -140,6 +147,8 @@ export default async function SettingsPage({
     qb_error,
     gbp_connected,
     gbp_error,
+    ads_connected,
+    ads_error,
     reviews_sent,
     reviews_checked,
     invoices_sent,
@@ -152,6 +161,10 @@ export default async function SettingsPage({
   const configured = isQuickBooksConfigured();
   const googleBusinessConfigured = isGoogleBusinessConfigured();
   const googleBusinessConnection = await db.googleBusinessProfileConnection.findUnique({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+  });
+  const googleAdsConfigured = isGoogleAdsConfigured();
+  const googleAdsConnection = await db.googleAdsConnection.findUnique({
     where: { organizationId: currentUser.effectiveOrganizationId },
   });
   const staffUsers = await db.user.findMany({
@@ -720,6 +733,66 @@ export default async function SettingsPage({
           <a href="/reviews" className="text-sm font-semibold text-brand hover:underline">
             Go to Reviews →
           </a>
+        </div>
+      )}
+    </section>
+  );
+
+  const googleAdsSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Google Ads (Marketing Intelligence)</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Read-only — pulls campaign performance daily and flags optimization opportunities
+        (wasted spend, underperforming ad groups). Never pauses a campaign, changes a bid, or
+        moves budget; every finding is a suggestion you act on yourself.
+      </p>
+
+      {ads_connected && (
+        <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          Connected to Google Ads successfully.
+        </p>
+      )}
+      {ads_error && (
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          Something went wrong connecting ({ads_error}). Try again.
+        </p>
+      )}
+
+      {!hasPlan(currentUser, "pro") ? (
+        <PlanGateNotice
+          requiredPlan="pro"
+          description="Get automatic Google Ads spend analysis and optimization recommendations."
+        />
+      ) : !googleAdsConfigured ? (
+        <p className="mt-3 text-zinc-500">
+          Google Ads isn&apos;t set up yet — this needs a Google Ads Developer Token (applied
+          for in the Ads UI&apos;s API Center, reviewed by Google — usually a few days for
+          read-only/&quot;Basic&quot; access) plus a Google Cloud OAuth Client ID, Client
+          Secret, and redirect URL added to the app&apos;s environment settings.
+        </p>
+      ) : !googleAdsConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">Not connected yet.</p>
+          <a
+            href="/api/google-ads/connect"
+            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Connect Google Ads
+          </a>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="text-sm text-zinc-500">
+            Connected to account {googleAdsConnection.customerId} — synced daily.
+            {googleAdsConnection.lastSyncedAt
+              ? ` Last synced ${googleAdsConnection.lastSyncedAt.toLocaleString()}.`
+              : " Waiting on the first sync."}
+          </p>
+          {googleAdsConnection.lastSyncError && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              Last sync failed: {googleAdsConnection.lastSyncError}
+            </p>
+          )}
         </div>
       )}
     </section>
@@ -1475,6 +1548,7 @@ export default async function SettingsPage({
           {twilioSection}
           {quickbooksSection}
           {googleBusinessSection}
+          {googleAdsSection}
         </>
       ),
     },
@@ -1495,6 +1569,8 @@ export default async function SettingsPage({
     qb_error,
     gbp_connected,
     gbp_error,
+    ads_connected,
+    ads_error,
     reviews_sent,
     invoices_sent,
     deliveries_sent,

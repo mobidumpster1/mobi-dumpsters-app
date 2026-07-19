@@ -79,6 +79,9 @@ model Organization {
   googleReviews            GoogleReview[]
   automationRules          AutomationRule[]
   automationSettings       AutomationSettings?
+  googleAdsConnection      GoogleAdsConnection?
+  adsPerformance           AdsPerformance[]
+  marketingRecommendations MarketingRecommendation[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1534,6 +1537,74 @@ model AutomationSettings {
   dailyActionCap Int          @default(200)
   updatedAt      DateTime     @updatedAt
   createdAt      DateTime     @default(now())
+}
+
+// Read-only OAuth link to one Google Ads account per org — mirrors
+// QuickBooksConnection/GoogleBusinessProfileConnection exactly. Only the
+// "adwords" (read/report) scope is requested; nothing in this app is
+// permitted to call a mutate/write endpoint on the Google Ads API.
+model GoogleAdsConnection {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  // The Google Ads account being reported on (10-digit, no dashes).
+  customerId           String
+  // Manager (MCC) account ID, required in the login-customer-id header
+  // when the connected Google login accesses the target account through
+  // a manager account rather than directly.
+  loginCustomerId      String?
+  accessToken          String
+  refreshToken         String
+  accessTokenExpiresAt DateTime
+  lastSyncedAt         DateTime?
+  lastSyncError        String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+// One campaign's metrics for one day — upserted by the daily sync, so a
+// re-run never double-counts. Cost is stored in whole dollars (converted
+// from the API's cost_micros at fetch time), matching every other money
+// field in this schema.
+model AdsPerformance {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  date           DateTime
+  campaignId     String
+  campaignName   String
+  impressions    Int          @default(0)
+  clicks         Int          @default(0)
+  cost           Float        @default(0)
+  conversions    Float        @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, campaignId, date])
+}
+
+// A plain-language, human-reviewed-only finding — never auto-executed.
+// Shared across Google Ads (Phase 1) and Search Console (Phase 2) via
+// `source`, so Phase 2 doesn't need its own table for the same "here's
+// something worth looking at" pattern. relatedEntityId (a campaignId,
+// search term, or query+page) plus the unique constraint below makes
+// each sync idempotent — the same finding is updated in place, not
+// duplicated, and a staff dismissal sticks until the underlying
+// condition actually changes.
+model MarketingRecommendation {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  source          String // google_ads | search_console
+  type            String // negative_keyword | underperforming_ad_group | page_two_opportunity | declining_ctr
+  title           String
+  detail          String
+  status          String       @default("open") // open | dismissed | actioned
+  relatedEntityId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, source, type, relatedEntityId])
 }
 
 // A record of one customer agreeing to the service agreement — either as a
