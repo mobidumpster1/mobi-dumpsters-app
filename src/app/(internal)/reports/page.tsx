@@ -4,12 +4,16 @@ import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
 import { BarChart } from "@/components/BarChart";
 import { Tabs } from "@/components/Tabs";
+import { ReportsFilterBar } from "@/components/ReportsFilterBar";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { PrintReportButton } from "@/components/PrintReportButton";
 import { hasPermission, hasPlan, requireUser } from "@/lib/session";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 import { computeJobMargin, marginStyle } from "@/lib/jobCosting";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { computeUtilization } from "@/lib/utilization";
 import { agingBucket, AGING_BUCKET_LABELS, type AgingBucket } from "@/lib/arAging";
+import { parseDateRangeParams, priorPeriod, inRange } from "@/lib/dateRange";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +73,10 @@ function monthLabel(key: string) {
   });
 }
 
+function dateLabel(date: Date) {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 function SummaryCard({
   label,
   value,
@@ -97,12 +105,38 @@ function SummaryCard({
   );
 }
 
-export default async function ReportsPage() {
+function ChangeCard({ label, current, prior }: { label: string; current: number; prior: number | null }) {
+  const change = prior === null ? null : percentChange(current, prior);
+  return (
+    <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <p className="text-sm text-zinc-500">{label}</p>
+      <p className="mt-1 text-2xl font-black text-zinc-900">${current.toFixed(2)}</p>
+      {change === null ? (
+        <p className="mt-1 text-xs text-zinc-400">No prior-period data to compare</p>
+      ) : (
+        <p className={`mt-1 text-sm font-bold ${change >= 0 ? "text-green-700" : "text-red-600"}`}>
+          {change >= 0 ? "+" : ""}
+          {change.toFixed(1)}% vs. prior period
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   const user = await requireUser();
   if (!hasPermission(user, "canViewReports")) redirect("/");
   if (!hasPlan(user, "team")) redirect("/");
 
-  const [invoices, expenses, recurringBills, jobCostingSettings, bookingItems, timeEntries] =
+  const { from, to } = await searchParams;
+  const range = parseDateRangeParams({ from, to });
+  const priorRange = range ? priorPeriod(range) : null;
+
+  const [invoicesRaw, expensesRaw, recurringBills, jobCostingSettings, bookingItems, timeEntriesRaw, quotesRaw, maintenanceLogEntriesRaw] =
     await Promise.all([
       db.invoice.findMany({
         where: { organizationId: user.effectiveOrganizationId },
@@ -119,7 +153,7 @@ export default async function ReportsPage() {
       getJobCostingSettings(user.effectiveOrganizationId),
       db.bookingItem.findMany({
         where: { booking: { organizationId: user.effectiveOrganizationId } },
-        include: { equipmentItem: true },
+        include: { equipmentItem: { include: { category: true } } },
       }),
       hasPlan(user, "pro")
         ? db.timeEntry.findMany({
@@ -127,7 +161,26 @@ export default async function ReportsPage() {
             include: { user: true, booking: { include: { customer: true } } },
           })
         : Promise.resolve([]),
+      db.quote.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
+      db.maintenanceLogEntry.findMany({
+        where: { organizationId: user.effectiveOrganizationId },
+        include: { vehicle: true },
+      }),
     ]);
+
+  // When a custom date range is active, every table/breakdown below is
+  // scoped to it — except Equipment Utilization, which needs the raw,
+  // unfiltered bookingItems array so its own overlap math (an item that
+  // started before the range but is still on-rent within it) stays
+  // correct; see computeUtilization below.
+  const invoices = range ? invoicesRaw.filter((i) => inRange(i.issueDate, range)) : invoicesRaw;
+  const expenses = range ? expensesRaw.filter((e) => inRange(e.date, range)) : expensesRaw;
+  const timeEntries = range ? timeEntriesRaw.filter((t) => inRange(t.clockIn, range)) : timeEntriesRaw;
+  const quotes = range ? quotesRaw.filter((q) => inRange(q.createdAt, range)) : quotesRaw;
+  const maintenanceLogEntries = range
+    ? maintenanceLogEntriesRaw.filter((m) => inRange(m.date, range))
+    : maintenanceLogEntriesRaw;
+  const bookingItemsInRange = range ? bookingItems.filter((bi) => inRange(bi.startDate, range)) : bookingItems;
 
   const totalRevenue = invoices.reduce((sum, i) => sum + i.amount, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -139,6 +192,24 @@ export default async function ReportsPage() {
   const outstandingPayables = expenses
     .filter((e) => e.status !== "paid")
     .reduce((sum, e) => sum + e.amount, 0);
+
+  // Average revenue per job — bookingId when a job exists, falling back to
+  // a plain per-invoice average for orgs with only standalone invoices.
+  const invoicedBookingIds = new Set(invoices.filter((i) => i.bookingId).map((i) => i.bookingId as string));
+  const jobCount = invoicedBookingIds.size > 0 ? invoicedBookingIds.size : invoices.length;
+  const avgJobValue = jobCount > 0 ? totalRevenue / jobCount : 0;
+
+  // Prior-period comparison — only meaningful once a custom range is
+  // picked, computed straight off the unfiltered fetch so it isn't
+  // affected by the current range's own filtering above.
+  const priorPeriodRevenue = priorRange
+    ? invoicesRaw.filter((i) => inRange(i.issueDate, priorRange)).reduce((sum, i) => sum + i.amount, 0)
+    : null;
+  const priorPeriodExpenses = priorRange
+    ? expensesRaw.filter((e) => inRange(e.date, priorRange)).reduce((sum, e) => sum + e.amount, 0)
+    : null;
+  const priorPeriodProfit =
+    priorPeriodRevenue !== null && priorPeriodExpenses !== null ? priorPeriodRevenue - priorPeriodExpenses : null;
 
   const monthly = new Map<string, { revenue: number; expenses: number }>();
   for (const invoice of invoices) {
@@ -154,12 +225,14 @@ export default async function ReportsPage() {
     monthly.set(key, entry);
   }
   const monthsDesc = Array.from(monthly.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  const months = monthsDesc.slice(0, 12);
+  // With no range picked, monthly is built from all-time data — show the
+  // last 12 months. With a range picked, monthly is already scoped to it,
+  // so show every month the range actually touches.
+  const months = range ? monthsDesc : monthsDesc.slice(0, 12);
 
-  // MoM compares the two most recent months directly. YoY needs the same
-  // month a year back, which only exists once the org has ≥13 months of
-  // history — otherwise this just shows "not enough history yet" rather
-  // than a misleading percentage.
+  // MoM/YoY only make sense against the real, unfiltered calendar (not an
+  // arbitrary custom range), so they're computed from all-time data and
+  // only rendered when no range is active.
   const latestMonth = monthsDesc[0];
   const priorMonth = monthsDesc[1];
   const momRevenueChange = latestMonth && priorMonth
@@ -219,6 +292,19 @@ export default async function ReportsPage() {
     (a, b) => b[1].cost - a[1].cost
   );
 
+  // Revenue by equipment category, from each BookingItem's own computed
+  // price (not a proportional split of invoice totals) — more accurate
+  // since that price already reflects that specific item's pricing rules.
+  const byEquipmentCategory = new Map<string, { name: string; revenue: number }>();
+  for (const bi of bookingItemsInRange) {
+    const category = bi.equipmentItem.category;
+    const entry = byEquipmentCategory.get(category.id) ?? { name: category.name, revenue: 0 };
+    entry.revenue += bi.price;
+    byEquipmentCategory.set(category.id, entry);
+  }
+  const categoryRevenueRows = Array.from(byEquipmentCategory.values()).sort((a, b) => b.revenue - a.revenue);
+  const categoryRevenueBars = categoryRevenueRows.map((row) => ({ label: row.name, value: row.revenue }));
+
   const byChannel = new Map<string, { revenue: number; bookings: number }>();
   for (const invoice of invoices) {
     const customer = invoice.booking?.customer ?? invoice.customer;
@@ -234,13 +320,14 @@ export default async function ReportsPage() {
 
   const now = new Date();
   const sumSince = (start: Date) =>
-    invoices
+    invoicesRaw
       .filter((i) => i.issueDate >= start)
       .reduce((sum, i) => sum + i.amount, 0);
   const revenueToday = sumSince(startOfDayUTC(now));
   const revenueThisWeek = sumSince(startOfWeekUTC(now));
   const revenueThisMonth = sumSince(startOfMonthUTC(now));
   const revenueThisYear = sumSince(startOfYearUTC(now));
+  const revenueAllTime = invoicesRaw.reduce((sum, i) => sum + i.amount, 0);
 
   const byCategory = new Map<string, number>();
   for (const expense of expenses) {
@@ -280,7 +367,8 @@ export default async function ReportsPage() {
   // (see "Log as Expense" on /expenses/recurring) — kept as a separate
   // "scheduled commitments" figure rather than folded into Total Expenses
   // above, so this doesn't silently double-count once a bill does get
-  // logged that period.
+  // logged that period. Not date-filtered — these are current standing
+  // commitments, not a historical figure.
   const recurringMonthlyTotal = recurringBills
     .filter((b) => b.frequency === "monthly" && b.amount != null)
     .reduce((sum, b) => sum + (b.amount ?? 0), 0);
@@ -290,6 +378,17 @@ export default async function ReportsPage() {
   const recurringMonthlyEquivalent = recurringMonthlyTotal + recurringYearlyTotal / 12;
   const recurringVariableCount = recurringBills.filter((b) => b.amount == null).length;
 
+  // Quote pipeline conversion — resolved means the customer actually
+  // responded (accepted or declined); still-pending "sent" quotes are
+  // shown separately rather than counted against the rate.
+  const quotesAccepted = quotes.filter((q) => q.status === "accepted");
+  const quotesDeclined = quotes.filter((q) => q.status === "declined");
+  const quotesPending = quotes.filter((q) => q.status === "sent");
+  const quotesResolvedCount = quotesAccepted.length + quotesDeclined.length;
+  const quoteConversionRate = quotesResolvedCount > 0 ? (quotesAccepted.length / quotesResolvedCount) * 100 : null;
+  const quotedAmountTotal = quotes.reduce((sum, q) => sum + q.amount, 0);
+  const acceptedAmountTotal = quotesAccepted.reduce((sum, q) => sum + (q.acceptedAmount ?? q.amount), 0);
+
   const revenueTab = (
     <>
       <section>
@@ -297,54 +396,86 @@ export default async function ReportsPage() {
         <p className="mt-1 text-sm text-zinc-500">
           Based on invoice issue dates.
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-          <SummaryCard label="Today" value={revenueToday} />
-          <SummaryCard label="This Week" value={revenueThisWeek} />
-          <SummaryCard label="This Month" value={revenueThisMonth} />
-          <SummaryCard label="This Year" value={revenueThisYear} />
-          <SummaryCard label="All Time (To Date)" value={totalRevenue} />
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
-            <p className="text-sm text-zinc-500">Month over Month</p>
-            {momRevenueChange === null ? (
-              <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
-            ) : (
-              <p
-                className={`mt-1 text-2xl font-black ${momRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
-              >
-                {momRevenueChange >= 0 ? "+" : ""}
-                {momRevenueChange.toFixed(1)}%
-              </p>
-            )}
+        {!range && (
+          <>
+            <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+              <SummaryCard label="Today" value={revenueToday} />
+              <SummaryCard label="This Week" value={revenueThisWeek} />
+              <SummaryCard label="This Month" value={revenueThisMonth} />
+              <SummaryCard label="This Year" value={revenueThisYear} />
+              <SummaryCard label="All Time (To Date)" value={revenueAllTime} />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+                <p className="text-sm text-zinc-500">Month over Month</p>
+                {momRevenueChange === null ? (
+                  <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
+                ) : (
+                  <p
+                    className={`mt-1 text-2xl font-black ${momRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
+                  >
+                    {momRevenueChange >= 0 ? "+" : ""}
+                    {momRevenueChange.toFixed(1)}%
+                  </p>
+                )}
+              </div>
+              <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+                <p className="text-sm text-zinc-500">Year over Year</p>
+                {yoyRevenueChange === null ? (
+                  <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
+                ) : (
+                  <p
+                    className={`mt-1 text-2xl font-black ${yoyRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
+                  >
+                    {yoyRevenueChange >= 0 ? "+" : ""}
+                    {yoyRevenueChange.toFixed(1)}%
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {range && priorRange && (
+          <div className="mt-3 flex flex-col gap-3">
+            <p className="text-sm text-zinc-500">
+              Selected period: {dateLabel(range.start)} – {dateLabel(new Date(range.end.getTime() - 86_400_000))}, vs.
+              the same-length period immediately before it.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <ChangeCard label="Revenue" current={totalRevenue} prior={priorPeriodRevenue} />
+              <ChangeCard label="Expenses" current={totalExpenses} prior={priorPeriodExpenses} />
+              <ChangeCard label="Profit" current={profit} prior={priorPeriodProfit} />
+            </div>
           </div>
-          <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
-            <p className="text-sm text-zinc-500">Year over Year</p>
-            {yoyRevenueChange === null ? (
-              <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
-            ) : (
-              <p
-                className={`mt-1 text-2xl font-black ${yoyRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
-              >
-                {yoyRevenueChange >= 0 ? "+" : ""}
-                {yoyRevenueChange.toFixed(1)}%
-              </p>
-            )}
-          </div>
-        </div>
+        )}
       </section>
 
       <section>
-        <h2 className="text-xl font-black text-ink">12-Month Revenue Trend</h2>
+        <h2 className="text-xl font-black text-ink">
+          {range ? "Revenue Trend (Selected Period)" : "12-Month Revenue Trend"}
+        </h2>
         <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
           <BarChart bars={revenueTrendBars} formatValue={(v) => `$${v.toFixed(0)}`} />
         </div>
       </section>
 
       <section>
-        <h2 className="text-xl font-black text-ink">
-          Monthly Breakdown
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-black text-ink">
+            Monthly Breakdown
+          </h2>
+          <ExportCsvButton
+            filename="monthly-breakdown"
+            headers={["Month", "Revenue", "Expenses", "Profit"]}
+            rows={months.map(([key, data]) => [
+              monthLabel(key),
+              data.revenue.toFixed(2),
+              data.expenses.toFixed(2),
+              (data.revenue - data.expenses).toFixed(2),
+            ])}
+          />
+        </div>
         <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
@@ -495,9 +626,16 @@ export default async function ReportsPage() {
   const customersTab = (
     <>
       <section>
-        <h2 className="text-xl font-black text-ink">
-          Revenue by Customer
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-black text-ink">
+            Revenue by Customer
+          </h2>
+          <ExportCsvButton
+            filename="revenue-by-customer"
+            headers={["Customer", "Revenue"]}
+            rows={customerRows.map(([, row]) => [row.name, row.revenue.toFixed(2)])}
+          />
+        </div>
         <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-500">
@@ -581,6 +719,30 @@ export default async function ReportsPage() {
           </table>
         </div>
       </section>
+
+      {quotes.length > 0 && (
+        <section>
+          <h2 className="text-xl font-black text-ink">Quote Conversion</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            How often a sent quote turns into an accepted job. Still-pending quotes aren&apos;t counted
+            against the rate.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+              <div className="text-sm text-zinc-500">Conversion Rate</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-900 sm:text-2xl">
+                {quoteConversionRate === null ? "—" : `${quoteConversionRate.toFixed(0)}%`}
+              </div>
+              <div className="mt-1 text-xs text-zinc-400">
+                {quotesAccepted.length} accepted, {quotesDeclined.length} declined
+              </div>
+            </div>
+            <SummaryCard label="Pending Response" value={quotesPending.length} formatValue={(v) => v.toFixed(0)} />
+            <SummaryCard label="Total Quoted" value={quotedAmountTotal} />
+            <SummaryCard label="Total Accepted" value={acceptedAmountTotal} />
+          </div>
+        </section>
+      )}
     </>
   );
 
@@ -683,10 +845,12 @@ export default async function ReportsPage() {
     </section>
   );
 
-  // 30-day trailing window — the same rolling period a staff member
-  // checking "how busy is our fleet lately" would think in.
-  const utilizationPeriodEnd = new Date();
-  const utilizationPeriodStart = new Date(utilizationPeriodEnd.getTime() - 30 * 86_400_000);
+  // computeUtilization does its own start/end overlap math, so it's given
+  // the raw, unfiltered bookingItems array plus explicit period bounds —
+  // a long-running rental that started before the selected range but is
+  // still on-rent within it must still count.
+  const utilizationPeriodEnd = range ? range.end : new Date();
+  const utilizationPeriodStart = range ? range.start : new Date(utilizationPeriodEnd.getTime() - 30 * 86_400_000);
   const equipmentLabelById = new Map(bookingItems.map((bi) => [bi.equipmentItemId, bi.equipmentItem.label]));
   const utilizationRows = computeUtilization(bookingItems, utilizationPeriodStart, utilizationPeriodEnd)
     .map((row) => ({ ...row, label: equipmentLabelById.get(row.equipmentItemId) ?? "—" }))
@@ -696,13 +860,57 @@ export default async function ReportsPage() {
     value: Math.round(row.utilizationPercent),
   }));
 
-  const equipmentTab = (equipmentRows.length > 0 || utilizationRows.length > 0) && (
+  // Maintenance spend by vehicle, from Maintenance Log entries with a cost
+  // on file — a different (and usually smaller) figure than any "Vehicle"
+  // Expense category, since not every logged repair is entered as a
+  // separate Expense too.
+  const maintenanceCostByVehicle = new Map<string, { label: string; cost: number; count: number }>();
+  for (const entry of maintenanceLogEntries) {
+    if (!entry.vehicle || entry.cost == null) continue;
+    const row = maintenanceCostByVehicle.get(entry.vehicleId as string) ?? {
+      label: entry.vehicle.label,
+      cost: 0,
+      count: 0,
+    };
+    row.cost += entry.cost;
+    row.count += 1;
+    maintenanceCostByVehicle.set(entry.vehicleId as string, row);
+  }
+  const vehicleMaintenanceRows = Array.from(maintenanceCostByVehicle.values()).sort((a, b) => b.cost - a.cost);
+
+  const equipmentTab = (equipmentRows.length > 0 ||
+    utilizationRows.length > 0 ||
+    categoryRevenueRows.length > 0 ||
+    vehicleMaintenanceRows.length > 0) && (
     <>
+      {categoryRevenueRows.length > 0 && (
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-black text-ink">Revenue by Equipment Category</h2>
+            <ExportCsvButton
+              filename="revenue-by-category"
+              headers={["Category", "Revenue"]}
+              rows={categoryRevenueRows.map((row) => [row.name, row.revenue.toFixed(2)])}
+            />
+          </div>
+          <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
+            <BarChart bars={categoryRevenueBars} formatValue={(v) => `$${v.toFixed(0)}`} color="#3b82f6" />
+          </div>
+        </section>
+      )}
+
       {equipmentRows.length > 0 && (
         <section>
-          <h2 className="text-xl font-black text-ink">
-            Cost by Equipment
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-black text-ink">
+              Cost by Equipment
+            </h2>
+            <ExportCsvButton
+              filename="cost-by-equipment"
+              headers={["Equipment", "Total Cost"]}
+              rows={equipmentRows.map(([, row]) => [row.label, row.cost.toFixed(2)])}
+            />
+          </div>
           <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
             <table className="w-full text-left text-sm">
               <thead className="bg-zinc-50 text-zinc-500">
@@ -728,9 +936,18 @@ export default async function ReportsPage() {
 
       {utilizationRows.length > 0 && (
         <section>
-          <h2 className="text-xl font-black text-ink">Utilization (Last 30 Days)</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-black text-ink">
+              Utilization ({range ? "Selected Period" : "Last 30 Days"})
+            </h2>
+            <ExportCsvButton
+              filename="equipment-utilization"
+              headers={["Equipment", "Days on Rent", "Utilization %"]}
+              rows={utilizationRows.map((row) => [row.label, row.daysOnRent.toFixed(1), row.utilizationPercent.toFixed(0)])}
+            />
+          </div>
           <p className="mt-1 text-sm text-zinc-500">
-            % of the last 30 days each piece of equipment was on a job. Ranked busiest first.
+            % of the period each piece of equipment was on a job. Ranked busiest first.
           </p>
           <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
             <BarChart bars={utilizationBars} formatValue={(v) => `${v}%`} color="#16a34a" />
@@ -757,11 +974,50 @@ export default async function ReportsPage() {
           </div>
         </section>
       )}
+
+      {vehicleMaintenanceRows.length > 0 && (
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl font-black text-ink">Vehicle Maintenance Cost</h2>
+            <ExportCsvButton
+              filename="vehicle-maintenance-cost"
+              headers={["Vehicle", "# Entries", "Total Cost"]}
+              rows={vehicleMaintenanceRows.map((row) => [row.label, row.count, row.cost.toFixed(2)])}
+            />
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            From <Link href="/maintenance" className="font-semibold text-brand hover:underline">Maintenance Log</Link>{" "}
+            entries with a cost on file.
+          </p>
+          <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-zinc-500">
+                <tr>
+                  <th className="px-5 py-3.5 font-semibold">Vehicle</th>
+                  <th className="px-5 py-3.5 font-semibold"># Entries</th>
+                  <th className="px-5 py-3.5 font-semibold">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {vehicleMaintenanceRows.map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-5 py-4 text-zinc-900">{row.label}</td>
+                    <td className="px-5 py-4 text-zinc-600">{row.count}</td>
+                    <td className="px-5 py-4 text-zinc-600">${row.cost.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </>
   );
 
   // AR aging buckets unpaid/partial invoices — anchored on dueDate,
-  // falling back to issueDate when it isn't set.
+  // falling back to issueDate when it isn't set. Respects the selected
+  // date range via the already-filtered `invoices` above (invoices issued
+  // in that window that are still unpaid).
   const agingToday = new Date();
   const arRows = invoices
     .filter((inv) => inv.status !== "paid")
@@ -791,7 +1047,14 @@ export default async function ReportsPage() {
 
   const arAgingTab = (
     <section>
-      <h2 className="text-xl font-black text-ink">Accounts Receivable Aging</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Accounts Receivable Aging</h2>
+        <ExportCsvButton
+          filename="ar-aging"
+          headers={["Invoice", "Customer", "Amount", "Bucket"]}
+          rows={arRows.map((row) => [row.invoiceNumber, row.customerName, row.amount.toFixed(2), AGING_BUCKET_LABELS[row.bucket]])}
+        />
+      </div>
       <p className="mt-1 text-sm text-zinc-500">
         Unpaid and partially-paid invoices, bucketed by how overdue they are.
       </p>
@@ -844,7 +1107,14 @@ export default async function ReportsPage() {
 
   const laborTab = (
     <section>
-      <h2 className="text-xl font-black text-ink">Labor</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Labor</h2>
+        <ExportCsvButton
+          filename="labor"
+          headers={["Staff", "Hours", "Labor Cost"]}
+          rows={laborRows.map((row) => [row.name, row.hours.toFixed(1), row.cost.toFixed(2)])}
+        />
+      </div>
       <p className="mt-1 text-sm text-zinc-500">
         Clocked hours and cost by staff member, from Track Time entries with a rate on file.
       </p>
@@ -889,9 +1159,7 @@ export default async function ReportsPage() {
       ? [{ id: "job-profitability", label: "Job Profitability", content: jobProfitabilityTab }]
       : []),
     { id: "customers", label: "Customers", content: customersTab },
-    ...(equipmentRows.length > 0 || utilizationRows.length > 0
-      ? [{ id: "equipment", label: "Equipment", content: equipmentTab }]
-      : []),
+    ...(equipmentTab ? [{ id: "equipment", label: "Equipment", content: equipmentTab }] : []),
     { id: "ar-aging", label: "AR Aging", content: arAgingTab },
     ...(hasPlan(user, "pro") ? [{ id: "labor", label: "Labor", content: laborTab }] : []),
   ];
@@ -899,23 +1167,30 @@ export default async function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-ink">Reports</h1>
-        <p className="mt-1 text-zinc-500">
-          Revenue and expenses across all time, based on invoiced and incurred
-          amounts (not just what&apos;s been collected or paid).
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-ink">Reports</h1>
+          <p className="mt-1 text-zinc-500">
+            {range
+              ? `Showing ${dateLabel(range.start)} – ${dateLabel(new Date(range.end.getTime() - 86_400_000))}, based on invoiced and incurred amounts.`
+              : "Revenue and expenses across all time, based on invoiced and incurred amounts (not just what's been collected or paid)."}
+          </p>
+        </div>
+        <PrintReportButton />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <SummaryCard label="Total Revenue" value={totalRevenue} />
-        <SummaryCard label="Total Expenses" value={totalExpenses} />
+      <ReportsFilterBar from={from} to={to} />
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <SummaryCard label={range ? "Revenue (Period)" : "Total Revenue"} value={totalRevenue} />
+        <SummaryCard label={range ? "Expenses (Period)" : "Total Expenses"} value={totalExpenses} />
         <SummaryCard label="Net Profit" value={profit} highlight />
         <SummaryCard
           label="Net Outstanding"
           value={outstandingReceivables - outstandingPayables}
           sub={`$${outstandingReceivables.toFixed(2)} unpaid invoices, $${outstandingPayables.toFixed(2)} unpaid bills`}
         />
+        <SummaryCard label="Avg Job Value" value={avgJobValue} sub={`Across ${jobCount} job${jobCount === 1 ? "" : "s"}`} />
       </div>
 
       {tabsElement}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Field, inputClass } from "@/components/Field";
 import { MAINTENANCE_TYPE_LABELS } from "@/lib/maintenance";
 import { addMaintenanceEntry } from "@/app/(internal)/maintenance/actions";
+import { quickAddVehicle } from "@/app/(internal)/mileage/actions";
 
 type VehicleOption = { id: string; label: string };
 type EquipmentOption = { id: string; label: string };
@@ -22,6 +23,39 @@ export function MaintenanceEntryForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [vehicleOptions, setVehicleOptions] = useState(vehicles);
+  const [vehicleId, setVehicleId] = useState("");
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [newVehicleLabel, setNewVehicleLabel] = useState("");
+  const [addingVehicle, setAddingVehicle] = useState(false);
+  const [addVehicleError, setAddVehicleError] = useState<string | null>(null);
+
+  async function handleAddVehicle() {
+    if (!newVehicleLabel.trim()) {
+      setAddVehicleError("Name is required");
+      return;
+    }
+    setAddingVehicle(true);
+    setAddVehicleError(null);
+    try {
+      const formData = new FormData();
+      formData.set("label", newVehicleLabel);
+      const vehicle = await quickAddVehicle(formData);
+      setVehicleOptions((prev) =>
+        prev.some((v) => v.id === vehicle.id)
+          ? prev
+          : [...prev, vehicle].sort((a, b) => a.label.localeCompare(b.label))
+      );
+      setVehicleId(vehicle.id);
+      setShowAddVehicle(false);
+      setNewVehicleLabel("");
+    } catch (err) {
+      setAddVehicleError(err instanceof Error ? err.message : "Couldn't add that vehicle");
+    } finally {
+      setAddingVehicle(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -30,6 +64,7 @@ export function MaintenanceEntryForm({
     try {
       await addMaintenanceEntry(new FormData(form));
       form.reset();
+      setVehicleId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add that entry.");
     } finally {
@@ -41,14 +76,51 @@ export function MaintenanceEntryForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vehicle" htmlFor="vehicleId">
-          <select id="vehicleId" name="vehicleId" defaultValue="" className={inputClass}>
-            <option value="">— None —</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <select
+                id="vehicleId"
+                name="vehicleId"
+                value={vehicleId}
+                onChange={(e) => setVehicleId(e.target.value)}
+                className={`flex-1 ${inputClass}`}
+              >
+                <option value="">— None —</option>
+                {vehicleOptions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAddVehicle((v) => !v)}
+                className="flex-shrink-0 rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              >
+                {showAddVehicle ? "Cancel" : "+ New Vehicle"}
+              </button>
+            </div>
+
+            {showAddVehicle && (
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                <input
+                  placeholder="e.g. 2004 F250"
+                  className={inputClass}
+                  value={newVehicleLabel}
+                  onChange={(e) => setNewVehicleLabel(e.target.value)}
+                />
+                {addVehicleError && <p className="text-sm text-red-600">{addVehicleError}</p>}
+                <button
+                  type="button"
+                  onClick={handleAddVehicle}
+                  disabled={addingVehicle}
+                  className="self-start rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+                >
+                  {addingVehicle ? "Adding…" : "Add Vehicle"}
+                </button>
+              </div>
+            )}
+          </div>
         </Field>
         <Field label="Equipment" htmlFor="equipmentItemId">
           <select id="equipmentItemId" name="equipmentItemId" defaultValue="" className={inputClass}>

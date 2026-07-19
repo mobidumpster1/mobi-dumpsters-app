@@ -518,7 +518,7 @@ export function Sidebar({
     <>
       {/* Mobile top bar — sticky, so the back button stays reachable without
           scrolling back up on long pages. */}
-      <header className={`sticky top-0 z-40 flex items-center justify-between border-b-2 border-zinc-800 ${SHELL_BG} px-4 py-3 md:hidden`}>
+      <header className={`print:hidden sticky top-0 z-40 flex items-center justify-between border-b-2 border-zinc-800 ${SHELL_BG} px-4 py-3 md:hidden`}>
         {pathname === "/" ? (
           <Link href="/" className="flex items-center gap-2.5">
             {logo}
@@ -547,7 +547,7 @@ export function Sidebar({
 
       {/* Mobile bottom tab bar — reachable one-handed, no drawer to open
           for the highest-frequency screens. */}
-      <nav className={`fixed inset-x-0 bottom-0 z-40 grid border-t-2 border-zinc-800 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
+      <nav className={`print:hidden fixed inset-x-0 bottom-0 z-40 grid border-t-2 border-zinc-800 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
         {mobileTabs.map((link) => {
           const isActive = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           return (
@@ -577,7 +577,7 @@ export function Sidebar({
       </nav>
 
       {/* Desktop / tablet persistent sidebar */}
-      <aside className={`sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r-2 border-zinc-800 ${SHELL_BG} px-4 py-6 md:flex`}>
+      <aside className={`print:hidden sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r-2 border-zinc-800 ${SHELL_BG} px-4 py-6 md:flex`}>
         <Link href="/" className="flex items-center gap-3 px-2">
           {logo}
           <span className="text-lg font-bold leading-tight text-white">{branding.businessName}</span>

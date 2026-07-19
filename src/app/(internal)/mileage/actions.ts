@@ -126,6 +126,27 @@ export async function addVehicle(formData: FormData) {
   revalidatePath("/mileage");
 }
 
+// Used by inline "+ New Vehicle" controls elsewhere in the app (e.g. the
+// Maintenance form) so staff never have to leave what they're doing just
+// to register a truck — mirrors quickAddCategory's shape.
+export async function quickAddVehicle(formData: FormData) {
+  const user = await requireUser();
+  const label = str(formData, "label");
+  if (!label) throw new Error("Vehicle name is required");
+
+  const existing = await db.vehicle.findFirst({
+    where: { organizationId: user.effectiveOrganizationId, label },
+  });
+  if (existing) return { id: existing.id, label: existing.label };
+
+  const vehicle = await db.vehicle.create({
+    data: { organizationId: user.effectiveOrganizationId, label },
+  });
+
+  revalidatePath("/mileage");
+  return { id: vehicle.id, label: vehicle.label };
+}
+
 export async function toggleVehicleActive(vehicleId: string, currentlyActive: boolean) {
   const user = await requireUser();
   await db.vehicle.updateMany({

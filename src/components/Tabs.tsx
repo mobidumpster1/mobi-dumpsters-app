@@ -19,7 +19,7 @@ export function Tabs({ tabs, initialTab }: { tabs: TabItem[]; initialTab: string
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 border-b-2 border-zinc-900 pb-3">
+      <div className="print:hidden flex flex-wrap gap-2 border-b-2 border-zinc-900 pb-3">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -35,6 +35,7 @@ export function Tabs({ tabs, initialTab }: { tabs: TabItem[]; initialTab: string
           </button>
         ))}
       </div>
+      <h2 className="hidden text-lg font-black text-ink print:block">{activeTab.label}</h2>
       <div className="mt-6 flex flex-col gap-6">{activeTab.content}</div>
     </div>
   );
