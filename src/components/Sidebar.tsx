@@ -27,6 +27,7 @@ const DEFAULT_LINKS = [
   { href: "/reports", label: "Reports" },
   { href: "/reviews", label: "Reviews" },
   { href: "/automation", label: "Automation" },
+  { href: "/marketing", label: "Marketing" },
   { href: "/settings", label: "Settings" },
   { href: "/platform-admin", label: "Platform Admin" },
 ];
@@ -55,6 +56,7 @@ const GROUP_FOR_HREF: Record<string, string> = {
   "/reports": "Money",
   "/reviews": "Growth",
   "/automation": "Growth",
+  "/marketing": "Growth",
   "/settings": "Admin",
   "/platform-admin": "Admin",
 };
@@ -109,7 +111,7 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
     ? DEFAULT_LINKS
     : DEFAULT_LINKS.filter((link) => {
         if (link.href === "/settings" || link.href === "/automation") return false;
-        if (link.href === "/reports") return user.canViewReports;
+        if (link.href === "/reports" || link.href === "/marketing") return user.canViewReports;
         if (link.href === "/documents") return user.canViewReports;
         if (link.href === "/leads") return user.canManageLeads;
         if (link.href === "/expenses") return user.canManageExpenses;
@@ -119,7 +121,12 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
     if (link.href === "/leads" || link.href === "/quotes" || link.href === "/reports") {
       return planAtLeast(user.plan, "team");
     }
-    if (link.href === "/time" || link.href === "/reviews" || link.href === "/automation") {
+    if (
+      link.href === "/time" ||
+      link.href === "/reviews" ||
+      link.href === "/automation" ||
+      link.href === "/marketing"
+    ) {
       return planAtLeast(user.plan, "pro");
     }
     return true;
