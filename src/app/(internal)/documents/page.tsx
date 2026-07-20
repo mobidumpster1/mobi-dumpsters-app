@@ -37,8 +37,73 @@ export default async function DocumentsPage() {
         </p>
       </div>
 
+      <h2 className="mt-6 text-xl font-black text-ink">Add a Document</h2>
+      <form
+        action={createDocument}
+        className="mt-3 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Type" htmlFor="type">
+            <select id="type" name="type" required defaultValue="" className={inputClass}>
+              <option value="" disabled>
+                Select a type…
+              </option>
+              {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Name" htmlFor="name">
+            <input
+              id="name"
+              name="name"
+              required
+              className={inputClass}
+              placeholder="e.g. General Liability Policy"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Expires On" htmlFor="expiresOn">
+            <input id="expiresOn" name="expiresOn" type="date" required className={inputClass} />
+          </Field>
+          <Field label="Vehicle (optional)" htmlFor="vehicleId">
+            <select id="vehicleId" name="vehicleId" defaultValue="" className={inputClass}>
+              <option value="">Not vehicle-specific</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Notes (optional)" htmlFor="notes">
+          <input id="notes" name="notes" className={inputClass} placeholder="e.g. policy number" />
+        </Field>
+
+        <Field label="File" htmlFor="file">
+          <input id="file" name="file" type="file" required className={inputClass} />
+        </Field>
+
+        <div>
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Add Document
+          </button>
+        </div>
+      </form>
+
+      <h2 className="mt-8 text-xl font-black text-ink">All Documents</h2>
+
       {/* Mobile: card list */}
-      <div className="mt-6 flex flex-col gap-3 md:hidden">
+      <div className="mt-3 flex flex-col gap-3 md:hidden">
         {documents.map((doc) => {
           const u = documentUrgency(doc.expiresOn, today);
           return (
@@ -158,69 +223,6 @@ export default async function DocumentsPage() {
           </tbody>
         </table>
       </div>
-
-      <h2 className="mt-8 text-xl font-black text-ink">Add a Document</h2>
-      <form
-        action={createDocument}
-        className="mt-3 flex flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Type" htmlFor="type">
-            <select id="type" name="type" required defaultValue="" className={inputClass}>
-              <option value="" disabled>
-                Select a type…
-              </option>
-              {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Name" htmlFor="name">
-            <input
-              id="name"
-              name="name"
-              required
-              className={inputClass}
-              placeholder="e.g. General Liability Policy"
-            />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Expires On" htmlFor="expiresOn">
-            <input id="expiresOn" name="expiresOn" type="date" required className={inputClass} />
-          </Field>
-          <Field label="Vehicle (optional)" htmlFor="vehicleId">
-            <select id="vehicleId" name="vehicleId" defaultValue="" className={inputClass}>
-              <option value="">Not vehicle-specific</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <Field label="Notes (optional)" htmlFor="notes">
-          <input id="notes" name="notes" className={inputClass} placeholder="e.g. policy number" />
-        </Field>
-
-        <Field label="File" htmlFor="file">
-          <input id="file" name="file" type="file" required className={inputClass} />
-        </Field>
-
-        <div>
-          <button
-            type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-          >
-            Add Document
-          </button>
-        </div>
-      </form>
     </div>
   );
 }

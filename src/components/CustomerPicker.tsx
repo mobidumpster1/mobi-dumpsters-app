@@ -5,7 +5,7 @@ import { Field, inputClass } from "@/components/Field";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 
-type CustomerOption = { id: string; name: string };
+type CustomerOption = { id: string; name: string; address?: string | null };
 
 // A customer <select> for forms that need to pick a customer, with a
 // "+ New Customer" toggle that adds one inline (name/phone/email/address)
@@ -14,9 +14,11 @@ type CustomerOption = { id: string; name: string };
 export function CustomerPicker({
   customers,
   initialSelectedId,
+  onSelect,
 }: {
   customers: CustomerOption[];
   initialSelectedId?: string;
+  onSelect?: (customer: CustomerOption) => void;
 }) {
   const [options, setOptions] = useState(customers);
   const [selectedId, setSelectedId] = useState(
@@ -46,8 +48,10 @@ export function CustomerPicker({
       formData.set("address", newAddress);
       formData.set("leadSource", newLeadSource);
       const customer = await quickAddCustomer(formData);
-      setOptions((prev) => [...prev, customer].sort((a, b) => a.name.localeCompare(b.name)));
+      const customerWithAddress = { ...customer, address: newAddress };
+      setOptions((prev) => [...prev, customerWithAddress].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedId(customer.id);
+      onSelect?.(customerWithAddress);
       setShowAddForm(false);
       setNewName("");
       setNewPhone("");
@@ -72,7 +76,11 @@ export function CustomerPicker({
             disabled={showAddForm}
             className={`${inputClass} disabled:bg-zinc-100 disabled:text-zinc-400`}
             value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
+            onChange={(e) => {
+              setSelectedId(e.target.value);
+              const customer = options.find((c) => c.id === e.target.value);
+              if (customer) onSelect?.(customer);
+            }}
           >
             {options.length === 0 && <option value="">No customers yet</option>}
             {options.map((c) => (

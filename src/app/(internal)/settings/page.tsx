@@ -534,7 +534,7 @@ export default async function SettingsPage({
   );
 
   const quickbooksSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-quickbooks" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">QuickBooks Online</h2>
 
       {accountsError && (
@@ -700,7 +700,7 @@ export default async function SettingsPage({
   );
 
   const googleBusinessSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-gbp" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Google Business Profile</h2>
 
       {gbp_connected && (
@@ -752,7 +752,7 @@ export default async function SettingsPage({
   );
 
   const googleAdsSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-google-ads" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Google Ads (Marketing Intelligence)</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Read-only — pulls campaign performance daily and flags optimization opportunities
@@ -812,7 +812,7 @@ export default async function SettingsPage({
   );
 
   const searchConsoleSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-search-console" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Search Console (Local SEO)</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Read-only — pulls a weekly Search Analytics snapshot and flags page-2 queries
@@ -877,7 +877,7 @@ export default async function SettingsPage({
   );
 
   const stripeSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-stripe" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Stripe Payments</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Handles all customer-facing payment collection — cards on file,
@@ -1004,7 +1004,7 @@ export default async function SettingsPage({
   );
 
   const twilioSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="integration-twilio" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Two-Way Texting</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Text customers straight from their profile, and their replies come
@@ -1163,7 +1163,7 @@ export default async function SettingsPage({
   );
 
   const reviewRequestsSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="email-review-requests" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Review Requests</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Automatically emails a customer a few days after a job is fully
@@ -1238,7 +1238,7 @@ export default async function SettingsPage({
   );
 
   const invoiceRemindersSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="email-invoice-reminders" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Overdue Invoice Reminders</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Automatically emails a customer when an invoice is past due, then
@@ -1306,7 +1306,7 @@ export default async function SettingsPage({
   );
 
   const winBackSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="email-win-back" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Win-Back Campaign</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Controls which customers show up on the Win-Back page (under
@@ -1339,7 +1339,7 @@ export default async function SettingsPage({
   );
 
   const jobNotificationsSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="email-job-notifications" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Job Notifications</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Keep customers posted around a job — when equipment goes out, when
@@ -1422,7 +1422,7 @@ export default async function SettingsPage({
   );
 
   const emailTemplatesSection = (
-    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+    <section id="email-templates" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Email Templates</h2>
       <p className="mt-1 text-sm text-zinc-500">
         Customize the wording of any automated customer email. Leave a
@@ -1609,6 +1609,23 @@ export default async function SettingsPage({
       label: "Automated Emails",
       content: (
         <>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["#email-review-requests", "Review Requests"],
+              ["#email-invoice-reminders", "Invoice Reminders"],
+              ["#email-job-notifications", "Job Notifications"],
+              ["#email-win-back", "Win-Back"],
+              ["#email-templates", "Templates"],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
           {reviewRequestsSection}
           {invoiceRemindersSection}
           {jobNotificationsSection}
@@ -1622,6 +1639,24 @@ export default async function SettingsPage({
       label: "Integrations",
       content: (
         <>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["#integration-stripe", "Stripe"],
+              ["#integration-twilio", "Twilio"],
+              ["#integration-quickbooks", "QuickBooks"],
+              ["#integration-gbp", "Google Business Profile"],
+              ["#integration-google-ads", "Google Ads"],
+              ["#integration-search-console", "Search Console"],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
           {stripeSection}
           {twilioSection}
           {quickbooksSection}

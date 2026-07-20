@@ -103,7 +103,7 @@ export default async function MileagePage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-ink">Mileage Log</h1>
         <p className="mt-1 text-zinc-500">
-          Trip mileage for your trucks and whatever they're hauling —
+          Trip mileage for your trucks and whatever they&apos;re hauling —
           deliveries, pickups, yard moves, and maintenance runs. Entered
           manually for now; ready to fill in automatically once Samsara
           tracking is set up.
@@ -114,6 +114,20 @@ export default async function MileagePage() {
         <MilesCard label="This Month" value={totalThisMonth} />
         <MilesCard label="This Year" value={totalThisYear} />
         <MilesCard label="All Time" value={totalAllTime} />
+      </div>
+
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h2 className="text-lg font-semibold text-ink">Add Entry</h2>
+        <div className="mt-3">
+          <MileageEntryForm
+            vehicles={activeVehicles.map((v) => ({ id: v.id, label: v.label }))}
+            equipmentItems={haulableEquipment.map((item) => ({
+              id: item.id,
+              label: item.category.name,
+            }))}
+            action={addMileageEntry}
+          />
+        </div>
       </div>
 
       {totalsByLabel.length > 0 && (
@@ -171,20 +185,6 @@ export default async function MileagePage() {
             Add Truck
           </button>
         </form>
-      </div>
-
-      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
-        <h2 className="text-lg font-semibold text-ink">Add Entry</h2>
-        <div className="mt-3">
-          <MileageEntryForm
-            vehicles={activeVehicles.map((v) => ({ id: v.id, label: v.label }))}
-            equipmentItems={haulableEquipment.map((item) => ({
-              id: item.id,
-              label: item.category.name,
-            }))}
-            action={addMileageEntry}
-          />
-        </div>
       </div>
 
       {/* Mobile: card list */}

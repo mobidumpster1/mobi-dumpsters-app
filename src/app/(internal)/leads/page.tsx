@@ -325,49 +325,57 @@ export default async function LeadsPage({
       )}
 
       {canOutreach ? (
-        <>
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ServiceAreaManager
-              areas={serviceAreas}
-              addAction={addServiceArea}
-              removeAction={removeServiceArea}
-            />
-            <EmailTemplateManager
-              templates={emailTemplates}
-              placeholderToken="{{businessName}}"
-              addAction={createLeadEmailTemplate}
-              removeAction={deleteLeadEmailTemplate}
-            />
-          </div>
+        <details className="group mt-6 rounded-xl border border-zinc-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50">
+            <span>Search Tools &amp; Templates</span>
+            <span className="text-xs font-normal text-zinc-400 group-open:hidden">
+              Find new leads, manage service areas, email templates
+            </span>
+          </summary>
+          <div className="border-t border-zinc-200 p-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <ServiceAreaManager
+                areas={serviceAreas}
+                addAction={addServiceArea}
+                removeAction={removeServiceArea}
+              />
+              <EmailTemplateManager
+                templates={emailTemplates}
+                placeholderToken="{{businessName}}"
+                addAction={createLeadEmailTemplate}
+                removeAction={deleteLeadEmailTemplate}
+              />
+            </div>
 
-          <form
-            action={updateLeadServiceRadius}
-            className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
-          >
-            <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
-              Flag leads farther than
-            </label>
-            <input
-              id="serviceRadiusMiles"
-              name="serviceRadiusMiles"
-              type="number"
-              min="1"
-              defaultValue={leadOutreachSettings.serviceRadiusMiles}
-              className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
-            />
-            <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
-            <button
-              type="submit"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            <form
+              action={updateLeadServiceRadius}
+              className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
             >
-              Save
-            </button>
-          </form>
+              <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
+                Flag leads farther than
+              </label>
+              <input
+                id="serviceRadiusMiles"
+                name="serviceRadiusMiles"
+                type="number"
+                min="1"
+                defaultValue={leadOutreachSettings.serviceRadiusMiles}
+                className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
+              />
+              <span className="text-sm font-medium text-zinc-700">miles from the yard</span>
+              <button
+                type="submit"
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+              >
+                Save
+              </button>
+            </form>
 
-          <div className="mt-4">
-            <LeadSearchForm action={searchAndSaveLeads} areas={serviceAreas} />
+            <div className="mt-4">
+              <LeadSearchForm action={searchAndSaveLeads} areas={serviceAreas} />
+            </div>
           </div>
-        </>
+        </details>
       ) : (
         <PlanGateNotice
           requiredPlan="pro"

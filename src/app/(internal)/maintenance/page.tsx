@@ -40,8 +40,18 @@ export default async function MaintenancePage() {
         </p>
       </div>
 
+      <h2 className="mt-6 text-xl font-black text-ink">Add an Entry</h2>
+      <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <MaintenanceEntryForm
+          vehicles={vehicles.map((v) => ({ id: v.id, label: v.label }))}
+          equipmentItems={equipmentItems.map((e) => ({ id: e.id, label: e.label }))}
+        />
+      </div>
+
+      <h2 className="mt-8 text-xl font-black text-ink">History</h2>
+
       {/* Mobile: card list */}
-      <div className="mt-6 flex flex-col gap-3 md:hidden">
+      <div className="mt-3 flex flex-col gap-3 md:hidden">
         {entries.map((entry) => {
           const u = entry.nextServiceDue ? maintenanceUrgency(entry.nextServiceDue, today) : null;
           return (
@@ -187,14 +197,6 @@ export default async function MaintenancePage() {
             )}
           </tbody>
         </table>
-      </div>
-
-      <h2 className="mt-8 text-xl font-black text-ink">Add an Entry</h2>
-      <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
-        <MaintenanceEntryForm
-          vehicles={vehicles.map((v) => ({ id: v.id, label: v.label }))}
-          equipmentItems={equipmentItems.map((e) => ({ id: e.id, label: e.label }))}
-        />
       </div>
     </div>
   );

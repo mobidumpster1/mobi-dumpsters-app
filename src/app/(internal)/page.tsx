@@ -400,67 +400,6 @@ export default async function DispatchPage() {
         </section>
       )}
 
-      {todaysStops.length > 0 && (
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black text-ink">Suggested Route</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Today&apos;s deliveries and pickups, ordered for an efficient loop from the yard.
-              </p>
-            </div>
-            {canRouteOptimize && (
-              <RouteDirectionsButton
-                origin={yard}
-                stops={orderedStops.map((s) => ({ lat: s.lat, lng: s.lng }))}
-              />
-            )}
-          </div>
-          {canRouteOptimize ? (
-            <>
-              <div className="mt-3">
-                <LocationMap pins={routePins} heightClassName="h-80" />
-              </div>
-              <ol className="mt-3 flex flex-col gap-2">
-                {orderedStops.map((stop, i) => (
-                  <li
-                    key={stop.id}
-                    className="flex items-center gap-3 rounded-lg border-2 border-zinc-900 bg-white px-4 py-3"
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-white">
-                      {i + 1}
-                    </span>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-black text-white ${
-                        stop.kind === "Delivery" ? "bg-blue-600" : "bg-purple-600"
-                      }`}
-                    >
-                      {stop.kind}
-                    </span>
-                    <Link href={stop.href} className="min-w-0 flex-1 hover:underline">
-                      <span className="font-medium text-zinc-900">{stop.customerName}</span>
-                      <span className="ml-2 text-sm text-zinc-500">{stop.address}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            </>
-          ) : (
-            <PlanGateNotice
-              requiredPlan="pro"
-              description="Auto-order today's deliveries and pickups into an efficient loop from the yard, with a one-click Google Maps route."
-            />
-          )}
-        </section>
-      )}
-
-      <section>
-        <h2 className="text-xl font-black text-ink">Active Equipment Map</h2>
-        <div className="mt-3">
-          <LocationMap pins={pins} heightClassName="h-96" />
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
           <h2 className="text-xl font-black text-ink">Deliveries</h2>
@@ -542,6 +481,67 @@ export default async function DispatchPage() {
           </div>
         </section>
       </div>
+
+      {todaysStops.length > 0 && (
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-ink">Suggested Route</h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Today&apos;s deliveries and pickups, ordered for an efficient loop from the yard.
+              </p>
+            </div>
+            {canRouteOptimize && (
+              <RouteDirectionsButton
+                origin={yard}
+                stops={orderedStops.map((s) => ({ lat: s.lat, lng: s.lng }))}
+              />
+            )}
+          </div>
+          {canRouteOptimize ? (
+            <>
+              <div className="mt-3">
+                <LocationMap pins={routePins} heightClassName="h-80" />
+              </div>
+              <ol className="mt-3 flex flex-col gap-2">
+                {orderedStops.map((stop, i) => (
+                  <li
+                    key={stop.id}
+                    className="flex items-center gap-3 rounded-lg border-2 border-zinc-900 bg-white px-4 py-3"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-white">
+                      {i + 1}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-black text-white ${
+                        stop.kind === "Delivery" ? "bg-blue-600" : "bg-purple-600"
+                      }`}
+                    >
+                      {stop.kind}
+                    </span>
+                    <Link href={stop.href} className="min-w-0 flex-1 hover:underline">
+                      <span className="font-medium text-zinc-900">{stop.customerName}</span>
+                      <span className="ml-2 text-sm text-zinc-500">{stop.address}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <PlanGateNotice
+              requiredPlan="pro"
+              description="Auto-order today's deliveries and pickups into an efficient loop from the yard, with a one-click Google Maps route."
+            />
+          )}
+        </section>
+      )}
+
+      <section>
+        <h2 className="text-xl font-black text-ink">Active Equipment Map</h2>
+        <div className="mt-3">
+          <LocationMap pins={pins} heightClassName="h-96" />
+        </div>
+      </section>
     </div>
   );
 }
