@@ -17,6 +17,7 @@ import {
 import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
 import { requireUser, hasPlan } from "@/lib/session";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
+import { inputClass } from "@/components/Field";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ function DispatchCard({
   address,
   actionLabel,
   action,
+  extraFormFields,
 }: {
   date: string;
   urgencyText: string;
@@ -63,6 +65,7 @@ function DispatchCard({
   address: string;
   actionLabel: string;
   action: (formData: FormData) => void;
+  extraFormFields?: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
@@ -86,11 +89,12 @@ function DispatchCard({
           <AddressLink address={address} />
         </p>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <form action={action}>
+      <div className="mt-4 flex flex-wrap items-end gap-4">
+        <form action={action} className="flex flex-col gap-2">
+          {extraFormFields}
           <button
             type="submit"
-            className="text-sm font-semibold text-brand hover:underline"
+            className="self-start text-sm font-semibold text-brand hover:underline"
           >
             {actionLabel}
           </button>
@@ -505,6 +509,28 @@ export default async function DispatchPage() {
                   address={item.booking.deliveryAddress}
                   actionLabel="Mark Returned"
                   action={markReturned.bind(null, item.id)}
+                  extraFormFields={
+                    <div className="flex flex-wrap gap-2">
+                      <label className="flex flex-col gap-0.5 text-xs text-zinc-500">
+                        Tons (optional)
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="actualTonnage"
+                          className={`${inputClass} w-28 px-2.5 py-1.5 text-sm`}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-0.5 text-xs text-zinc-500">
+                        Miles (optional)
+                        <input
+                          type="number"
+                          step="0.1"
+                          name="actualMileage"
+                          className={`${inputClass} w-28 px-2.5 py-1.5 text-sm`}
+                        />
+                      </label>
+                    </div>
+                  }
                 />
               );
             })}

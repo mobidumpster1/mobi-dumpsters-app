@@ -209,20 +209,24 @@ export default async function BookingDetailPage({
                     action={markReturned.bind(null, item.id)}
                     className="flex flex-col gap-1.5"
                   >
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="actualTonnage"
-                      placeholder="Tons (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
-                    />
-                    <input
-                      type="number"
-                      step="0.1"
-                      name="actualMileage"
-                      placeholder="Miles (optional)"
-                      className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
-                    />
+                    <label className="flex flex-col gap-0.5 text-xs text-zinc-500">
+                      Tons (optional)
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="actualTonnage"
+                        className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-0.5 text-xs text-zinc-500">
+                      Miles (optional)
+                      <input
+                        type="number"
+                        step="0.1"
+                        name="actualMileage"
+                        className={`${inputClass} px-2.5 py-1.5 text-base sm:text-xs`}
+                      />
+                    </label>
                     <button
                       type="submit"
                       className="self-start text-sm font-semibold text-brand hover:underline"

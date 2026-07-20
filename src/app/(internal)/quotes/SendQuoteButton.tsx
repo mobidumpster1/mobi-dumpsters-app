@@ -7,11 +7,16 @@ import { sendQuote } from "./actions";
 // (no email/phone on file, Resend or Twilio not configured) shows a
 // friendly inline error instead of crashing to Next's generic error page —
 // same fix already applied to the SMS-send and invoice-charge flows.
-export function SendQuoteButton({ quoteId }: { quoteId: string }) {
+export function SendQuoteButton({ quoteId, compact }: { quoteId: string; compact?: boolean }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleClick() {
+  async function handleClick(e: React.MouseEvent) {
+    // Stops the click from also triggering a parent <Link> to the quote
+    // detail page — this button lives inline in the quotes list, which is
+    // otherwise a single big clickable row.
+    e.preventDefault();
+    e.stopPropagation();
     setSending(true);
     setError(null);
     try {
@@ -29,7 +34,11 @@ export function SendQuoteButton({ quoteId }: { quoteId: string }) {
         type="button"
         onClick={handleClick}
         disabled={sending}
-        className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+        className={
+          compact
+            ? "rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
+            : "rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+        }
       >
         {sending ? "Sending…" : "Send Quote"}
       </button>
