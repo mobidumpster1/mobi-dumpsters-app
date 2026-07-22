@@ -13,7 +13,8 @@ import {
   markBookingReviewed,
   sendReviewRequestNow,
 } from "../actions";
-import { uploadPhoto, deletePhoto } from "../photoActions";
+import { uploadPhoto, deletePhoto, postToFacebookNow } from "../photoActions";
+import { getValidConnection as getFacebookConnection } from "@/lib/facebook";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
 import { setPermitRequired, updatePermit } from "../permitActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
@@ -61,7 +62,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
+  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry, facebookConnection] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -91,6 +92,7 @@ export default async function BookingDetailPage({
           where: { userId: user.id, organizationId: user.effectiveOrganizationId, clockOut: null },
         })
       : Promise.resolve(null),
+    hasPlan(user, "pro") ? getFacebookConnection(user.effectiveOrganizationId) : Promise.resolve(null),
   ]);
 
   if (!booking) notFound();
@@ -579,6 +581,8 @@ export default async function BookingDetailPage({
             .map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
           defaultCaption={facebookCaption}
           facebookPageUrl={branding.facebookPageUrl ?? null}
+          isConnected={Boolean(facebookConnection)}
+          postAction={facebookConnection ? postToFacebookNow.bind(null, booking.id) : undefined}
         />
       )}
     </>

@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { sendCustomerSms } from "@/lib/twilio";
+import { postToFacebook } from "@/lib/facebook";
 import { branding } from "@/lib/branding";
 import { getAutomationSettings } from "@/lib/automationSettings";
 
 export type TriggerEntity = "lead" | "booking" | "invoice" | "quote" | "customer";
-export type ActionType = "send_email" | "send_sms" | "create_customer_note";
+export type ActionType = "send_email" | "send_sms" | "create_customer_note" | "post_facebook";
 export type ConditionOperator = "equals" | "not_equals" | "greater_than" | "less_than";
 
 // What each entity can trigger on, and the at-most-one extra flat filter
@@ -50,6 +51,7 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   send_email: "Send an email",
   send_sms: "Send a text (SMS)",
   create_customer_note: "Add a customer note",
+  post_facebook: "Post to Facebook Page",
 };
 
 type Candidate = {
@@ -248,6 +250,13 @@ async function executeRuleForCandidate(
       await db.customerNote.create({
         data: { customerId: candidate.customerId, type: "note", content: body },
       });
+    } else if (rule.actionType === "post_facebook") {
+      // Text-only — none of the five trigger entities has one canonical
+      // "this is the photo" field, and guessing wrong risks posting the
+      // wrong (or a private/internal) photo publicly. The manual
+      // FacebookShareBox button on a booking's Photos tab is still the
+      // only way to attach a specific photo.
+      await postToFacebook(rule.organizationId, body);
     }
     return { status: "sent" };
   } catch (error) {

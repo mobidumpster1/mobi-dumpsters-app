@@ -4,6 +4,7 @@ import { getValidConnection, isQuickBooksConfigured, listAccounts, type QboAccou
 import { isConfigured as isGoogleBusinessConfigured } from "@/lib/googleBusinessProfile";
 import { isConfigured as isGoogleAdsConfigured } from "@/lib/googleAds";
 import { isConfigured as isSearchConsoleConfigured } from "@/lib/googleSearchConsole";
+import { isFacebookConfigured } from "@/lib/facebook";
 import {
   saveAccountMappings,
   disconnectQuickBooks,
@@ -31,6 +32,7 @@ import {
   saveStripeConnection,
   disconnectStripe,
   disconnectTwilio,
+  disconnectFacebook,
 } from "./actions";
 import { getStripeConnection } from "@/lib/stripe";
 import { getTwilioConnection } from "@/lib/twilio";
@@ -78,6 +80,8 @@ function computeInitialTab(params: {
   ads_error?: string;
   search_console_connected?: string;
   search_console_error?: string;
+  fb_connected?: string;
+  fb_error?: string;
   reviews_sent?: string;
   invoices_sent?: string;
   deliveries_sent?: string;
@@ -92,7 +96,9 @@ function computeInitialTab(params: {
     params.ads_connected !== undefined ||
     params.ads_error !== undefined ||
     params.search_console_connected !== undefined ||
-    params.search_console_error !== undefined
+    params.search_console_error !== undefined ||
+    params.fb_connected !== undefined ||
+    params.fb_error !== undefined
   ) {
     return "integrations";
   }
@@ -136,6 +142,8 @@ export default async function SettingsPage({
     ads_error?: string;
     search_console_connected?: string;
     search_console_error?: string;
+    fb_connected?: string;
+    fb_error?: string;
     reviews_sent?: string;
     reviews_checked?: string;
     invoices_sent?: string;
@@ -158,6 +166,8 @@ export default async function SettingsPage({
     ads_error,
     search_console_connected,
     search_console_error,
+    fb_connected,
+    fb_error,
     reviews_sent,
     reviews_checked,
     invoices_sent,
@@ -178,6 +188,10 @@ export default async function SettingsPage({
   });
   const searchConsoleConfigured = isSearchConsoleConfigured();
   const searchConsoleConnection = await db.searchConsoleConnection.findUnique({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+  });
+  const facebookConfigured = isFacebookConfigured();
+  const facebookConnection = await db.facebookConnection.findUnique({
     where: { organizationId: currentUser.effectiveOrganizationId },
   });
   const staffUsers = await db.user.findMany({
@@ -871,6 +885,68 @@ export default async function SettingsPage({
               Last sync failed: {searchConsoleConnection.lastSyncError}
             </p>
           )}
+        </div>
+      )}
+    </section>
+  );
+
+  const facebookSection = (
+    <section id="integration-facebook" className="scroll-mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Facebook Page</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Post job photos straight to your Page — either the manual button on a
+        booking&apos;s Photos tab, or automatically via a rule on the Automation page
+        (Pro plan). Captions are template text you control; nothing gets written by AI.
+      </p>
+
+      {fb_connected && (
+        <p className="mt-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+          Connected to Facebook successfully.
+        </p>
+      )}
+      {fb_error && (
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          Something went wrong connecting ({fb_error}). Try again.
+        </p>
+      )}
+
+      {!hasPlan(currentUser, "pro") ? (
+        <PlanGateNotice
+          requiredPlan="pro"
+          description="Post job photos to your Facebook Page manually or automatically."
+        />
+      ) : !facebookConfigured ? (
+        <p className="mt-3 text-zinc-500">
+          Facebook isn&apos;t set up yet — this needs a Meta Developer App with the
+          Pages API enabled, reviewed by Meta before it can post to a real Page (usually
+          a few days for the pages_manage_posts permission). Once approved, add the
+          App ID, App Secret, and redirect URL to the app&apos;s environment settings.
+          Until then, the copy/paste Share to Facebook box on each job&apos;s Photos tab
+          still works with no setup required.
+        </p>
+      ) : !facebookConnection ? (
+        <div className="mt-4">
+          <p className="text-zinc-500">Not connected yet.</p>
+          <a
+            href="/api/facebook/connect"
+            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Connect Facebook Page
+          </a>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-3">
+          <p className="text-sm text-zinc-500">
+            Connected — posting to <strong>{facebookConnection.pageName}</strong>.
+          </p>
+          <form action={disconnectFacebook}>
+            <button
+              type="submit"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              Disconnect
+            </button>
+          </form>
         </div>
       )}
     </section>
@@ -1647,6 +1723,7 @@ export default async function SettingsPage({
               ["#integration-gbp", "Google Business Profile"],
               ["#integration-google-ads", "Google Ads"],
               ["#integration-search-console", "Search Console"],
+              ["#integration-facebook", "Facebook Page"],
             ].map(([href, label]) => (
               <a
                 key={href}
@@ -1663,6 +1740,7 @@ export default async function SettingsPage({
           {googleBusinessSection}
           {googleAdsSection}
           {searchConsoleSection}
+          {facebookSection}
         </>
       ),
     },
@@ -1687,6 +1765,8 @@ export default async function SettingsPage({
     ads_error,
     search_console_connected,
     search_console_error,
+    fb_connected,
+    fb_error,
     reviews_sent,
     invoices_sent,
     deliveries_sent,

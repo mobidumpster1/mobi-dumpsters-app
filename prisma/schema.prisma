@@ -84,6 +84,8 @@ model Organization {
   marketingRecommendations MarketingRecommendation[]
   searchConsoleConnection  SearchConsoleConnection?
   seoPerformance           SeoPerformance[]
+  facebookConnection       FacebookConnection?
+  facebookPosts            FacebookPost[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -633,6 +635,7 @@ model Booking {
   serviceRequests   ServiceRequest[]
   quote             Quote?
   timeEntries       TimeEntry[]
+  facebookPosts     FacebookPost[]
 }
 
 // A customer-initiated request against an active booking, made from the
@@ -1482,10 +1485,48 @@ model GoogleReview {
   updatedAt       DateTime     @updatedAt
 }
 
+// One Facebook Page connected per org. Facebook's long-lived Page access
+// tokens (derived from a long-lived user token) don't expire on a fixed
+// schedule the way Google's refresh-token flow does, so there's no
+// refreshAccessToken() counterpart here — accessTokenExpiresAt just tracks
+// Meta's stated long-lived-token expiry so getValidConnection can prompt a
+// reconnect once it's past due, rather than silently failing mid-post.
+model FacebookConnection {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  pageId               String
+  pageName             String
+  accessToken          String
+  accessTokenExpiresAt DateTime
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+// A log of posts made to the connected Page — both the manual "Post to
+// Facebook Page" button (bookingId set) and the Automation Engine's
+// post_facebook action (bookingId null, since a rule's trigger entity
+// isn't always a booking). Kept even for automated posts so staff have one
+// place to see everything that's actually gone out publicly.
+model FacebookPost {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  bookingId      String?
+  booking        Booking?     @relation(fields: [bookingId], references: [id])
+  message        String
+  imageUrl       String?
+  facebookPostId String?
+  status         String       @default("pending") // pending | posted | failed
+  error          String?
+  postedAt       DateTime?
+  createdAt      DateTime     @default(now())
+}
+
 // A staff-configured "when X happens, do Y" rule. v1 caps a rule at one
 // trigger plus at most one flat condition, and limits actions to
-// send_email/send_sms/create_customer_note — no mutating actions.
-// Owner-only to create/edit given the blast-radius risk.
+// send_email/send_sms/create_customer_note/post_facebook — no other
+// mutating actions. Owner-only to create/edit given the blast-radius risk.
 model AutomationRule {
   id             String       @id @default(cuid())
   organizationId String
@@ -1500,7 +1541,7 @@ model AutomationRule {
   conditionOperator String? // equals | not_equals | greater_than | less_than
   conditionValue    String?
 
-  actionType    String // send_email | send_sms | create_customer_note
+  actionType    String // send_email | send_sms | create_customer_note | post_facebook
   actionSubject String? // send_email only
   actionBody    String // {{var}} interpolated, same syntax as EmailTemplate
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Field, inputClass } from "@/components/Field";
 
 type TriggerEntity = "lead" | "booking" | "invoice" | "quote" | "customer";
-type ActionType = "send_email" | "send_sms" | "create_customer_note";
+type ActionType = "send_email" | "send_sms" | "create_customer_note" | "post_facebook";
 
 const TRIGGER_CATALOG: Record<
   TriggerEntity,
@@ -45,6 +45,7 @@ const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   send_email: "Send an email",
   send_sms: "Send a text (SMS)",
   create_customer_note: "Add a customer note",
+  post_facebook: "Post to Facebook Page",
 };
 
 type InitialValues = {
@@ -230,7 +231,9 @@ export function AutomationTriggerBuilder({
             ? "Note text"
             : actionType === "send_sms"
               ? "Text message"
-              : "Email body"
+              : actionType === "post_facebook"
+                ? "Facebook post text"
+                : "Email body"
         }
         htmlFor="actionBody"
       >
@@ -247,6 +250,13 @@ export function AutomationTriggerBuilder({
       <p className="-mt-2 text-xs text-zinc-500">
         Available variables: <code>{"{{customerName}}"}</code>, <code>{"{{businessName}}"}</code>
       </p>
+      {actionType === "post_facebook" && (
+        <p className="-mt-2 text-xs text-amber-600">
+          This posts publicly to your connected Facebook Page. New rules start disabled —
+          check the match preview on this rule&apos;s page and keep Max per run small before
+          turning it on.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Max per run" htmlFor="maxPerRun">
