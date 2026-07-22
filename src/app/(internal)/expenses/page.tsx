@@ -82,7 +82,7 @@ export default async function ExpensesPage() {
       {recurringBills.length > 0 && (
         <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-black text-ink">🔁 Recurring Bills</h2>
+            <h2 className="text-lg font-black text-ink">Recurring Bills</h2>
             <Link
               href="/expenses/recurring"
               className="text-sm font-semibold text-brand hover:underline"
