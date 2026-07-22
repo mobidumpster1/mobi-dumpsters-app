@@ -131,7 +131,7 @@ export default async function QuotesPage({
         ))}
         {quotes.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            {allQuotes.length === 0 ? "No quotes yet." : "No quotes match your search/filter."}
+            {allQuotes.length === 0 ? "No quotes yet — create your first one above." : "No quotes match your search/filter."}
           </p>
         )}
       </div>
@@ -180,7 +180,7 @@ export default async function QuotesPage({
             {quotes.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
-                  {allQuotes.length === 0 ? "No quotes yet." : "No quotes match your search/filter."}
+                  {allQuotes.length === 0 ? "No quotes yet — create your first one above." : "No quotes match your search/filter."}
                 </td>
               </tr>
             )}

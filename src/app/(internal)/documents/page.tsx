@@ -156,7 +156,7 @@ export default async function DocumentsPage() {
         })}
         {documents.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            No documents yet.
+            No documents yet — add one above.
           </p>
         )}
       </div>
@@ -216,7 +216,7 @@ export default async function DocumentsPage() {
             {documents.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  No documents yet.
+                  No documents yet — add one above.
                 </td>
               </tr>
             )}

@@ -76,7 +76,7 @@ export default async function AgreementsPage() {
         ))}
         {signed.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            No signatures collected yet.
+            No signatures collected yet — share the signing link above.
           </p>
         )}
       </div>
@@ -135,7 +135,7 @@ export default async function AgreementsPage() {
             {signed.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  No signatures collected yet.
+                  No signatures collected yet — share the signing link above.
                 </td>
               </tr>
             )}

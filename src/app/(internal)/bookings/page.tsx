@@ -138,7 +138,7 @@ export default async function BookingsPage({
         ))}
         {bookings.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            {allBookings.length === 0 ? "No bookings yet." : "No bookings match your search/filter."}
+            {allBookings.length === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
           </p>
         )}
       </div>
@@ -189,7 +189,7 @@ export default async function BookingsPage({
             {bookings.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
-                  {allBookings.length === 0 ? "No bookings yet." : "No bookings match your search/filter."}
+                  {allBookings.length === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
                 </td>
               </tr>
             )}

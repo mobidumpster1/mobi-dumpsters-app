@@ -130,7 +130,7 @@ export default async function InvoicesPage({
         ))}
         {invoices.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            {allInvoices.length === 0 ? "No invoices yet." : "No invoices match your search/filter."}
+            {allInvoices.length === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
           </p>
         )}
       </div>
@@ -179,7 +179,7 @@ export default async function InvoicesPage({
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  {allInvoices.length === 0 ? "No invoices yet." : "No invoices match your search/filter."}
+                  {allInvoices.length === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
                 </td>
               </tr>
             )}

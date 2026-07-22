@@ -41,13 +41,13 @@ export default async function ExpensesPage() {
             href="/expenses/recurring"
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
           >
-            🔁 Recurring Bills
+            Recurring Bills
           </Link>
           <Link
             href="/expenses/scan"
-            className="rounded-xl border border-brand px-5 py-3 text-sm font-semibold text-brand transition-colors hover:bg-brand/5"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
           >
-            📷 Scan Receipt
+            Scan Receipt
           </Link>
           <Link
             href="/expenses/new"

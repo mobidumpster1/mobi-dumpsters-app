@@ -56,7 +56,7 @@ export default async function AutomationPage() {
                       rule.enabled ? "bg-green-600 text-white" : "border-2 border-zinc-300 text-zinc-600"
                     }`}
                   >
-                    {rule.enabled ? "Enabled" : "Disabled"}
+                    {rule.enabled ? "Auto-Run: On" : "Auto-Run: Off"}
                   </button>
                 </form>
                 <form action={deleteRule.bind(null, rule.id)}>
