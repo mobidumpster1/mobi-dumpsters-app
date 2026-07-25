@@ -481,9 +481,21 @@
   // submission — point it back at this exact URL (preserving ?d= for the
   // customer view) plus &signed=1, so the confirmation above shows instead
   // of leaving Mobi's branding for Formspree's own generic thank-you page.
-  var nextUrl = window.location.origin + window.location.pathname +
-    (encoded ? "?d=" + encoded + "&signed=1" : "?signed=1");
-  $("nextField").value = nextUrl;
+  // Only do this over http/https: browsers block a server response from
+  // redirecting to a file:// URL (a security restriction against remote
+  // pages navigating to local files), so when this page was opened as a
+  // local file directly — the whole point of it being usable with zero
+  // signal — that redirect would silently fail and the submission would
+  // look like it did nothing, even though Formspree actually received it.
+  // Leaving _next blank in that case falls back to Formspree's own
+  // generic (but reliable) "thanks" page instead.
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    var nextUrl = window.location.origin + window.location.pathname +
+      (encoded ? "?d=" + encoded + "&signed=1" : "?signed=1");
+    $("nextField").value = nextUrl;
+  } else {
+    $("nextField").remove();
+  }
 
   if (encoded) {
     // Customer view: decode, lock Section 1, mirror values as hidden inputs so
@@ -542,6 +554,10 @@
 
   // --- Generate a shareable pre-filled link for the customer ---
   window.generateLink = function () {
+    if (window.location.protocol === "file:") {
+      alert("This page was opened as a local file, so a generated link would only open on this device — it can't be sent to a customer. Either hand her this device to fill in her part directly, or open this page from its hosted web address first (ask about that if you're not sure of the link) and generate the customer link from there instead.");
+      return;
+    }
     var missing = FIELDS.filter(function (key) {
       var el = $(key);
       return el && el.hasAttribute("required") && !el.value;
