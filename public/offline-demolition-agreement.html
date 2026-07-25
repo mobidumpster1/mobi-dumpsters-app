@@ -4,6 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <title>Demolition Service Agreement &amp; Liability Waiver — Mobi Dumpsters LLC</title>
+<meta name="theme-color" content="#3f6b2f" />
+<link rel="manifest" href="/offline-demolition-agreement.webmanifest" />
+<!-- iOS ignores the manifest above for "Add to Home Screen" — it relies on
+     these Apple-specific tags instead for the icon and full-screen
+     (no address bar) launch behavior. -->
+<link rel="apple-touch-icon" href="/logo.JPEG" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Demo Agreement" />
 <style>
   :root {
     --brand: #3f6b2f;
@@ -424,6 +434,15 @@
 
 <script>
 (function () {
+  // Registering this makes the page keep working offline after being
+  // added to the home screen — not just within one browser session, but
+  // after fully closing the app and reopening later with no signal at
+  // all. Silently does nothing on file:// or plain http (service workers
+  // require a secure https/localhost context) and on older browsers.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw-offline-demolition-agreement.js").catch(function () {});
+  }
+
   var FIELDS = [
     "structureDescription", "propertyAddress", "dimensions", "foundationRemoval",
     "quotedPrice", "depositDue", "balanceDue", "paymentMethod", "staffSignerName", "staffSignedDate"
