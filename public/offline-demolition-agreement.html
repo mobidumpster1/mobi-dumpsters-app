@@ -427,7 +427,10 @@
   <div class="signed-screen" id="signedScreen">
     <h2>Signed — thank you!</h2>
     <p>This device has submitted the agreement. Mobi Dumpsters LLC has a copy on file.</p>
-    <button class="btn-secondary" onclick="window.print()">Print / Save PDF</button>
+    <div class="actions" style="max-width: 320px; margin: 16px auto 0;">
+      <a class="btn btn-primary" id="emailCopyLink" href="#" style="text-decoration:none;">Email Yourself a Copy</a>
+      <button class="btn-secondary" onclick="window.print()">Print / Save PDF</button>
+    </div>
   </div>
 
 </div>
@@ -447,7 +450,30 @@
     "structureDescription", "propertyAddress", "dimensions", "foundationRemoval",
     "quotedPrice", "depositDue", "balanceDue", "paymentMethod", "staffSignerName", "staffSignedDate"
   ];
+  var SECTION5_FIELDS = [
+    "customerName", "customerPhone", "customerEmail", "serviceDate",
+    "serviceAddress", "signatureName", "signatureDate"
+  ];
   var STORAGE_KEY = "mobi_demo_agreement_draft_v1";
+  var SUBMIT_SNAPSHOT_KEY = "mobi_demo_agreement_submit_snapshot_v1";
+
+  // Formspree's own notification only ever reaches the business — nothing
+  // sends a copy back to the customer automatically (that's a paid
+  // Formspree feature). So right before the native POST navigates away,
+  // snapshot every field into sessionStorage; after the redirect back with
+  // ?signed=1, that snapshot builds a mailto: link so she can send herself
+  // a copy in one tap. sessionStorage (not localStorage) since this is
+  // throwaway, single-submission data, not something that should linger.
+  document.getElementById("agreementForm").addEventListener("submit", function () {
+    var snapshot = {};
+    FIELDS.concat(SECTION5_FIELDS).forEach(function (key) {
+      var el = $(key);
+      if (el) snapshot[key] = el.value;
+    });
+    try {
+      sessionStorage.setItem(SUBMIT_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    } catch (e) {}
+  });
 
   function $(id) { return document.getElementById(id); }
 
@@ -493,6 +519,35 @@
     document.getElementById("agreementForm").style.display = "none";
     document.getElementById("staffBanner").style.display = "none";
     document.getElementById("signedScreen").style.display = "block";
+
+    var snapshot = {};
+    try {
+      snapshot = JSON.parse(sessionStorage.getItem(SUBMIT_SNAPSHOT_KEY) || "{}");
+      sessionStorage.removeItem(SUBMIT_SNAPSHOT_KEY);
+    } catch (e) {}
+
+    var bodyLines = [
+      "Your copy of the Demolition Service Agreement with Mobi Dumpsters LLC:",
+      "",
+      "Structure: " + (snapshot.structureDescription || ""),
+      "Property address: " + (snapshot.propertyAddress || ""),
+      "Dimensions: " + (snapshot.dimensions || ""),
+      "Foundation/slab removal included: " + (snapshot.foundationRemoval || ""),
+      "Quoted price: $" + (snapshot.quotedPrice || ""),
+      "Deposit due: $" + (snapshot.depositDue || ""),
+      "Balance due: $" + (snapshot.balanceDue || ""),
+      "Preferred payment method: " + (snapshot.paymentMethod || ""),
+      "",
+      "Signed by: " + (snapshot.signatureName || "") + " on " + (snapshot.signatureDate || ""),
+      "Service date: " + (snapshot.serviceDate || "(not yet scheduled)"),
+      "Service address: " + (snapshot.serviceAddress || ""),
+      "",
+      "The full Terms & Conditions and Liability Waiver you agreed to are on file with Mobi Dumpsters LLC. Questions? Call or text (478) 954-3387."
+    ];
+    var mailto = "mailto:" + encodeURIComponent(snapshot.customerEmail || "") +
+      "?subject=" + encodeURIComponent("Your Demolition Service Agreement — Mobi Dumpsters LLC") +
+      "&body=" + encodeURIComponent(bodyLines.join("\n"));
+    document.getElementById("emailCopyLink").href = mailto;
     return;
   }
 
