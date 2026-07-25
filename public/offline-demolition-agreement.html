@@ -213,9 +213,14 @@
 
   <div id="savedBanner" class="banner saved no-print">Saved on this device.</div>
 
-  <form id="agreementForm" action="FORMSPREE_ENDPOINT_HERE" method="POST">
+  <form id="agreementForm" action="https://formspree.io/f/mzdwzvyn" method="POST">
     <input type="hidden" name="_subject" value="Demolition agreement signed" />
     <input type="hidden" name="_next" id="nextField" />
+    <!-- Formspree uses a field named exactly "_replyto" to set the Reply-To
+         header on the notification email — kept separate from the visible
+         "Customer Email" field below (synced to it via JS) so the
+         notification body still shows a readable "Customer Email" row. -->
+    <input type="hidden" name="_replyto" id="replyToField" />
 
     <section class="card">
       <h2>1. Project &amp; Pricing</h2>
@@ -421,6 +426,13 @@
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
+
+  // Keep Formspree's Reply-To mirror in sync with whatever's typed into the
+  // visible Customer Email field, in both staff and customer views (Section
+  // 5 is always the part whoever is present fills in).
+  $("customerEmail").addEventListener("input", function () {
+    $("replyToField").value = $("customerEmail").value;
+  });
 
   // --- Deposit / balance auto-calc (only while untouched) ---
   var depositTouched = false;
