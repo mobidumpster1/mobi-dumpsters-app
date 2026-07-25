@@ -28,6 +28,7 @@ const PUBLIC_PATHS = [
   "/demolition",
   "/booking",
   "/leads-unsubscribe",
+  "/offline-demolition-agreement.html",
 ];
 
 // Static assets (logo, icons, manifest, etc.) — these need to load for
