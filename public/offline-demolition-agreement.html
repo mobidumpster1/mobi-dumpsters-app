@@ -261,6 +261,16 @@
       </div>
       <p class="note">Deposit defaults to 50% of the quoted price and balance auto-fills to the remainder — both editable.</p>
 
+      <div class="field">
+        <label for="paymentMethod">Preferred Payment Method</label>
+        <select id="paymentMethod" name="Preferred Payment Method">
+          <option value="Invoice">Payable Invoice</option>
+          <option value="Cash">Cash</option>
+          <option value="Venmo">Venmo</option>
+          <option value="Credit Card">Credit Card</option>
+        </select>
+      </div>
+
       <p><strong>Overage Authorization:</strong> The quoted price above is based on an estimated debris weight and volume for the structure described. By signing this Agreement, the customer authorizes Mobi Dumpsters LLC to adjust the final price if actual debris tonnage or load count materially exceeds the estimate on which the quote was based. The customer will be notified of any such adjustment, with supporting documentation (scale ticket or dump receipt) where applicable, before additional payment is collected. This overage policy applies to demolition debris only and is separate from the overage terms in Mobi Dumpsters LLC's standard dumpster rental agreement.</p>
 
       <div class="row2" style="margin-top:14px;">
@@ -416,7 +426,7 @@
 (function () {
   var FIELDS = [
     "structureDescription", "propertyAddress", "dimensions", "foundationRemoval",
-    "quotedPrice", "depositDue", "balanceDue", "staffSignerName", "staffSignedDate"
+    "quotedPrice", "depositDue", "balanceDue", "paymentMethod", "staffSignerName", "staffSignedDate"
   ];
   var STORAGE_KEY = "mobi_demo_agreement_draft_v1";
 
