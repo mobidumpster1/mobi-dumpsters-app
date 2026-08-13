@@ -13,6 +13,7 @@ const DEFAULT_LINKS = [
   { href: "/calendar", label: "Calendar" },
   { href: "/customers", label: "Customers" },
   { href: "/leads", label: "Leads" },
+  { href: "/prospecting", label: "Company Prospecting" },
   { href: "/quotes", label: "Quotes" },
   { href: "/bookings", label: "Bookings" },
   { href: "/equipment", label: "Equipment" },
@@ -43,6 +44,7 @@ const GROUP_FOR_HREF: Record<string, string> = {
   "/calendar": "Overview",
   "/customers": "Sales",
   "/leads": "Sales",
+  "/prospecting": "Sales",
   "/quotes": "Sales",
   "/bookings": "Jobs",
   "/equipment": "Jobs",
@@ -115,7 +117,7 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
         if (link.href === "/settings" || link.href === "/automation") return false;
         if (link.href === "/reports" || link.href === "/marketing") return user.canViewReports;
         if (link.href === "/documents") return user.canViewReports;
-        if (link.href === "/leads") return user.canManageLeads;
+        if (link.href === "/leads" || link.href === "/prospecting") return user.canManageLeads;
         if (link.href === "/expenses") return user.canManageExpenses;
         return true;
       });

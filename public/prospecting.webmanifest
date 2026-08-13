@@ -1,0 +1,12 @@
+{
+  "name": "Company Prospecting — Mobi Dumpsters LLC",
+  "short_name": "Prospecting",
+  "description": "Search Google Maps for companies to contact and track who's been reached out to.",
+  "start_url": "/prospecting",
+  "display": "standalone",
+  "background_color": "#f7f8f6",
+  "theme_color": "#3f6b2f",
+  "icons": [
+    { "src": "/logo.JPEG", "sizes": "192x192", "type": "image/jpeg" }
+  ]
+}
