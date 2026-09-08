@@ -19,11 +19,29 @@ export type PlaceResult = {
 // an Essentials-tier field) instead of a separate geocoding call.
 // Returns [] (instead of throwing) if no API key is configured or the
 // request fails, matching the non-fatal pattern used by geocodeAddress.
-export async function searchPlaces(query: string): Promise<PlaceResult[]> {
+//
+// `bias` nudges results toward a circle (center + radius) without
+// strictly excluding anything outside it — Google's `locationRestriction`
+// would exclude, but it caps out at a 50km radius and a hard cutoff isn't
+// what a "roughly this far" service-radius setting should do anyway.
+export async function searchPlaces(
+  query: string,
+  bias?: { latitude: number; longitude: number; radiusMiles: number }
+): Promise<PlaceResult[]> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey || !query.trim()) return [];
 
   try {
+    const body: Record<string, unknown> = { textQuery: query };
+    if (bias) {
+      body.locationBias = {
+        circle: {
+          center: { latitude: bias.latitude, longitude: bias.longitude },
+          radius: Math.min(bias.radiusMiles, 31) * 1609.34, // meters; API caps circle radius at ~50km
+        },
+      };
+    }
+
     const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
       method: "POST",
       headers: {
@@ -32,7 +50,7 @@ export async function searchPlaces(query: string): Promise<PlaceResult[]> {
         "X-Goog-FieldMask":
           "places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.websiteUri,places.rating,places.primaryTypeDisplayName",
       },
-      body: JSON.stringify({ textQuery: query }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) return [];

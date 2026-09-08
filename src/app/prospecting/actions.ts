@@ -6,6 +6,8 @@ import { str } from "@/lib/formData";
 import { searchPlaces } from "@/lib/places";
 import { requirePermission, requirePlanFor } from "@/lib/session";
 import { PROSPECT_SOURCE } from "@/lib/prospecting";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
+import { branding } from "@/lib/branding";
 
 export async function searchProspects(formData: FormData) {
   const user = await requirePermission("canManageLeads");
@@ -23,7 +25,15 @@ export async function searchProspects(formData: FormData) {
     });
   }
 
-  const results = await searchPlaces(query);
+  // Same service-radius setting the Leads page's "Flag leads farther
+  // than X miles" form edits — one shared radius per organization rather
+  // than a second, separate one just for this page.
+  const settings = await getLeadOutreachSettings(user.effectiveOrganizationId);
+  const results = await searchPlaces(query, {
+    latitude: branding.yardLatitude,
+    longitude: branding.yardLongitude,
+    radiusMiles: settings.serviceRadiusMiles,
+  });
 
   for (const result of results) {
     await db.lead.upsert({

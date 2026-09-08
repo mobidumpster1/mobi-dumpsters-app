@@ -8,7 +8,15 @@ import { LeadNotesField } from "@/components/LeadNotesField";
 import { ProspectContactToggle } from "@/components/ProspectContactToggle";
 import { searchProspects } from "./actions";
 import { PROSPECT_SOURCE } from "@/lib/prospecting";
-import { updateLeadStatus, updateLeadNotes, deleteLead } from "@/app/(internal)/leads/actions";
+import {
+  updateLeadStatus,
+  updateLeadNotes,
+  deleteLead,
+  updateLeadServiceRadius,
+} from "@/app/(internal)/leads/actions";
+import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
+import { milesBetween } from "@/lib/distance";
+import { branding } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +52,7 @@ export default async function ProspectingPage({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [prospects, searchesUsed] = await Promise.all([
+  const [prospects, searchesUsed, leadOutreachSettings] = await Promise.all([
     db.lead.findMany({
       where: {
         organizationId: user.effectiveOrganizationId,
@@ -61,6 +69,7 @@ export default async function ProspectingPage({
     db.placesSearchLog.count({
       where: { createdAt: { gte: monthStart }, organizationId: user.effectiveOrganizationId },
     }),
+    getLeadOutreachSettings(user.effectiveOrganizationId),
   ]);
 
   const searchesLeft = Math.max(0, FREE_SEARCHES_PER_MONTH - searchesUsed);
@@ -92,6 +101,34 @@ export default async function ProspectingPage({
           <div className="mt-4">
             <LeadSearchForm action={searchProspects} areas={[]} />
           </div>
+
+          <form
+            action={updateLeadServiceRadius}
+            className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
+          >
+            <label htmlFor="serviceRadiusMiles" className="text-sm font-medium text-zinc-700">
+              Search within
+            </label>
+            <input
+              id="serviceRadiusMiles"
+              name="serviceRadiusMiles"
+              type="number"
+              min="1"
+              defaultValue={leadOutreachSettings.serviceRadiusMiles}
+              className="w-20 rounded-lg border border-zinc-300 px-2 py-1.5 text-base text-zinc-700 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 sm:text-sm"
+            />
+            <span className="text-sm font-medium text-zinc-700">miles of the yard</span>
+            <button
+              type="submit"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Save
+            </button>
+            <span className="w-full text-xs text-zinc-400">
+              Same setting as the Leads page&apos;s service radius — biases new searches toward
+              this area and flags results outside it.
+            </span>
+          </form>
         </>
       ) : (
         <PlanGateNotice
@@ -123,7 +160,19 @@ export default async function ProspectingPage({
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {prospects.map((prospect) => (
+        {prospects.map((prospect) => {
+          const miles =
+            prospect.latitude !== null && prospect.longitude !== null
+              ? milesBetween(
+                  branding.yardLatitude,
+                  branding.yardLongitude,
+                  prospect.latitude,
+                  prospect.longitude
+                )
+              : null;
+          const outsideRadius = miles !== null && miles > leadOutreachSettings.serviceRadiusMiles;
+
+          return (
           <div key={prospect.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -177,6 +226,20 @@ export default async function ProspectingPage({
                   )}
                 </dd>
               </div>
+              {miles !== null && (
+                <div className="flex justify-end">
+                  <span
+                    className={`text-xs font-medium ${outsideRadius ? "text-red-600" : "text-zinc-400"}`}
+                    title={
+                      outsideRadius
+                        ? `Outside your ${leadOutreachSettings.serviceRadiusMiles}-mile service area`
+                        : undefined
+                    }
+                  >
+                    {Math.round(miles)} mi{outsideRadius ? " — outside service area" : ""}
+                  </span>
+                </div>
+              )}
             </dl>
             <div className="mt-2">
               <LeadNotesField
@@ -194,7 +257,8 @@ export default async function ProspectingPage({
               </ConfirmButton>
             </form>
           </div>
-        ))}
+          );
+        })}
         {prospects.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
             {activeFilter === "all"
