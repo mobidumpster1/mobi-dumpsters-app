@@ -285,27 +285,25 @@ export function BookingForm({
           What do you need?
         </p>
 
-        {categories.length > 4 && (
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className={`${inputClass} flex-1`}
-            />
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              className={inputClass}
-            >
-              <option value="recommended">Recommended</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="name">Name: A to Z</option>
-            </select>
-          </div>
-        )}
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className={`${inputClass} flex-1`}
+          />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className={inputClass}
+          >
+            <option value="recommended">Recommended</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="name">Name: A to Z</option>
+          </select>
+        </div>
 
         {visibleCategories.length === 0 && (
           <p className="py-6 text-center text-sm text-zinc-500">
