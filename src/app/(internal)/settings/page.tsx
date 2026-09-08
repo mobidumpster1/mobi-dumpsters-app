@@ -20,6 +20,7 @@ import {
   updateJobCostingSettings,
   updateAutomationSettings,
   updateDeliveryReminderSettings,
+  updateJobPhotoNotificationSettings,
   sendDeliveryRemindersNow,
   saveEmailTemplate,
   resetEmailTemplateToDefault,
@@ -46,6 +47,7 @@ import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
+import { getJobPhotoNotificationSettings } from "@/lib/jobPhotoNotifications";
 import { getWinBackSettings } from "@/lib/winbackSettings";
 import { getAllEmailTemplates } from "@/lib/emailTemplates";
 import { getOrgBranding } from "@/lib/orgBranding";
@@ -194,6 +196,9 @@ export default async function SettingsPage({
     ? await getAutomationSettings(currentUser.effectiveOrganizationId)
     : null;
   const deliveryReminderSettings = await getDeliveryReminderSettings(currentUser.effectiveOrganizationId);
+  const jobPhotoNotificationSettings = await getJobPhotoNotificationSettings(
+    currentUser.effectiveOrganizationId
+  );
   const winBackSettings = await getWinBackSettings(currentUser.effectiveOrganizationId);
   const permitAreas = await db.permitArea.findMany({
     where: { organizationId: currentUser.effectiveOrganizationId },
@@ -1416,6 +1421,60 @@ export default async function SettingsPage({
           >
             Send Now (check for upcoming deliveries)
           </button>
+        </form>
+      </div>
+
+      <div className="mt-6 border-t border-zinc-100 pt-4">
+        <p className="text-sm font-medium text-ink">Delivery &amp; Pickup Photos</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Let a customer know the moment their rental is delivered or picked up, with the
+          photo staff just took.
+        </p>
+
+        <form action={updateJobPhotoNotificationSettings} className="mt-3 flex flex-col gap-4">
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-zinc-700">Send by</legend>
+            {(
+              [
+                ["email", "Email"],
+                ["sms", "Text"],
+                ["both", "Both"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="flex items-center gap-2 text-sm text-zinc-700">
+                <input
+                  type="radio"
+                  name="channel"
+                  value={value}
+                  defaultChecked={jobPhotoNotificationSettings.channel === value}
+                  className="h-4 w-4 border-zinc-300"
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+            <input
+              type="checkbox"
+              name="autoSend"
+              defaultChecked={jobPhotoNotificationSettings.autoSend}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+            Send automatically as soon as staff upload the photo
+          </label>
+          {!jobPhotoNotificationSettings.autoSend && (
+            <p className="-mt-2 text-xs text-zinc-400">
+              Off — staff send it manually from the booking&apos;s Photos tab instead.
+            </p>
+          )}
+          <div>
+            <button
+              type="submit"
+              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            >
+              Save
+            </button>
+          </div>
         </form>
       </div>
     </section>

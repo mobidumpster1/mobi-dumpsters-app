@@ -13,7 +13,7 @@ import {
   markBookingReviewed,
   sendReviewRequestNow,
 } from "../actions";
-import { uploadPhoto, deletePhoto } from "../photoActions";
+import { uploadPhoto, deletePhoto, sendPhotoNotificationNow } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
 import { setPermitRequired, updatePermit } from "../permitActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
@@ -27,6 +27,7 @@ import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
+import { SendPhotoNotificationButton } from "@/components/SendPhotoNotificationButton";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
@@ -555,6 +556,28 @@ export default async function BookingDetailPage({
         defaultType="delivery"
         folder={`bookings/${booking.id}`}
       />
+
+      {(booking.photos.some((p) => p.type === "delivery") ||
+        booking.photos.some((p) => p.type === "pickup")) && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {booking.photos.some((p) => p.type === "delivery") && (
+            <SendPhotoNotificationButton
+              bookingId={booking.id}
+              type="delivery"
+              label="Notify Customer: Delivered"
+              action={sendPhotoNotificationNow}
+            />
+          )}
+          {booking.photos.some((p) => p.type === "pickup") && (
+            <SendPhotoNotificationButton
+              bookingId={booking.id}
+              type="pickup"
+              label="Notify Customer: Picked Up"
+              action={sendPhotoNotificationNow}
+            />
+          )}
+        </div>
+      )}
 
       <MediaGrid items={booking.photos} deleteAction={deletePhoto} />
     </>

@@ -15,6 +15,7 @@ import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
+import { getJobPhotoNotificationSettings } from "@/lib/jobPhotoNotifications";
 import { getWinBackSettings } from "@/lib/winbackSettings";
 import {
   updateEmailTemplate,
@@ -353,6 +354,20 @@ export async function updateDeliveryReminderSettings(formData: FormData) {
   await db.deliveryReminderSettings.update({
     where: { id: settings.id },
     data: { hoursBefore, enabled },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateJobPhotoNotificationSettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getJobPhotoNotificationSettings(user.effectiveOrganizationId);
+  const channel = str(formData, "channel") ?? "email";
+  const autoSend = formData.get("autoSend") === "on";
+
+  await db.jobPhotoNotificationSettings.update({
+    where: { id: settings.id },
+    data: { channel, autoSend },
   });
 
   revalidatePath("/settings");

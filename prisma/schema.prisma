@@ -66,6 +66,7 @@ model Organization {
   jobNotificationSettings         JobNotificationSettings?
   jobCostingSettings              JobCostingSettings?
   deliveryReminderSettings        DeliveryReminderSettings?
+  jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   leadOutreachSettings            LeadOutreachSettings?
   winBackSettings                 WinBackSettings?
   websiteSnippets                 WebsiteSnippet[]
@@ -1117,6 +1118,21 @@ model DeliveryReminderSettings {
   organization   Organization @relation(fields: [organizationId], references: [id])
   enabled        Boolean      @default(false)
   hoursBefore    Int          @default(24)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+}
+
+// Controls the "your rental has been delivered/picked up" photo
+// notification — channel is a single switchable value (not two separate
+// booleans) since the ask was "let me change from one to the other,"
+// not "let me enable both independently." Singleton row, same pattern as
+// DeliveryReminderSettings.
+model JobPhotoNotificationSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  channel        String       @default("email") // email | sms | both
+  autoSend       Boolean      @default(false)
   updatedAt      DateTime     @updatedAt
   createdAt      DateTime     @default(now())
 }
