@@ -455,9 +455,3 @@ export async function disconnectTwilio() {
   await db.twilioConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }
-
-export async function disconnectFacebook() {
-  const user = await requireUser();
-  await db.facebookConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
-  revalidatePath("/settings");
-}

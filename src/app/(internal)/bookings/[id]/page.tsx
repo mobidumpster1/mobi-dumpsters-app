@@ -13,8 +13,7 @@ import {
   markBookingReviewed,
   sendReviewRequestNow,
 } from "../actions";
-import { uploadPhoto, deletePhoto, postToFacebookNow } from "../photoActions";
-import { getValidConnection as getFacebookConnection } from "@/lib/facebook";
+import { uploadPhoto, deletePhoto } from "../photoActions";
 import { addDamageReport, deleteDamageReport } from "../damageActions";
 import { setPermitRequired, updatePermit } from "../permitActions";
 import { computeBookingStatus } from "@/lib/bookingStatus";
@@ -32,9 +31,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
-import { FacebookShareBox } from "@/components/FacebookShareBox";
 import { Tabs } from "@/components/Tabs";
-import { branding } from "@/lib/branding";
 import { requireUser, hasPlan } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +59,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry, facebookConnection] = await Promise.all([
+  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -92,7 +89,6 @@ export default async function BookingDetailPage({
           where: { userId: user.id, organizationId: user.effectiveOrganizationId, clockOut: null },
         })
       : Promise.resolve(null),
-    hasPlan(user, "pro") ? getFacebookConnection(user.effectiveOrganizationId) : Promise.resolve(null),
   ]);
 
   if (!booking) notFound();
@@ -116,18 +112,6 @@ export default async function BookingDetailPage({
   const notifyWithId = notifyOnTheWay.bind(null, booking.id);
   const canDelete = booking.invoices.length === 0;
 
-  // Deliberately generic — no customer name or exact address, since this
-  // is meant to be posted publicly.
-  const categoryNames = Array.from(
-    new Set(booking.items.map((item) => item.equipmentItem.category.name))
-  );
-  const facebookCaption = [
-    `Job complete! 🚛 We just wrapped up a ${categoryNames.join(" + ")} job in the ${branding.address} area.`,
-    "",
-    `Need a dumpster, junk removal, or demo work done? ${branding.phone ? `Call or text us at ${branding.phone}` : "Reach out to us"} to get a quote.`,
-    "",
-    "#MobiDumpsters #DumpsterRental #JunkRemoval #ByronGA #MaconGA",
-  ].join("\n");
   const addDamageReportWithId = addDamageReport.bind(null, booking.id);
   const markBookingReviewedWithId = markBookingReviewed.bind(null, booking.id);
   const sendReviewRequestNowWithId = sendReviewRequestNow.bind(null, booking.id);
@@ -573,18 +557,6 @@ export default async function BookingDetailPage({
       />
 
       <MediaGrid items={booking.photos} deleteAction={deletePhoto} />
-
-      {booking.photos.some((p) => p.mediaType !== "video") && (
-        <FacebookShareBox
-          photos={booking.photos
-            .filter((p) => p.mediaType !== "video")
-            .map((p) => ({ src: p.filePath, alt: p.caption ?? p.type }))}
-          defaultCaption={facebookCaption}
-          facebookPageUrl={branding.facebookPageUrl ?? null}
-          isConnected={Boolean(facebookConnection)}
-          postAction={facebookConnection ? postToFacebookNow.bind(null, booking.id) : undefined}
-        />
-      )}
     </>
   );
 

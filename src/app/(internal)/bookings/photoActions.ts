@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { deleteUploadedFile } from "@/lib/uploads";
-import { requireUser, requirePlan } from "@/lib/session";
-import { postToFacebook } from "@/lib/facebook";
+import { requireUser } from "@/lib/session";
 
 export async function uploadPhoto(
   bookingId: string,
@@ -37,14 +36,4 @@ export async function deletePhoto(photoId: string) {
   const photo = await db.photo.delete({ where: { id: photoId } });
   await deleteUploadedFile(photo.filePath);
   revalidatePath(`/bookings/${photo.bookingId}`);
-}
-
-export async function postToFacebookNow(bookingId: string, imageUrl: string, message: string) {
-  const user = await requirePlan("pro");
-  await db.booking.findFirstOrThrow({
-    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
-  });
-
-  await postToFacebook(user.effectiveOrganizationId, message, { imageUrl, bookingId });
-  revalidatePath(`/bookings/${bookingId}`);
 }
