@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { UnsavedChangesProvider } from "@/components/UnsavedChangesProvider";
 import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
@@ -13,6 +14,11 @@ export default async function InternalLayout({
   children: React.ReactNode;
 }>) {
   const user = await requireUser();
+  // /driver lives in its own top-level route (src/app/driver), never
+  // under this layout — so this redirect is unconditional and can't loop:
+  // every page this layout wraps is exactly the "everything else" a
+  // driver-only account shouldn't reach.
+  if (user.isDriverOnly) redirect("/driver");
   const orgBranding = await getOrgBranding(user.effectiveOrganizationId);
   const pendingCount = await db.booking.count({
     where: { status: "pending", organizationId: user.effectiveOrganizationId },

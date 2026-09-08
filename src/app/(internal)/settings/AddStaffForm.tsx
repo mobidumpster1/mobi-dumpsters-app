@@ -14,6 +14,7 @@ export function AddStaffForm() {
   const [password, setPassword] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [canManageTime, setCanManageTime] = useState(false);
+  const [isDriverOnly, setIsDriverOnly] = useState(false);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,12 +29,14 @@ export function AddStaffForm() {
       formData.set("password", password);
       formData.set("hourlyRate", hourlyRate);
       if (canManageTime) formData.set("canManageTime", "on");
+      if (isDriverOnly) formData.set("isDriverOnly", "on");
       await addStaffUser(formData);
       setName("");
       setEmail("");
       setPassword("");
       setHourlyRate("");
       setCanManageTime(false);
+      setIsDriverOnly(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add that staff account.");
     } finally {
@@ -96,6 +99,15 @@ export function AddStaffForm() {
           className="h-4 w-4 rounded border-zinc-300"
         />
         Can edit/delete other staff&apos;s time entries
+      </label>
+      <label className="flex items-center gap-2 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          checked={isDriverOnly}
+          onChange={(e) => setIsDriverOnly(e.target.checked)}
+          className="h-4 w-4 rounded border-zinc-300"
+        />
+        Driver only — restrict this account to just their assigned jobs
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div>

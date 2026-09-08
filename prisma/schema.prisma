@@ -138,6 +138,12 @@ model User {
   hourlyRate    Float?
   canManageTime Boolean @default(false)
 
+  // Locks this staff account to the /driver view only — no Sidebar, no
+  // access to any other page, enforced in (internal)/layout.tsx. Never
+  // meaningful for role "owner" (an owner-operator keeps full access and
+  // just also has /driver available, rather than being restricted to it).
+  isDriverOnly Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -145,6 +151,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   timeEntries             TimeEntry[]
+  driverBookings          Booking[]                 @relation("BookingDriver")
 }
 
 // A single-use, short-lived token emailed as a /verify-email?token=... link
@@ -612,6 +619,12 @@ model Booking {
   // per equipment item, when the job is closed out.
   vehicleId             String?
   vehicle               Vehicle?     @relation(fields: [vehicleId], references: [id])
+  // Who's actually driving/handling this job — separate from vehicleId
+  // (which truck). Null means unassigned, which the /driver view treats
+  // as visible to everyone, so a solo owner-operator never has to
+  // self-assign every booking for it to show up there.
+  driverId              String?
+  driver                User?        @relation("BookingDriver", fields: [driverId], references: [id])
   // Set once the daily review-request cron has emailed this customer, so a
   // booking never gets asked for a review twice.
   reviewRequestSentAt   DateTime?

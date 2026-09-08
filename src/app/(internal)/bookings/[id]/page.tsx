@@ -9,6 +9,7 @@ import {
   deleteBooking,
   notifyOnTheWay,
   setBookingVehicle,
+  setBookingDriver,
   resolveServiceRequest,
   markBookingReviewed,
   sendReviewRequestNow,
@@ -32,6 +33,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
+import { DriverQuickSelect } from "@/components/DriverQuickSelect";
 import { Tabs } from "@/components/Tabs";
 import { requireUser, hasPlan } from "@/lib/session";
 
@@ -60,7 +62,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
+  const [booking, vehicles, drivers, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -82,6 +84,11 @@ export default async function BookingDetailPage({
     db.vehicle.findMany({
       where: { active: true, organizationId: user.effectiveOrganizationId },
       orderBy: { label: "asc" },
+    }),
+    db.user.findMany({
+      where: { organizationId: user.effectiveOrganizationId, active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
     db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
     getJobCostingSettings(user.effectiveOrganizationId),
@@ -620,6 +627,16 @@ export default async function BookingDetailPage({
                 currentVehicleId={booking.vehicleId}
                 vehicles={vehicles}
                 action={setBookingVehicle}
+              />
+            </div>
+          )}
+          {drivers.length > 0 && (
+            <div className="mt-2">
+              <DriverQuickSelect
+                bookingId={booking.id}
+                currentDriverId={booking.driverId}
+                drivers={drivers}
+                action={setBookingDriver}
               />
             </div>
           )}

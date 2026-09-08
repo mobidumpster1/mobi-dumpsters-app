@@ -356,6 +356,17 @@ export async function setBookingVehicle(bookingId: string, formData: FormData) {
   revalidatePath(`/bookings/${bookingId}`);
 }
 
+export async function setBookingDriver(bookingId: string, formData: FormData) {
+  const user = await requireUser();
+  const driverId = str(formData, "driverId");
+  await db.booking.updateMany({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+    data: { driverId: driverId || null },
+  });
+  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath("/driver");
+}
+
 export async function markDelivered(bookingItemId: string) {
   const user = await requireUser();
   await db.bookingItem.findFirstOrThrow({

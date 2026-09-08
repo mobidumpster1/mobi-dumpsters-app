@@ -43,6 +43,7 @@ export async function addStaffUser(formData: FormData) {
       organizationId: owner.organizationId,
       hourlyRate: hourlyRateStr ? Number(hourlyRateStr) : null,
       canManageTime: formData.get("canManageTime") === "on",
+      isDriverOnly: formData.get("isDriverOnly") === "on",
     },
   });
 
@@ -57,6 +58,7 @@ const PERMISSION_KEYS = [
   "canViewReports",
   "canManageLeads",
   "canManageTime",
+  "isDriverOnly",
 ] as const;
 
 // One form per staff row submits all permission checkboxes plus the

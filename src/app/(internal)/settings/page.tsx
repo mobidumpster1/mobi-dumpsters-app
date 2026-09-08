@@ -120,6 +120,10 @@ const PERMISSION_OPTIONS = [
   { key: "canViewReports", label: "View profit reports" },
   { key: "canManageLeads", label: "Manage Leads & Win-Back outreach" },
   { key: "canManageTime", label: "Edit/delete other staff's time entries" },
+  {
+    key: "isDriverOnly",
+    label: "Driver only — restrict this account to just their assigned jobs, nothing else",
+  },
 ] as const;
 
 function accountOptionValue(account: QboAccount) {

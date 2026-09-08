@@ -19,6 +19,7 @@ const PERMISSION_FIELDS = {
   canViewReports: true,
   canManageLeads: true,
   canManageTime: true,
+  isDriverOnly: true,
   hourlyRate: true,
   organization: { select: { plan: true } },
 } as const;
@@ -57,6 +58,7 @@ export type SessionUser = {
   // Edit/delete other staff's time entries (self-clock needs no
   // permission at all — anyone can log their own time).
   canManageTime: boolean;
+  isDriverOnly: boolean;
   hourlyRate: number | null;
   // The subscription tier of whichever org is effectively being viewed
   // (the impersonated org's plan during platform-admin support access,
