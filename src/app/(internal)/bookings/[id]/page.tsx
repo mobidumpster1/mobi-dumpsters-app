@@ -629,6 +629,13 @@ export default async function BookingDetailPage({
             />
           )}
           {!isPending && !isCancelled && (
+            <CopyLinkButton
+              path={`/booking/${booking.id}/complete`}
+              label="Copy Signing & Payment Link"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            />
+          )}
+          {!isPending && !isCancelled && (
             <Link
               href={`/bookings/${booking.id}/sign`}
               className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
