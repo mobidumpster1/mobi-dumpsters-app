@@ -1697,6 +1697,28 @@ export default async function SettingsPage({
   return (
     <div className="max-w-4xl">
       <h1 className="text-3xl font-black tracking-tight text-ink">Settings</h1>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-zinc-900 bg-white p-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-black text-ink">Booking Page</h2>
+            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800">
+              Live
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">What customers see when they book online.</p>
+          <p className="mt-1 text-xs text-zinc-400">{widgetBaseUrl.replace(/^https?:\/\//, "")}/book</p>
+        </div>
+        <a
+          href={`${widgetBaseUrl}/book`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          View Booking Page ↗
+        </a>
+      </div>
+
       <div className="mt-6">
         <Tabs tabs={tabs} initialTab={initialTab} />
       </div>
