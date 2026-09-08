@@ -57,6 +57,21 @@ function priceLabel(c: CategoryOption) {
   return null;
 }
 
+// The numeric floor behind priceLabel() above, for sorting — unpriced
+// ("Call for pricing") categories sort last regardless of direction.
+function sortPriceValue(c: CategoryOption): number {
+  if (c.pricingTiers.length > 0) {
+    const priced = c.pricingTiers.filter((t) => t.price != null);
+    return priced.length > 0 ? Math.min(...priced.map((t) => t.price as number)) : Infinity;
+  }
+  if (c.materialOptions.length > 0) {
+    return Math.min(...c.materialOptions.map((m) => m.pricePerUnit));
+  }
+  return c.basePrice ?? Infinity;
+}
+
+type SortOption = "recommended" | "price_asc" | "price_desc" | "name";
+
 // What's included / overage terms, in plain language — pulled straight
 // from the same category pricing fields staff use to compute invoice
 // overage line items, so a customer sees the real numbers before booking
@@ -133,6 +148,21 @@ export function BookingForm({
   const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const hasTiers = (selectedCategory?.pricingTiers.length ?? 0) > 0;
+
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("recommended");
+  const visibleCategories = categories
+    .filter((c) => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return c.name.toLowerCase().includes(q) || (c.description ?? "").toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (sort === "price_asc") return sortPriceValue(a) - sortPriceValue(b);
+      if (sort === "price_desc") return sortPriceValue(b) - sortPriceValue(a);
+      if (sort === "name") return a.name.localeCompare(b.name);
+      return 0; // "recommended" — the order staff set up in Equipment
+    });
 
   const [startDate, setStartDate] = useState(today());
   const [deliveryTime, setDeliveryTime] = useState("09:00");
@@ -254,8 +284,37 @@ export function BookingForm({
         <p className="mb-2 text-sm font-medium text-zinc-700">
           What do you need?
         </p>
+
+        {categories.length > 4 && (
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search…"
+              className={`${inputClass} flex-1`}
+            />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className={inputClass}
+            >
+              <option value="recommended">Recommended</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="name">Name: A to Z</option>
+            </select>
+          </div>
+        )}
+
+        {visibleCategories.length === 0 && (
+          <p className="py-6 text-center text-sm text-zinc-500">
+            Nothing matches &ldquo;{search}&rdquo;.
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
-          {categories.map((c) => {
+          {visibleCategories.map((c) => {
             const price = priceLabel(c);
             return (
               <button
