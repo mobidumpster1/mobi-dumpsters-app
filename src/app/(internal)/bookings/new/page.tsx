@@ -5,8 +5,13 @@ import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewBookingPage() {
+export default async function NewBookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   const user = await requireUser();
+  const { date } = await searchParams;
   const [customers, items, org] = await Promise.all([
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
@@ -37,6 +42,7 @@ export default async function NewBookingPage() {
           status: i.status,
         }))}
         fieldDefs={fieldDefs}
+        initialDate={date}
       />
     </div>
   );

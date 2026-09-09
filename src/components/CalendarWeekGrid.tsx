@@ -3,14 +3,10 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getDriverColor } from "@/lib/driverColors";
+import { CalendarEntryDetails, type CalendarPopoverEntry } from "@/components/CalendarEntryDetails";
 
-type Entry = {
-  bookingId: string;
-  bookingItemId: string;
-  customerName: string;
-  equipmentLabel: string;
-  kind: "delivery" | "return";
-};
+type Entry = CalendarPopoverEntry;
 
 type Day = {
   key: string; // "YYYY-MM-DD"
@@ -19,6 +15,15 @@ type Day = {
   isToday: boolean;
   entries: Entry[];
 };
+
+// A pointer that never moves more than this many pixels before release is
+// treated as a click (opens the quick-view popover) rather than a drag
+// (reschedule) — same idea as a browser's own click-vs-drag threshold.
+const CLICK_THRESHOLD_PX = 6;
+
+function entryKey(entry: Entry) {
+  return `${entry.bookingItemId}-${entry.kind}`;
+}
 
 // Pointer Events (not the native HTML5 drag-and-drop API) on purpose —
 // draggable="true"/dragstart/drop only fire for mouse input, not touch,
@@ -41,6 +46,7 @@ export function CalendarWeekGrid({
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   function handlePointerDown(e: React.PointerEvent, entry: Entry, fromKey: string) {
     // Only the left mouse button / a real touch/pen contact starts a drag —
@@ -48,9 +54,15 @@ export function CalendarWeekGrid({
     if (e.button !== 0 && e.pointerType === "mouse") return;
     e.preventDefault();
     setError(null);
-    setDragging({ entry, fromKey, x: e.clientX, y: e.clientY });
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let moved = false;
+    setDragging({ entry, fromKey, x: startX, y: startY });
 
     function move(ev: PointerEvent) {
+      if (!moved && (Math.abs(ev.clientX - startX) > CLICK_THRESHOLD_PX || Math.abs(ev.clientY - startY) > CLICK_THRESHOLD_PX)) {
+        moved = true;
+      }
       setDragging((d) => (d ? { ...d, x: ev.clientX, y: ev.clientY } : d));
       let landed: string | null = null;
       for (const [key, el] of Object.entries(columnRefs.current)) {
@@ -67,6 +79,16 @@ export function CalendarWeekGrid({
     async function up(ev: PointerEvent) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      setDragging(null);
+      setHoverKey(null);
+
+      if (!moved) {
+        // Never actually moved — a click, not a drag. Show the quick-view
+        // popover instead of trying to reschedule.
+        setOpenKey(entryKey(entry));
+        return;
+      }
+
       let dropKey: string | null = null;
       for (const [key, el] of Object.entries(columnRefs.current)) {
         if (!el) continue;
@@ -76,8 +98,6 @@ export function CalendarWeekGrid({
           break;
         }
       }
-      setDragging(null);
-      setHoverKey(null);
       if (!dropKey || dropKey === fromKey) return;
 
       setPending(true);
@@ -95,10 +115,18 @@ export function CalendarWeekGrid({
     window.addEventListener("pointerup", up, { once: true });
   }
 
+  // Fires only when the column's own background is clicked — entry cards
+  // stop propagation, so this never fights with opening a card's popover.
+  function handleColumnClick(e: React.MouseEvent, dayKey: string) {
+    if (e.target !== e.currentTarget) return;
+    router.push(`/bookings/new?date=${dayKey}`);
+  }
+
   return (
     <div>
       <p className="mb-2 text-xs text-zinc-400">
-        Press and drag a card to a different day to reschedule it.
+        Drag a card to a different day to reschedule it, click a card for details, or click empty
+        space on a day to start a new booking there.
       </p>
       {error && (
         <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>
@@ -110,7 +138,8 @@ export function CalendarWeekGrid({
             ref={(el) => {
               columnRefs.current[day.key] = el;
             }}
-            className={`flex min-h-[140px] flex-col gap-2 rounded-lg border-2 p-3 transition-colors ${
+            onClick={(e) => handleColumnClick(e, day.key)}
+            className={`flex min-h-[140px] cursor-pointer flex-col gap-2 rounded-lg border-2 p-3 transition-colors ${
               hoverKey === day.key
                 ? "border-brand bg-brand/5"
                 : day.isToday
@@ -133,17 +162,34 @@ export function CalendarWeekGrid({
                 const isBeingDragged =
                   dragging?.entry.bookingItemId === entry.bookingItemId &&
                   dragging.entry.kind === entry.kind;
+                const key = entryKey(entry);
+                const isOpen = openKey === key;
+                const driverColor = entry.driverId ? getDriverColor(entry.driverId) : null;
+                const bgClass = driverColor?.bg || (entry.kind === "delivery" ? "bg-green-100" : "bg-amber-100");
+                const textClass = driverColor?.text || (entry.kind === "delivery" ? "text-green-800" : "text-amber-800");
                 return (
-                  <div
-                    key={`${entry.bookingItemId}-${entry.kind}-${i}`}
-                    onPointerDown={(e) => handlePointerDown(e, entry, day.key)}
-                    className={`touch-none select-none rounded-lg px-2.5 py-1.5 text-xs font-medium cursor-grab active:cursor-grabbing ${
-                      entry.kind === "delivery"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
-                    } ${isBeingDragged ? "opacity-30" : ""}`}
-                  >
-                    {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName} — {entry.equipmentLabel}
+                  <div key={`${key}-${i}`} className="relative" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      onPointerDown={(e) => handlePointerDown(e, entry, day.key)}
+                      className={`touch-none select-none rounded-lg px-2.5 py-1.5 text-xs font-medium cursor-grab active:cursor-grabbing ${bgClass} ${textClass} ${isBeingDragged ? "opacity-30" : ""}`}
+                    >
+                      {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName} — {entry.equipmentLabel}
+                      {entry.driverId && (
+                        <span className={`ml-1 inline-block h-1.5 w-1.5 rounded-full ${driverColor?.dot}`} />
+                      )}
+                    </div>
+                    {isOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenKey(null)} />
+                        <div className="absolute left-0 top-full z-50 mt-1">
+                          <CalendarEntryDetails
+                            entry={entry}
+                            driverDotClass={driverColor?.dot}
+                            onClose={() => setOpenKey(null)}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

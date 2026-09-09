@@ -36,13 +36,20 @@ function today() {
 
 export function BookingItemsBuilder({
   equipmentOptions,
+  initialDate,
 }: {
   equipmentOptions: EquipmentOption[];
+  initialDate?: string;
 }) {
+  // A date coming in from the calendar (clicking a day/empty slot there)
+  // prefills the first row's delivery date — a plain YYYY-MM-DD string
+  // already matches what a date input and this component's own state both
+  // expect, so no parsing is needed, just a fallback to today when absent.
+  const startingDate = initialDate || today();
   const [rows, setRows] = useState<BookingItemRow[]>([
     {
       equipmentItemId: equipmentOptions[0]?.id ?? "",
-      startDate: today(),
+      startDate: startingDate,
       startTime: "",
       expectedReturnDate: "",
       expectedReturnTime: "",

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { LocationMap } from "@/components/LocationMap";
-import { ConfirmButton } from "@/components/ConfirmButton";
-import { cancelBooking } from "../bookings/actions";
+import { CalendarEntryPill } from "@/components/CalendarEntryPill";
 import { rescheduleBookingItem } from "./actions";
 import { CalendarWeekGrid } from "@/components/CalendarWeekGrid";
+import { MiniMonthPicker } from "@/components/MiniMonthPicker";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -40,63 +40,61 @@ type CalendarEntry = {
   bookingId: string;
   bookingItemId: string;
   customerName: string;
+  customerPhone: string | null;
   equipmentLabel: string;
   kind: "delivery" | "return";
   lat: number | null;
   lng: number | null;
   address: string;
+  driverId: string | null;
+  driverName: string | null;
+  notes: string | null;
+  date: string; // ISO — the date this entry actually falls on (startDate or expectedReturnDate)
 };
 
 function AgendaDay({
   day,
   entries,
   isToday,
+  newBookingHref,
 }: {
   day: Date;
   entries: CalendarEntry[];
   isToday: boolean;
+  newBookingHref?: string;
 }) {
   return (
     <div className="rounded-lg border-2 border-zinc-900 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-            isToday ? "bg-brand text-white" : "bg-zinc-100 text-zinc-700"
-          }`}
-        >
-          {day.getUTCDate()}
-        </span>
-        <span className="text-sm font-semibold text-zinc-700">
-          {day.toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            timeZone: "UTC",
-          })}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+              isToday ? "bg-brand text-white" : "bg-zinc-100 text-zinc-700"
+            }`}
+          >
+            {day.getUTCDate()}
+          </span>
+          <span className="text-sm font-semibold text-zinc-700">
+            {day.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              timeZone: "UTC",
+            })}
+          </span>
+        </div>
+        {newBookingHref && (
+          <Link
+            href={newBookingHref}
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            + New Booking
+          </Link>
+        )}
       </div>
       <div className="mt-3 flex flex-col gap-2">
         {entries.map((entry, i) => (
-          <div
-            key={`${entry.bookingId}-${entry.kind}-${i}`}
-            className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-              entry.kind === "delivery"
-                ? "bg-green-100 text-green-800"
-                : "bg-amber-100 text-amber-800"
-            }`}
-          >
-            <Link href={`/bookings/${entry.bookingId}`} className="min-w-0 flex-1 truncate hover:underline">
-              {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName} — {entry.equipmentLabel}
-            </Link>
-            <form action={cancelBooking.bind(null, entry.bookingId)}>
-              <ConfirmButton
-                message={`Cancel ${entry.customerName}'s booking? This frees the equipment and removes it from Google Calendar.`}
-                className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold opacity-60 hover:bg-white/50 hover:opacity-100"
-              >
-                ✕
-              </ConfirmButton>
-            </form>
-          </div>
+          <CalendarEntryPill key={`${entry.bookingId}-${entry.kind}-${i}`} entry={entry} />
         ))}
         {entries.length === 0 && (
           <p className="text-sm text-zinc-400">Nothing scheduled.</p>
@@ -149,7 +147,7 @@ export default async function CalendarPage({
         { expectedReturnDate: { gte: rangeStart, lte: rangeEnd } },
       ],
     },
-    include: { equipmentItem: true, booking: { include: { customer: true } } },
+    include: { equipmentItem: true, booking: { include: { customer: true, driver: true } } },
   });
 
   const entriesByDay = new Map<string, CalendarEntry[]>();
@@ -165,11 +163,16 @@ export default async function CalendarPage({
         bookingId: item.bookingId,
         bookingItemId: item.id,
         customerName: item.booking.customer.name,
+        customerPhone: item.booking.customer.phone,
         equipmentLabel: item.equipmentItem.label,
         kind: "delivery",
         lat: item.booking.latitude,
         lng: item.booking.longitude,
         address: item.booking.deliveryAddress,
+        driverId: item.booking.driverId,
+        driverName: item.booking.driver?.name ?? null,
+        notes: item.booking.notes,
+        date: item.startDate.toISOString(),
       });
     }
     if (item.expectedReturnDate >= rangeStart && item.expectedReturnDate <= rangeEnd) {
@@ -177,11 +180,16 @@ export default async function CalendarPage({
         bookingId: item.bookingId,
         bookingItemId: item.id,
         customerName: item.booking.customer.name,
+        customerPhone: item.booking.customer.phone,
         equipmentLabel: item.equipmentItem.label,
         kind: "return",
         lat: item.booking.latitude,
         lng: item.booking.longitude,
         address: item.booking.deliveryAddress,
+        driverId: item.booking.driverId,
+        driverName: item.booking.driver?.name ?? null,
+        notes: item.booking.notes,
+        date: item.expectedReturnDate.toISOString(),
       });
     }
   }
@@ -287,24 +295,46 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-ink">{title}</h2>
-        <div className="flex gap-2">
-          {(["day", "week", "month"] as ViewMode[]).map((mode) => (
-            <Link
-              key={mode}
-              href={navLink(anchor, mode)}
-              className={`rounded-full px-4 py-2 text-sm font-medium capitalize transition-colors ${
-                view === mode
-                  ? "bg-brand text-white"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-              }`}
-            >
-              {mode}
-            </Link>
-          ))}
+      <div className="mt-6 flex flex-col gap-6 lg:flex-row">
+        <div className="flex flex-col gap-4 lg:w-64 lg:flex-shrink-0">
+          <MiniMonthPicker
+            monthAnchor={anchor}
+            selectedDateKey={dateKey(anchor)}
+            todayKey={todayKey}
+            view={view}
+          />
+          <div className="flex flex-col gap-1.5 text-sm text-zinc-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded bg-green-100" /> Delivery
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded bg-amber-100" /> Return
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-zinc-400" /> Colored dot = assigned driver
+            </span>
+          </div>
         </div>
-      </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-black text-ink">{title}</h2>
+            <div className="flex gap-2">
+              {(["day", "week", "month"] as ViewMode[]).map((mode) => (
+                <Link
+                  key={mode}
+                  href={navLink(anchor, mode)}
+                  className={`rounded-full px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                    view === mode
+                      ? "bg-brand text-white"
+                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  }`}
+                >
+                  {mode}
+                </Link>
+              ))}
+            </div>
+          </div>
 
       {view === "day" && (
         <div className="mt-4 flex flex-col gap-4">
@@ -313,6 +343,7 @@ export default async function CalendarPage({
             day={anchor}
             entries={entriesByDay.get(dateKey(anchor)) ?? []}
             isToday={dateKey(anchor) === todayKey}
+            newBookingHref={`/bookings/new?date=${dateKey(anchor)}`}
           />
         </div>
       )}
@@ -385,47 +416,33 @@ export default async function CalendarPage({
                 return (
                   <div
                     key={key}
-                    className={`flex min-h-32 flex-col gap-1 bg-white p-2 ${
+                    className={`group relative flex min-h-32 flex-col gap-1 bg-white p-2 ${
                       inMonth ? "" : "bg-zinc-50"
                     }`}
                   >
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                        isToday
-                          ? "bg-brand text-white"
-                          : inMonth
-                            ? "text-zinc-700"
-                            : "text-zinc-300"
-                      }`}
-                    >
-                      {day.getUTCDate()}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                          isToday
+                            ? "bg-brand text-white"
+                            : inMonth
+                              ? "text-zinc-700"
+                              : "text-zinc-300"
+                        }`}
+                      >
+                        {day.getUTCDate()}
+                      </span>
+                      <Link
+                        href={`/bookings/new?date=${key}`}
+                        className="hidden h-5 w-5 items-center justify-center rounded-full text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-100 hover:text-zinc-700 group-hover:opacity-100 sm:flex"
+                        title={`New booking on ${key}`}
+                      >
+                        +
+                      </Link>
+                    </div>
                     <div className="flex flex-col gap-1">
                       {entries.map((entry, i) => (
-                        <div
-                          key={`${entry.bookingId}-${entry.kind}-${i}`}
-                          className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium ${
-                            entry.kind === "delivery"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          <Link
-                            href={`/bookings/${entry.bookingId}`}
-                            className="min-w-0 flex-1 truncate hover:underline"
-                            title={`${entry.kind === "delivery" ? "Delivery" : "Return"}: ${entry.customerName} — ${entry.equipmentLabel}`}
-                          >
-                            {entry.kind === "delivery" ? "🚚" : "↩️"} {entry.customerName}
-                          </Link>
-                          <form action={cancelBooking.bind(null, entry.bookingId)}>
-                            <ConfirmButton
-                              message={`Cancel ${entry.customerName}'s booking? This frees the equipment and removes it from Google Calendar.`}
-                              className="flex-shrink-0 opacity-60 hover:opacity-100"
-                            >
-                              ✕
-                            </ConfirmButton>
-                          </form>
-                        </div>
+                        <CalendarEntryPill key={`${entry.bookingId}-${entry.kind}-${i}`} entry={entry} />
                       ))}
                     </div>
                   </div>
@@ -435,14 +452,7 @@ export default async function CalendarPage({
           </div>
         </>
       )}
-
-      <div className="mt-4 flex gap-4 text-sm text-zinc-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-green-100" /> Delivery
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-amber-100" /> Return
-        </span>
+        </div>
       </div>
     </div>
   );

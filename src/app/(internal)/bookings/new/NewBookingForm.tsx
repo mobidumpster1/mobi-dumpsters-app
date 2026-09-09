@@ -20,10 +20,12 @@ export function NewBookingForm({
   customers,
   items,
   fieldDefs,
+  initialDate,
 }: {
   customers: CustomerOption[];
   items: EquipmentOption[];
   fieldDefs: FieldDefinition[];
+  initialDate?: string;
 }) {
   // CustomerPicker defaults to selecting the first customer in the list
   // when nothing else is passed — match that here so the address field
@@ -54,6 +56,7 @@ export function NewBookingForm({
           categoryName: i.categoryName,
           status: i.status,
         }))}
+        initialDate={initialDate}
       />
 
       <Field label="Promo Code (optional)" htmlFor="promoCode">
