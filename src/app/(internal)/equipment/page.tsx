@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { SearchBox } from "@/components/SearchBox";
 import { EquipmentTabs } from "@/components/EquipmentTabs";
+import { ScanButton } from "@/components/ScanButton";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
 import { quickSetEquipmentStatus } from "./actions";
 import { requireUser } from "@/lib/session";
@@ -76,12 +77,15 @@ export default async function EquipmentPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-black tracking-tight text-ink">Equipment</h1>
-        <Link
-          href="/equipment/new"
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-        >
-          + New Equipment
-        </Link>
+        <div className="flex gap-2">
+          <ScanButton className="rounded-lg border-2 border-zinc-900 bg-white px-5 py-3 text-sm font-bold text-ink transition-colors hover:bg-zinc-50" />
+          <Link
+            href="/equipment/new"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            + New Equipment
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4">

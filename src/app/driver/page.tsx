@@ -6,6 +6,7 @@ import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { Field, inputClass } from "@/components/Field";
 import { markDelivered, markReturned } from "@/app/(internal)/bookings/actions";
 import { uploadPhoto } from "@/app/(internal)/bookings/photoActions";
+import { ScanButton } from "@/components/ScanButton";
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +61,13 @@ export default async function DriverPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black tracking-tight text-ink">My Jobs</h1>
-      <p className="mt-1 text-sm text-zinc-500">Today&apos;s deliveries and pickups.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-ink">My Jobs</h1>
+          <p className="mt-1 text-sm text-zinc-500">Today&apos;s deliveries and pickups.</p>
+        </div>
+        <ScanButton />
+      </div>
 
       <section className="mt-6">
         <h2 className="text-lg font-black text-ink">Deliveries</h2>

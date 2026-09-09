@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { formatAttributeValue, parseAttributes, parseFieldDefinitions } from "@/lib/categoryFields";
@@ -11,6 +12,7 @@ import { LocationMap } from "@/components/LocationMap";
 import { Field, inputClass } from "@/components/Field";
 import { branding } from "@/lib/branding";
 import { requireUser } from "@/lib/session";
+import { equipmentScanUrl, equipmentQrCodeDataUrl } from "@/lib/equipmentQrCode";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,10 @@ export default async function EquipmentDetailPage({
   const fieldDefs = parseFieldDefinitions(item.category.fieldDefinitions);
   const attributes = parseAttributes(item.attributes);
   const uploadWithId = uploadEquipmentPhoto.bind(null, item.id);
+
+  const host = (await headers()).get("host");
+  const scanUrl = host ? equipmentScanUrl(`https://${host}`, item.id) : null;
+  const qrCodeDataUrl = scanUrl ? await equipmentQrCodeDataUrl(scanUrl) : null;
 
   const openEvent = item.locationEvents.find((e) => e.endedAt === null);
   const daysAtSite = openEvent
@@ -156,6 +162,28 @@ export default async function EquipmentDetailPage({
           </div>
         )}
       </dl>
+
+      {qrCodeDataUrl && (
+        <div className="mt-6 flex flex-wrap items-center gap-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a data: URL, not a static asset next/image can optimize */}
+          <img
+            src={qrCodeDataUrl}
+            alt={`QR code for ${item.label}`}
+            width={120}
+            height={120}
+            className="rounded-lg border border-zinc-200"
+          />
+          <div>
+            <p className="font-medium text-zinc-900">Scan to deliver/return</p>
+            <p className="mt-1 max-w-sm text-sm text-zinc-500">
+              Print this on the unit&apos;s label. Scanning it with a phone
+              camera (or the in-app scanner on Driver/Equipment) opens
+              this item&apos;s next action directly — no need to search for
+              it in a list.
+            </p>
+          </div>
+        </div>
+      )}
 
       {(() => {
         // Out on a job — pin the current customer's address, if it's
