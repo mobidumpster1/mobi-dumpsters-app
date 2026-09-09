@@ -491,6 +491,7 @@ export async function markDelivered(bookingItemId: string) {
       equipmentItemId: bookingItem.equipmentItemId,
       location: bookingItem.booking.deliveryAddress,
       customerId: bookingItem.booking.customerId,
+      movedByUserId: user.id,
     },
   });
 
@@ -562,7 +563,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
     data: { endedAt: new Date() },
   });
   await db.equipmentLocationEvent.create({
-    data: { equipmentItemId: bookingItem.equipmentItemId, location: "Yard" },
+    data: { equipmentItemId: bookingItem.equipmentItemId, location: "Yard", movedByUserId: user.id },
   });
 
   // Feed the mileage log from the same field used for overage billing, so

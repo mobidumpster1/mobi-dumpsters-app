@@ -38,7 +38,7 @@ export default async function EquipmentDetailPage({
       locationEvents: {
         orderBy: { startedAt: "desc" },
         take: 20,
-        include: { customer: true },
+        include: { customer: true, movedByUser: { select: { name: true } } },
       },
       photos: { orderBy: { createdAt: "desc" } },
       // Status flips to "reserved" the moment a booking is created, even
@@ -183,6 +183,7 @@ export default async function EquipmentDetailPage({
             <tr>
               <th className="px-5 py-3.5 font-semibold">Location</th>
               <th className="px-5 py-3.5 font-semibold">Customer</th>
+              <th className="px-5 py-3.5 font-semibold">By</th>
               <th className="px-5 py-3.5 font-semibold">From</th>
               <th className="px-5 py-3.5 font-semibold">To</th>
             </tr>
@@ -197,6 +198,9 @@ export default async function EquipmentDetailPage({
                   {event.customer?.name ?? "—"}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
+                  {event.movedByUser?.name ?? "—"}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">
                   {formatDateTime(event.startedAt)}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
@@ -206,7 +210,7 @@ export default async function EquipmentDetailPage({
             ))}
             {item.locationEvents.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-zinc-400">
+                <td colSpan={5} className="px-5 py-8 text-center text-zinc-400">
                   No location history yet — this starts once the item is
                   marked delivered on a booking.
                 </td>

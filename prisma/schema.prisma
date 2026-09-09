@@ -154,6 +154,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   timeEntries             TimeEntry[]
   driverBookings          Booking[]                 @relation("BookingDriver")
+  equipmentLocationEvents EquipmentLocationEvent[]
 }
 
 // A single-use, short-lived token emailed as a /verify-email?token=... link
@@ -586,6 +587,11 @@ model EquipmentLocationEvent {
   location        String
   customerId      String?
   customer        Customer?     @relation(fields: [customerId], references: [id])
+  // The staff member who marked the delivery/pickup that opened this
+  // event — null for events with no known actor (e.g. pre-existing rows
+  // from before this field existed).
+  movedByUserId   String?
+  movedByUser     User?         @relation(fields: [movedByUserId], references: [id], onDelete: SetNull)
   startedAt       DateTime      @default(now())
   endedAt         DateTime?
   createdAt       DateTime      @default(now())
