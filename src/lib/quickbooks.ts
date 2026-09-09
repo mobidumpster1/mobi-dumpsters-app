@@ -433,3 +433,66 @@ export async function pushExpensePurchase(input: {
 
   return response.Purchase.Id as string;
 }
+
+// Attaches a receipt file (already stored in this app's own Vercel Blob
+// storage — see uploads.ts) to a QuickBooks Purchase, via QBO's combined
+// upload endpoint (creates the Attachable record and stores the file
+// content in one request). Doesn't reuse qboFetch above: that helper
+// hardcodes a JSON Content-Type, but this endpoint needs a real multipart
+// boundary that only fetch() itself can set correctly when given a
+// FormData body — setting Content-Type by hand here would break it.
+export async function pushExpenseReceiptAttachment(input: {
+  organizationId: string;
+  purchaseId: string;
+  fileUrl: string;
+  fileName: string;
+}): Promise<void> {
+  const connection = await getValidConnection(input.organizationId);
+  if (!connection) return;
+
+  const fileResponse = await fetch(input.fileUrl);
+  if (!fileResponse.ok) {
+    throw new Error(`Couldn't fetch receipt file for QuickBooks upload (${fileResponse.status})`);
+  }
+  const fileBlob = await fileResponse.blob();
+  const contentType = fileResponse.headers.get("content-type") || "application/octet-stream";
+
+  const metadata = {
+    AttachableRef: [
+      {
+        EntityRef: { type: "Purchase", value: input.purchaseId },
+        IncludeOnSend: false,
+      },
+    ],
+    FileName: input.fileName,
+    ContentType: contentType,
+  };
+
+  const form = new FormData();
+  form.append(
+    "file_metadata_01",
+    new Blob([JSON.stringify(metadata)], { type: "application/json" }),
+    "attachment.json"
+  );
+  form.append("file_content_01", fileBlob, input.fileName);
+
+  const url = `${apiBase(connection.environment)}/v3/company/${connection.realmId}/upload`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${connection.accessToken}`,
+      Accept: "application/json",
+    },
+    body: form,
+  });
+
+  if (!response.ok) {
+    const intuitTid = response.headers.get("intuit_tid");
+    const detail = await response.text();
+    console.error(
+      `QuickBooks attachment upload error (${response.status}) [intuit_tid: ${intuitTid ?? "none"}]:`,
+      detail
+    );
+    throw new Error(`QuickBooks attachment upload error (${response.status}, intuit_tid: ${intuitTid ?? "none"})`);
+  }
+}

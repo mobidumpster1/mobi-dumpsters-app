@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { pushExpensePurchase } from "@/lib/quickbooks";
+import { pushExpensePurchase, pushExpenseReceiptAttachment } from "@/lib/quickbooks";
 import { deleteUploadedFile } from "@/lib/uploads";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
@@ -82,6 +82,7 @@ export async function markExpensePaid(expenseId: string) {
   const expense = await db.expense.update({
     where: { id: expenseId },
     data: { status: "paid", paidDate: new Date() },
+    include: { receipts: true },
   });
 
   try {
@@ -97,6 +98,22 @@ export async function markExpensePaid(expenseId: string) {
         where: { id: expenseId },
         data: { quickbooksPurchaseId: purchaseId },
       });
+      // Any receipts already attached in the app before this expense was
+      // marked paid — push them onto the Purchase now that it exists.
+      // Receipts added afterward are pushed individually by
+      // uploadExpenseReceipt instead.
+      for (const receipt of expense.receipts) {
+        try {
+          await pushExpenseReceiptAttachment({
+            organizationId: user.effectiveOrganizationId,
+            purchaseId,
+            fileUrl: receipt.filePath,
+            fileName: receipt.filePath.split("/").pop() ?? "receipt",
+          });
+        } catch (error) {
+          console.error("Failed to push receipt to QuickBooks:", error);
+        }
+      }
     }
   } catch (error) {
     // A QuickBooks hiccup shouldn't block marking the expense paid locally.
