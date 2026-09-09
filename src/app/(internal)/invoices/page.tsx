@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
 import { SearchBox } from "@/components/SearchBox";
-import { requireUser } from "@/lib/session";
+import { requireUser, hasPermission } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +56,22 @@ export default async function InvoicesPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-black tracking-tight text-ink">Invoices</h1>
-        <Link
-          href="/invoices/unpaid"
-          className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          Who Owes Me Money
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {hasPermission(user, "canViewReports") && (
+            <a
+              href="/api/invoices/export"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Export CSV
+            </a>
+          )}
+          <Link
+            href="/invoices/unpaid"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Who Owes Me Money
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { computeBookingStatus } from "@/lib/bookingStatus";
 import { AddressLink } from "@/components/AddressLink";
 import { SearchBox } from "@/components/SearchBox";
-import { requireUser } from "@/lib/session";
+import { requireUser, hasPermission } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -68,12 +68,22 @@ export default async function BookingsPage({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-black tracking-tight text-ink">Bookings</h1>
-        <Link
-          href="/bookings/new"
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-        >
-          + New Booking
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {hasPermission(user, "canViewReports") && (
+            <a
+              href="/api/bookings/export"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Export CSV
+            </a>
+          )}
+          <Link
+            href="/bookings/new"
+            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            + New Booking
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

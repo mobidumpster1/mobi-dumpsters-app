@@ -6,7 +6,7 @@ import { EquipmentTabs } from "@/components/EquipmentTabs";
 import { ScanButton } from "@/components/ScanButton";
 import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipmentStatus";
 import { quickSetEquipmentStatus } from "./actions";
-import { requireUser } from "@/lib/session";
+import { requireUser, hasPermission } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +79,14 @@ export default async function EquipmentPage({
         <h1 className="text-3xl font-black tracking-tight text-ink">Equipment</h1>
         <div className="flex gap-2">
           <ScanButton className="rounded-lg border-2 border-zinc-900 bg-white px-5 py-3 text-sm font-bold text-ink transition-colors hover:bg-zinc-50" />
+          {hasPermission(user, "canViewReports") && (
+            <a
+              href="/api/equipment/export"
+              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Export CSV
+            </a>
+          )}
           <Link
             href="/equipment/new"
             className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
