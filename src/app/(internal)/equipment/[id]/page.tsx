@@ -36,6 +36,7 @@ export default async function EquipmentDetailPage({
     include: {
       category: true,
       currentCustomer: true,
+      homeLocation: true,
       locationEvents: {
         orderBy: { startedAt: "desc" },
         take: 20,
@@ -134,6 +135,12 @@ export default async function EquipmentDetailPage({
           <dt className="text-zinc-500">Asset Tag</dt>
           <dd className="text-zinc-900">{item.assetTag ?? "—"}</dd>
         </div>
+        {item.homeLocation && (
+          <div>
+            <dt className="text-zinc-500">Home Location</dt>
+            <dd className="text-zinc-900">{item.homeLocation.name}</dd>
+          </div>
+        )}
         {fieldDefs.map((field) => (
           <div key={field.key}>
             <dt className="text-zinc-500">{field.label}</dt>

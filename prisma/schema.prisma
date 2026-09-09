@@ -78,6 +78,7 @@ model Organization {
   quotes                          Quote[]
   maintenanceLogEntries           MaintenanceLogEntry[]
   maintenanceWindows              MaintenanceWindow[]
+  locations                       Location[]
   timeEntries                     TimeEntry[]
   googleBusinessProfileConnection GoogleBusinessProfileConnection?
   googleReviews                   GoogleReview[]
@@ -470,6 +471,11 @@ model EquipmentItem {
   currentLocation   String?
   currentCustomerId String?
   currentCustomer   Customer? @relation(fields: [currentCustomerId], references: [id])
+  // The item's home depot, for businesses running more than one yard. Null
+  // means "the default yard" (branding.yardAddress) — unset by default so
+  // existing single-yard organizations see no behavior change.
+  homeLocationId    String?
+  homeLocation      Location? @relation(fields: [homeLocationId], references: [id], onDelete: SetNull)
 
   notes     String?
   createdAt DateTime @default(now())
@@ -484,6 +490,27 @@ model EquipmentItem {
   quoteLineItems        QuoteLineItem[]
   maintenanceLogEntries MaintenanceLogEntry[]
   maintenanceWindows    MaintenanceWindow[]
+}
+
+// One of an organization's physical depots/yards, for businesses running
+// more than one. Equipment items optionally belong to one (see
+// EquipmentItem.homeLocationId) purely for tracking which yard a unit
+// normally lives at — booking-time mileage still runs from the single
+// branding.yardAddress origin, since a specific unit (and therefore its
+// depot) isn't chosen until after the mileage quote is already given.
+model Location {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  address        String
+  latitude       Float?
+  longitude      Float?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  equipmentItems EquipmentItem[]
 }
 
 // A future date range an item is blocked out for planned maintenance —

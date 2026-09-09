@@ -19,17 +19,20 @@ type CategoryOption = {
 };
 
 type CustomerOption = { id: string; name: string };
+type LocationOption = { id: string; name: string };
 
 export function EquipmentItemForm({
   action,
   categories,
   customers,
+  locations,
   cancelHref,
   initial,
 }: {
   action: (formData: FormData) => void;
   categories: CategoryOption[];
   customers: CustomerOption[];
+  locations: LocationOption[];
   cancelHref: string;
   initial?: {
     categoryId: string;
@@ -38,6 +41,7 @@ export function EquipmentItemForm({
     status: string;
     currentLocation: string;
     currentCustomerId: string;
+    homeLocationId: string;
     notes: string;
     attributes: Record<string, unknown>;
   };
@@ -241,6 +245,24 @@ export function EquipmentItemForm({
           className={inputClass}
         />
       </Field>
+
+      {locations.length > 0 && (
+        <Field label="Home Location (optional)" htmlFor="homeLocationId">
+          <select
+            id="homeLocationId"
+            name="homeLocationId"
+            defaultValue={initial?.homeLocationId ?? ""}
+            className={inputClass}
+          >
+            <option value="">Default (main yard)</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <Field label="Current Customer (optional)" htmlFor="currentCustomerId">
         <select

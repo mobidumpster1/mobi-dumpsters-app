@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewEquipmentPage() {
   const user = await requireUser();
-  const [categories, customers] = await Promise.all([
+  const [categories, customers, locations] = await Promise.all([
     db.equipmentCategory.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
@@ -17,6 +17,11 @@ export default async function NewEquipmentPage() {
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
+    }),
+    db.location.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -37,6 +42,7 @@ export default async function NewEquipmentPage() {
             hasPricingTiers: c.pricingTiers.length > 0,
           }))}
           customers={customers}
+          locations={locations}
         />
       </div>
     </div>

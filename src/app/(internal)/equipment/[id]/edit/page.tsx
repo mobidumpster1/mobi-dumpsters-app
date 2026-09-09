@@ -12,7 +12,7 @@ export default async function EditEquipmentPage({
 }) {
   const { id } = await params;
   const user = await requireUser();
-  const [item, categories, customers] = await Promise.all([
+  const [item, categories, customers, locations] = await Promise.all([
     db.equipmentItem.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
     }),
@@ -24,6 +24,11 @@ export default async function EditEquipmentPage({
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
+    }),
+    db.location.findMany({
+      where: { organizationId: user.effectiveOrganizationId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -48,6 +53,7 @@ export default async function EditEquipmentPage({
             hasPricingTiers: c.pricingTiers.length > 0,
           }))}
           customers={customers}
+          locations={locations}
           initial={{
             categoryId: item.categoryId,
             label: item.label,
@@ -55,6 +61,7 @@ export default async function EditEquipmentPage({
             status: item.status,
             currentLocation: item.currentLocation ?? "",
             currentCustomerId: item.currentCustomerId ?? "",
+            homeLocationId: item.homeLocationId ?? "",
             notes: item.notes ?? "",
             attributes: parseAttributes(item.attributes),
           }}
