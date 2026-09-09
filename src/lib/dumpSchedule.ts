@@ -33,3 +33,11 @@ export function nextDumpAvailableTime(pickupDate: Date): Date {
   }
   return next;
 }
+
+// Large-scale jobs (junk removal, demolition) can dump at the company's
+// own yard instead of the public dump when necessary — that's not hour-
+// restricted, so a category flagged dumpsAtOwnYard skips the buffer
+// entirely and the unit is treated as free the instant it's picked up.
+export function unitFreeAfter(pickupDate: Date, dumpsAtOwnYard: boolean): Date {
+  return dumpsAtOwnYard ? pickupDate : nextDumpAvailableTime(pickupDate);
+}

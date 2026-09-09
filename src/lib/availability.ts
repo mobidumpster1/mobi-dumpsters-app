@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { getPublicOrganizationId } from "@/lib/session";
-import { nextDumpAvailableTime } from "@/lib/dumpSchedule";
+import { unitFreeAfter } from "@/lib/dumpSchedule";
 
 const UNBOOKABLE_STATUSES = ["retired", "needs_repair"];
 
@@ -60,10 +60,12 @@ export async function listBookableCategories(organizationId?: string) {
 //
 // "Overlap" accounts for the dump-run buffer: a unit isn't really free the
 // instant a rental's expectedReturnDate hits — it still has to get dumped
-// before it can go back out (see dumpSchedule.ts). We buffer the *pickup*
-// side of both the requested range and every existing booking before
-// comparing, so a unit due back Saturday evening (dump closed) doesn't
-// look bookable again until Monday.
+// before it can go back out (see dumpSchedule.ts), unless this category
+// dumps at the company's own yard instead (no hour restriction). We buffer
+// the *pickup* side of both the requested range and every existing booking
+// before comparing, so a unit due back Saturday evening (public dump
+// closed) doesn't look bookable again until Monday. Delivery-side dates are
+// never buffered — deliveries run 7 days a week regardless.
 export async function findAvailableItems(
   categoryId: string,
   startDate: Date,
@@ -71,7 +73,11 @@ export async function findAvailableItems(
 ) {
   // Same public-caller situation as listBookableCategories above.
   const organizationId = await getPublicOrganizationId();
-  const bufferedEndDate = nextDumpAvailableTime(endDate);
+  const category = await db.equipmentCategory.findUniqueOrThrow({
+    where: { id: categoryId },
+    select: { dumpsAtOwnYard: true },
+  });
+  const bufferedEndDate = unitFreeAfter(endDate, category.dumpsAtOwnYard);
   const items = await db.equipmentItem.findMany({
     where: {
       categoryId,
@@ -90,7 +96,7 @@ export async function findAvailableItems(
 
   return items.filter((item) =>
     item.bookingItems.every(
-      (bi) => nextDumpAvailableTime(bi.expectedReturnDate) <= startDate
+      (bi) => unitFreeAfter(bi.expectedReturnDate, category.dumpsAtOwnYard) <= startDate
     )
   );
 }

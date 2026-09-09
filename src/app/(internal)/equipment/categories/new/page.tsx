@@ -65,6 +65,16 @@ export default async function NewCategoryPage() {
             className={inputClass}
           />
         </Field>
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            name="dumpsAtOwnYard"
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Dumps at our own yard, not the public dump (large-scale jobs like
+          junk removal &amp; demolition — skips the 7am-5pm Mon-Sat dump
+          hours when checking availability)
+        </label>
         <ImageUploadField
           name="imageUrl"
           label="Photo (shown to customers on the booking page)"

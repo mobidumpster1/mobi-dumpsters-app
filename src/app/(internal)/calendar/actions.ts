@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { nextDumpAvailableTime } from "@/lib/dumpSchedule";
+import { unitFreeAfter } from "@/lib/dumpSchedule";
 
 function startOfDayUTC(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -21,7 +21,9 @@ export async function rescheduleBookingItem(
   const user = await requireUser();
   const item = await db.bookingItem.findFirstOrThrow({
     where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
+    include: { equipmentItem: { select: { category: { select: { dumpsAtOwnYard: true } } } } },
   });
+  const dumpsAtOwnYard = item.equipmentItem.category.dumpsAtOwnYard;
 
   const newDate = new Date(`${newDateStr}T00:00:00.000Z`);
   if (Number.isNaN(newDate.getTime())) throw new Error("Invalid date.");
@@ -49,8 +51,10 @@ export async function rescheduleBookingItem(
   // item's new pickup nor an existing booking's pickup counts as freeing
   // the unit until the next time the dump is actually open (see
   // dumpSchedule.ts) — a Saturday-evening pickup doesn't free the unit
-  // again until Monday.
-  const bufferedNewReturn = nextDumpAvailableTime(newExpectedReturnDate);
+  // again until Monday, unless this category dumps at the company's own
+  // yard instead. Every candidate shares this item's equipmentItemId, so
+  // they're all the same category — one flag applies to both sides.
+  const bufferedNewReturn = unitFreeAfter(newExpectedReturnDate, dumpsAtOwnYard);
   const candidates = await db.bookingItem.findMany({
     where: {
       id: { not: bookingItemId },
@@ -60,7 +64,7 @@ export async function rescheduleBookingItem(
     },
   });
   const conflict = candidates.find(
-    (c) => nextDumpAvailableTime(c.expectedReturnDate) > newStartDate
+    (c) => unitFreeAfter(c.expectedReturnDate, dumpsAtOwnYard) > newStartDate
   );
   if (conflict) {
     throw new Error("That would overlap with another booking already using this equipment — the dump isn't open in time to free it up.");
