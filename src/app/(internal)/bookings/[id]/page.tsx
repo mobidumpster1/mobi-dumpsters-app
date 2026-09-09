@@ -155,6 +155,11 @@ export default async function BookingDetailPage({
           >
             <p className="font-medium text-zinc-900">
               {item.equipmentItem.label}
+              {item.equipmentItem.assetTag && (
+                <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 font-mono text-xs font-bold text-white">
+                  {item.equipmentItem.assetTag}
+                </span>
+              )}
             </p>
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               <div className="flex justify-between gap-2">
@@ -259,6 +264,11 @@ export default async function BookingDetailPage({
               <tr key={item.id}>
                 <td className="px-5 py-4 font-medium text-zinc-900">
                   {item.equipmentItem.label}
+                  {item.equipmentItem.assetTag && (
+                    <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 font-mono text-xs font-bold text-white">
+                      {item.equipmentItem.assetTag}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {formatDate(item.startDate)}

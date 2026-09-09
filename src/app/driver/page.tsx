@@ -68,6 +68,11 @@ export default async function DriverPage() {
         <div className="mt-3 flex flex-col gap-3">
           {deliveries.map((item) => (
             <div key={item.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
+              {item.equipmentItem.assetTag && (
+                <span className="mb-1 inline-block rounded-full bg-brand px-3 py-1 font-mono text-sm font-bold text-white">
+                  {item.equipmentItem.assetTag}
+                </span>
+              )}
               <p className="text-xs font-semibold text-amber-600">{formatDateAndTime(item.startDate)}</p>
               <p className="mt-1 font-bold text-ink">{item.booking.customer.name}</p>
               <p className="text-sm text-zinc-600">
@@ -122,6 +127,11 @@ export default async function DriverPage() {
         <div className="mt-3 flex flex-col gap-3">
           {pickups.map((item) => (
             <div key={item.id} className="rounded-lg border-2 border-zinc-900 bg-white p-4">
+              {item.equipmentItem.assetTag && (
+                <span className="mb-1 inline-block rounded-full bg-brand px-3 py-1 font-mono text-sm font-bold text-white">
+                  {item.equipmentItem.assetTag}
+                </span>
+              )}
               <p className="text-xs font-semibold text-amber-600">
                 {formatDateAndTime(item.expectedReturnDate)}
               </p>

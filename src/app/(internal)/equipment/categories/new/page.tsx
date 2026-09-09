@@ -57,6 +57,14 @@ export default async function NewCategoryPage() {
             className={inputClass}
           />
         </Field>
+        <Field label="Asset Tag Prefix (optional)" htmlFor="assetTagPrefix">
+          <input
+            id="assetTagPrefix"
+            name="assetTagPrefix"
+            placeholder={`e.g. "10" for a 10 yard — new units get tagged 10-001, 10-002…`}
+            className={inputClass}
+          />
+        </Field>
         <ImageUploadField
           name="imageUrl"
           label="Photo (shown to customers on the booking page)"

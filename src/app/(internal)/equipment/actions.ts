@@ -8,6 +8,7 @@ import {
   buildAttributesFromForm,
   parseFieldDefinitions,
 } from "@/lib/categoryFields";
+import { nextAssetTag } from "@/lib/assetTags";
 import { requireUser } from "@/lib/session";
 
 // The equipment form also lets the user set the category's own photo,
@@ -48,12 +49,17 @@ export async function createEquipmentItem(formData: FormData) {
   const fieldDefs = parseFieldDefinitions(category.fieldDefinitions);
   const attributes = buildAttributesFromForm(formData, fieldDefs);
 
+  const manualAssetTag = str(formData, "assetTag");
+  const assetTag =
+    manualAssetTag ??
+    (category.assetTagPrefix ? await nextAssetTag(categoryId, category.assetTagPrefix) : null);
+
   const item = await db.equipmentItem.create({
     data: {
       organizationId: user.effectiveOrganizationId,
       categoryId,
       label,
-      assetTag: str(formData, "assetTag"),
+      assetTag,
       status: str(formData, "status") ?? "available",
       currentLocation: str(formData, "currentLocation"),
       currentCustomerId: str(formData, "currentCustomerId"),

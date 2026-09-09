@@ -366,6 +366,11 @@ model EquipmentCategory {
   // How many days an item of this category can sit at one site before it's
   // flagged as "sitting too long" on the equipment dashboard.
   agingThresholdDays Int          @default(14)
+  // e.g. "10" for a 10-yard dumpster — new items in this category get an
+  // auto-generated tag like "10-001", "10-002" (see nextAssetTag) unless
+  // staff types one in by hand. Null means no auto-numbering for this
+  // category; assetTag stays purely manual/free-text.
+  assetTagPrefix     String?
 
   // Pricing rules used to auto-generate invoice line items. All optional —
   // a category only needs the rules relevant to it (e.g. an excavator may
