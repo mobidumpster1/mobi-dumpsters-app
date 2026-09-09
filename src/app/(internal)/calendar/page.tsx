@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { LocationMap } from "@/components/LocationMap";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { cancelBooking } from "../bookings/actions";
+import { rescheduleBookingItem } from "./actions";
+import { CalendarWeekGrid } from "@/components/CalendarWeekGrid";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +38,7 @@ function parseDateParam(value: string | undefined, fallback: Date) {
 
 type CalendarEntry = {
   bookingId: string;
+  bookingItemId: string;
   customerName: string;
   equipmentLabel: string;
   kind: "delivery" | "return";
@@ -121,8 +124,8 @@ export default async function CalendarPage({
   // padded grid range used to render a full 7-column calendar.
   let rangeStart: Date;
   let rangeEnd: Date;
-  let monthStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
-  let monthEnd = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
+  const monthStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
 
   if (view === "day") {
     rangeStart = anchor;
@@ -160,6 +163,7 @@ export default async function CalendarPage({
     if (item.startDate >= rangeStart && item.startDate <= rangeEnd) {
       addEntry(item.startDate, {
         bookingId: item.bookingId,
+        bookingItemId: item.id,
         customerName: item.booking.customer.name,
         equipmentLabel: item.equipmentItem.label,
         kind: "delivery",
@@ -171,6 +175,7 @@ export default async function CalendarPage({
     if (item.expectedReturnDate >= rangeStart && item.expectedReturnDate <= rangeEnd) {
       addEntry(item.expectedReturnDate, {
         bookingId: item.bookingId,
+        bookingItemId: item.id,
         customerName: item.booking.customer.name,
         equipmentLabel: item.equipmentItem.label,
         kind: "return",
@@ -315,16 +320,16 @@ export default async function CalendarPage({
       {view === "week" && (
         <div className="mt-4 flex flex-col gap-4">
           <LocationMap pins={pinsForDays(gridDays)} heightClassName="h-80" />
-          <div className="flex flex-col gap-3">
-            {gridDays.map((day) => (
-              <AgendaDay
-                key={dateKey(day)}
-                day={day}
-                entries={entriesByDay.get(dateKey(day)) ?? []}
-                isToday={dateKey(day) === todayKey}
-              />
-            ))}
-          </div>
+          <CalendarWeekGrid
+            days={gridDays.map((day) => ({
+              key: dateKey(day),
+              weekdayLabel: day.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }),
+              dayNumber: day.getUTCDate(),
+              isToday: dateKey(day) === todayKey,
+              entries: entriesByDay.get(dateKey(day)) ?? [],
+            }))}
+            onDrop={rescheduleBookingItem}
+          />
         </div>
       )}
 
