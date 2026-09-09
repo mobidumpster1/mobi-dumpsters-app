@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { pushInvoicePayment } from "@/lib/quickbooks";
+import { getTaxSettings } from "@/lib/taxSettings";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -149,6 +150,20 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
   if (existing) return existing;
 
   const lines = computeInvoiceLineItems(booking.items);
+
+  // Tax applies to the actual rental charge only — computed on these lines
+  // (which already reflect any discount, surcharge, or bundle split; see
+  // computeInvoiceLineItems), before the deposit line below is added. A
+  // security deposit is refundable, not a sale, so it's never taxed.
+  const taxSettings = await getTaxSettings(booking.organizationId);
+  if (taxSettings.enabled && taxSettings.ratePercent > 0) {
+    const taxableSubtotal = lines.reduce((sum, line) => sum + line.amount, 0);
+    lines.push({
+      description: `${taxSettings.taxLabel} (${taxSettings.ratePercent}%)`,
+      amount: taxableSubtotal * (taxSettings.ratePercent / 100),
+      type: "tax",
+    });
+  }
 
   // One deposit line per unit whose category has a deposit configured —
   // folded into the same invoice/payment as the rental rather than

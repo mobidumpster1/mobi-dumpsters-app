@@ -66,6 +66,7 @@ model Organization {
   jobNotificationSettings         JobNotificationSettings?
   jobCostingSettings              JobCostingSettings?
   dumpScheduleSettings            DumpScheduleSettings?
+  taxSettings                     TaxSettings?
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   promoCodes                      PromoCode[]
@@ -1244,6 +1245,24 @@ model DumpScheduleSettings {
   openThursday   Boolean      @default(true)
   openFriday     Boolean      @default(true)
   openSaturday   Boolean      @default(true)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+}
+
+// A single flat rate applied to every invoice's taxable subtotal (base +
+// overage lines, NOT the refundable security deposit) -- not
+// jurisdiction-aware. Deliberately simple: real per-address tax-rate
+// lookup needs a paid data source (e.g. TaxJar/Avalara) this app doesn't
+// integrate with. Defaults to disabled/0% so nothing changes for an org
+// until they explicitly turn it on and set a rate in Settings. Singleton
+// row, same pattern as DumpScheduleSettings.
+model TaxSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  enabled        Boolean      @default(false)
+  ratePercent    Float        @default(0)
+  taxLabel       String       @default("Sales Tax")
   updatedAt      DateTime     @updatedAt
   createdAt      DateTime     @default(now())
 }

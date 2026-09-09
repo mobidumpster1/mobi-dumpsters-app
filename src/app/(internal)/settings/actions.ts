@@ -13,6 +13,7 @@ import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
+import { getTaxSettings } from "@/lib/taxSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
@@ -353,6 +354,25 @@ export async function updateDumpScheduleSettings(formData: FormData) {
       openThursday: formData.get("openThursday") === "on",
       openFriday: formData.get("openFriday") === "on",
       openSaturday: formData.get("openSaturday") === "on",
+    },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateTaxSettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getTaxSettings(user.effectiveOrganizationId);
+
+  const ratePercent = Math.max(0, Math.min(100, Number(str(formData, "ratePercent")) || 0));
+  const taxLabel = str(formData, "taxLabel") || "Sales Tax";
+
+  await db.taxSettings.update({
+    where: { id: settings.id },
+    data: {
+      enabled: formData.get("enabled") === "on",
+      ratePercent,
+      taxLabel,
     },
   });
 

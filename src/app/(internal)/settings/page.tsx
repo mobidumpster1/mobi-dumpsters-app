@@ -19,6 +19,7 @@ import {
   updateJobNotificationSettings,
   updateJobCostingSettings,
   updateDumpScheduleSettings,
+  updateTaxSettings,
   updateAutomationSettings,
   updateDeliveryReminderSettings,
   updateJobPhotoNotificationSettings,
@@ -47,6 +48,7 @@ import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
+import { getTaxSettings } from "@/lib/taxSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { getJobPhotoNotificationSettings } from "@/lib/jobPhotoNotifications";
@@ -206,6 +208,7 @@ export default async function SettingsPage({
   const jobNotificationSettings = await getJobNotificationSettings(currentUser.effectiveOrganizationId);
   const jobCostingSettings = await getJobCostingSettings(currentUser.effectiveOrganizationId);
   const dumpScheduleSettings = await getDumpScheduleSettings(currentUser.effectiveOrganizationId);
+  const taxSettings = await getTaxSettings(currentUser.effectiveOrganizationId);
   const automationSettings = hasPlan(currentUser, "pro")
     ? await getAutomationSettings(currentUser.effectiveOrganizationId)
     : null;
@@ -454,6 +457,61 @@ export default async function SettingsPage({
               {label}
             </label>
           ))}
+        </div>
+        <button
+          type="submit"
+          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          Save
+        </button>
+      </form>
+    </section>
+  );
+
+  const taxSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Tax</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        A single flat rate applied to every invoice&apos;s rental charge (not the refundable
+        security deposit). This isn&apos;t address-aware — if your rates actually vary by county
+        or city, this won&apos;t get that right; it&apos;s meant for a single flat rate covering
+        your whole service area. Off by default.
+      </p>
+      <form action={updateTaxSettings} className="mt-3 flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            name="enabled"
+            defaultChecked={taxSettings.enabled}
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Apply tax to invoices
+        </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-32">
+            <Field label="Rate (%)" htmlFor="ratePercent">
+              <input
+                id="ratePercent"
+                name="ratePercent"
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                defaultValue={taxSettings.ratePercent}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <div className="w-48">
+            <Field label="Label (shown on invoice)" htmlFor="taxLabel">
+              <input
+                id="taxLabel"
+                name="taxLabel"
+                defaultValue={taxSettings.taxLabel}
+                className={inputClass}
+              />
+            </Field>
+          </div>
         </div>
         <button
           type="submit"
@@ -1741,6 +1799,7 @@ export default async function SettingsPage({
           {bookingLinkSection}
           {jobCostingSection}
           {dumpScheduleSection}
+          {taxSection}
           {automationSection}
         </>
       ),
