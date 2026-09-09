@@ -12,6 +12,7 @@ import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
+import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { sendPendingDeliveryReminders } from "@/lib/deliveryReminder";
@@ -325,6 +326,34 @@ export async function updateJobCostingSettings(formData: FormData) {
   await db.jobCostingSettings.update({
     where: { id: settings.id },
     data: { marginAlertPercent },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function updateDumpScheduleSettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getDumpScheduleSettings(user.effectiveOrganizationId);
+
+  const openHour = Math.max(0, Math.min(23, Number(str(formData, "openHour")) || 0));
+  const closeHour = Math.max(0, Math.min(24, Number(str(formData, "closeHour")) || 0));
+  if (closeHour <= openHour) {
+    throw new Error("Close hour must be after open hour.");
+  }
+
+  await db.dumpScheduleSettings.update({
+    where: { id: settings.id },
+    data: {
+      openHour,
+      closeHour,
+      openSunday: formData.get("openSunday") === "on",
+      openMonday: formData.get("openMonday") === "on",
+      openTuesday: formData.get("openTuesday") === "on",
+      openWednesday: formData.get("openWednesday") === "on",
+      openThursday: formData.get("openThursday") === "on",
+      openFriday: formData.get("openFriday") === "on",
+      openSaturday: formData.get("openSaturday") === "on",
+    },
   });
 
   revalidatePath("/settings");

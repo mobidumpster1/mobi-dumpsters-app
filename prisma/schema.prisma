@@ -65,6 +65,7 @@ model Organization {
   invoiceReminderSettings         InvoiceReminderSettings?
   jobNotificationSettings         JobNotificationSettings?
   jobCostingSettings              JobCostingSettings?
+  dumpScheduleSettings            DumpScheduleSettings?
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   promoCodes                      PromoCode[]
@@ -1165,6 +1166,30 @@ model JobCostingSettings {
   marginAlertPercent Int          @default(20)
   updatedAt          DateTime     @updatedAt
   createdAt          DateTime     @default(now())
+}
+
+// Controls the dump-run buffer used by booking availability and the
+// calendar's drag-and-drop reschedule (see src/lib/dumpSchedule.ts) — a
+// unit that dumps at the public dump isn't treated as free again until
+// the next time it's open. Hours are 24-hour, literal digits (7 = 7am,
+// 17 = 5pm), same convention as the rest of the app's dates. Singleton
+// row, same pattern as JobCostingSettings; defaults match the original
+// hardcoded 7am-5pm Monday-Saturday.
+model DumpScheduleSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  openHour       Int          @default(7)
+  closeHour      Int          @default(17)
+  openSunday     Boolean      @default(false)
+  openMonday     Boolean      @default(true)
+  openTuesday    Boolean      @default(true)
+  openWednesday  Boolean      @default(true)
+  openThursday   Boolean      @default(true)
+  openFriday     Boolean      @default(true)
+  openSaturday   Boolean      @default(true)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // Controls the automated "your delivery is coming up" reminder email, sent

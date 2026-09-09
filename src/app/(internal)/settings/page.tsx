@@ -18,6 +18,7 @@ import {
   sendInvoiceRemindersNow,
   updateJobNotificationSettings,
   updateJobCostingSettings,
+  updateDumpScheduleSettings,
   updateAutomationSettings,
   updateDeliveryReminderSettings,
   updateJobPhotoNotificationSettings,
@@ -45,6 +46,7 @@ import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
+import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
 import { getJobPhotoNotificationSettings } from "@/lib/jobPhotoNotifications";
@@ -130,6 +132,13 @@ function accountOptionValue(account: QboAccount) {
   return `${account.Id}|||${account.Name}`;
 }
 
+function formatHourLabel(hour: number) {
+  if (hour === 24) return "Midnight";
+  const period = hour < 12 ? "am" : "pm";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}${period}`;
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -196,6 +205,7 @@ export default async function SettingsPage({
   const invoiceReminderSettings = await getInvoiceReminderSettings(currentUser.effectiveOrganizationId);
   const jobNotificationSettings = await getJobNotificationSettings(currentUser.effectiveOrganizationId);
   const jobCostingSettings = await getJobCostingSettings(currentUser.effectiveOrganizationId);
+  const dumpScheduleSettings = await getDumpScheduleSettings(currentUser.effectiveOrganizationId);
   const automationSettings = hasPlan(currentUser, "pro")
     ? await getAutomationSettings(currentUser.effectiveOrganizationId)
     : null;
@@ -369,6 +379,85 @@ export default async function SettingsPage({
         <button
           type="submit"
           className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          Save
+        </button>
+      </form>
+    </section>
+  );
+
+  const dumpScheduleSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Dump Schedule</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Controls when a unit is treated as available again after a pickup —
+        it can&apos;t go back out until it&apos;s been dumped, and the dump
+        can only run during these hours/days. Deliveries themselves are
+        never restricted by this and can go out any day. Rental types
+        marked &quot;Dumps at our own yard&quot; (Equipment &rarr; Rental
+        Types) skip this schedule entirely.
+      </p>
+      <form action={updateDumpScheduleSettings} className="mt-3 flex flex-col gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-28">
+            <Field label="Opens at" htmlFor="openHour">
+              <select
+                id="openHour"
+                name="openHour"
+                defaultValue={dumpScheduleSettings.openHour}
+                className={inputClass}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {formatHourLabel(h)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <div className="w-28">
+            <Field label="Closes at" htmlFor="closeHour">
+              <select
+                id="closeHour"
+                name="closeHour"
+                defaultValue={dumpScheduleSettings.closeHour}
+                className={inputClass}
+              >
+                {Array.from({ length: 25 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {formatHourLabel(h)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {(
+            [
+              ["openSunday", "Sun", dumpScheduleSettings.openSunday],
+              ["openMonday", "Mon", dumpScheduleSettings.openMonday],
+              ["openTuesday", "Tue", dumpScheduleSettings.openTuesday],
+              ["openWednesday", "Wed", dumpScheduleSettings.openWednesday],
+              ["openThursday", "Thu", dumpScheduleSettings.openThursday],
+              ["openFriday", "Fri", dumpScheduleSettings.openFriday],
+              ["openSaturday", "Sat", dumpScheduleSettings.openSaturday],
+            ] as const
+          ).map(([key, label, checked]) => (
+            <label key={key} className="flex items-center gap-1.5 text-sm text-zinc-700">
+              <input
+                type="checkbox"
+                name={key}
+                defaultChecked={checked}
+                className="h-4 w-4 rounded border-zinc-300"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <button
+          type="submit"
+          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           Save
         </button>
@@ -1651,6 +1740,7 @@ export default async function SettingsPage({
           {brandingSection}
           {bookingLinkSection}
           {jobCostingSection}
+          {dumpScheduleSection}
           {automationSection}
         </>
       ),

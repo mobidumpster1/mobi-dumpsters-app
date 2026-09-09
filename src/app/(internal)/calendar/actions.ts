@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { unitFreeAfter } from "@/lib/dumpSchedule";
+import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
 
 function startOfDayUTC(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -19,10 +20,13 @@ export async function rescheduleBookingItem(
   newDateStr: string
 ) {
   const user = await requireUser();
-  const item = await db.bookingItem.findFirstOrThrow({
-    where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
-    include: { equipmentItem: { select: { category: { select: { dumpsAtOwnYard: true } } } } },
-  });
+  const [item, dumpSchedule] = await Promise.all([
+    db.bookingItem.findFirstOrThrow({
+      where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
+      include: { equipmentItem: { select: { category: { select: { dumpsAtOwnYard: true } } } } },
+    }),
+    getDumpScheduleSettings(user.effectiveOrganizationId),
+  ]);
   const dumpsAtOwnYard = item.equipmentItem.category.dumpsAtOwnYard;
 
   const newDate = new Date(`${newDateStr}T00:00:00.000Z`);
@@ -54,7 +58,7 @@ export async function rescheduleBookingItem(
   // again until Monday, unless this category dumps at the company's own
   // yard instead. Every candidate shares this item's equipmentItemId, so
   // they're all the same category — one flag applies to both sides.
-  const bufferedNewReturn = unitFreeAfter(newExpectedReturnDate, dumpsAtOwnYard);
+  const bufferedNewReturn = unitFreeAfter(newExpectedReturnDate, dumpsAtOwnYard, dumpSchedule);
   const candidates = await db.bookingItem.findMany({
     where: {
       id: { not: bookingItemId },
@@ -64,7 +68,7 @@ export async function rescheduleBookingItem(
     },
   });
   const conflict = candidates.find(
-    (c) => unitFreeAfter(c.expectedReturnDate, dumpsAtOwnYard) > newStartDate
+    (c) => unitFreeAfter(c.expectedReturnDate, dumpsAtOwnYard, dumpSchedule) > newStartDate
   );
   if (conflict) {
     throw new Error("That would overlap with another booking already using this equipment — the dump isn't open in time to free it up.");

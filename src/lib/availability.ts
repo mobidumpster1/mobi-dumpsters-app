@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getPublicOrganizationId } from "@/lib/session";
 import { unitFreeAfter } from "@/lib/dumpSchedule";
+import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
 
 const UNBOOKABLE_STATUSES = ["retired", "needs_repair"];
 
@@ -73,11 +74,14 @@ export async function findAvailableItems(
 ) {
   // Same public-caller situation as listBookableCategories above.
   const organizationId = await getPublicOrganizationId();
-  const category = await db.equipmentCategory.findUniqueOrThrow({
-    where: { id: categoryId },
-    select: { dumpsAtOwnYard: true },
-  });
-  const bufferedEndDate = unitFreeAfter(endDate, category.dumpsAtOwnYard);
+  const [category, dumpSchedule] = await Promise.all([
+    db.equipmentCategory.findUniqueOrThrow({
+      where: { id: categoryId },
+      select: { dumpsAtOwnYard: true },
+    }),
+    getDumpScheduleSettings(organizationId),
+  ]);
+  const bufferedEndDate = unitFreeAfter(endDate, category.dumpsAtOwnYard, dumpSchedule);
   const items = await db.equipmentItem.findMany({
     where: {
       categoryId,
@@ -96,7 +100,7 @@ export async function findAvailableItems(
 
   return items.filter((item) =>
     item.bookingItems.every(
-      (bi) => unitFreeAfter(bi.expectedReturnDate, category.dumpsAtOwnYard) <= startDate
+      (bi) => unitFreeAfter(bi.expectedReturnDate, category.dumpsAtOwnYard, dumpSchedule) <= startDate
     )
   );
 }
