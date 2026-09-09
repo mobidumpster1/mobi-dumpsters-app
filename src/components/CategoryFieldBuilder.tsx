@@ -8,8 +8,14 @@ const FIELD_TYPES: FieldType[] = ["text", "number", "date", "boolean", "select"]
 
 export function CategoryFieldBuilder({
   initialFields = [],
+  title = "Custom Fields for This Category",
+  hiddenFieldName = "fieldDefinitionsJson",
+  emptyHint = 'No custom fields yet. Add fields like "Size (yd)" or "Hour Meter" specific to this equipment type.',
 }: {
   initialFields?: FieldDefinition[];
+  title?: string;
+  hiddenFieldName?: string;
+  emptyHint?: string;
 }) {
   const [fields, setFields] = useState<FieldDefinition[]>(initialFields);
 
@@ -30,9 +36,7 @@ export function CategoryFieldBuilder({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-700">
-          Custom Fields for This Category
-        </h3>
+        <h3 className="text-sm font-medium text-zinc-700">{title}</h3>
         <button
           type="button"
           onClick={addField}
@@ -41,12 +45,7 @@ export function CategoryFieldBuilder({
           + Add Field
         </button>
       </div>
-      {fields.length === 0 && (
-        <p className="text-sm text-zinc-400">
-          No custom fields yet. Add fields like &quot;Size (yd)&quot; or
-          &quot;Hour Meter&quot; specific to this equipment type.
-        </p>
-      )}
+      {fields.length === 0 && <p className="text-sm text-zinc-400">{emptyHint}</p>}
       {fields.map((field, index) => (
         <div
           key={index}
@@ -119,7 +118,7 @@ export function CategoryFieldBuilder({
       ))}
       <input
         type="hidden"
-        name="fieldDefinitionsJson"
+        name={hiddenFieldName}
         value={JSON.stringify(fields)}
       />
     </div>

@@ -379,6 +379,26 @@ export async function updateTaxSettings(formData: FormData) {
   revalidatePath("/settings");
 }
 
+export async function updateCustomerFieldDefinitions(formData: FormData) {
+  const user = await requireUser();
+  const json = formData.get("customerFieldDefinitionsJson");
+  await db.organization.update({
+    where: { id: user.effectiveOrganizationId },
+    data: { customerFieldDefinitions: typeof json === "string" ? json : "[]" },
+  });
+  revalidatePath("/settings");
+}
+
+export async function updateBookingFieldDefinitions(formData: FormData) {
+  const user = await requireUser();
+  const json = formData.get("bookingFieldDefinitionsJson");
+  await db.organization.update({
+    where: { id: user.effectiveOrganizationId },
+    data: { bookingFieldDefinitions: typeof json === "string" ? json : "[]" },
+  });
+  revalidatePath("/settings");
+}
+
 export async function updateAutomationSettings(formData: FormData) {
   const user = await requireUser();
   const settings = await getAutomationSettings(user.effectiveOrganizationId);

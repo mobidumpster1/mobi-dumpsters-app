@@ -1,9 +1,20 @@
 import Link from "next/link";
 import { createCustomer } from "../actions";
 import { Field, inputClass } from "@/components/Field";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
+import { parseFieldDefinitions } from "@/lib/categoryFields";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 
-export default function NewCustomerPage() {
+export default async function NewCustomerPage() {
+  const user = await requireUser();
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: user.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true },
+  });
+  const fieldDefs = parseFieldDefinitions(org.customerFieldDefinitions);
+
   return (
     <div className="max-w-xl">
       <h1 className="text-3xl font-black tracking-tight text-ink">New Customer</h1>
@@ -44,6 +55,7 @@ export default function NewCustomerPage() {
         <Field label="Notes" htmlFor="notes">
           <textarea id="notes" name="notes" rows={3} className={inputClass} />
         </Field>
+        <CustomFieldInputs fieldDefs={fieldDefs} />
         <div className="flex gap-3">
           <button
             type="submit"

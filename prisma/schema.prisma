@@ -31,6 +31,13 @@ model Organization {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Custom field schemas for Customer.attributes / Booking.attributes —
+  // same JSON-array-of-FieldDefinition shape as EquipmentCategory.
+  // fieldDefinitions, just one schema per org instead of per category
+  // (a customer/booking isn't "categorized" the way equipment is).
+  customerFieldDefinitions String @default("[]")
+  bookingFieldDefinitions  String @default("[]")
+
   // Which subscription tier this organization is on — solo | team | pro.
   // Denormalized here (rather than only living on PlatformSubscription
   // below) so every gating check is a plain scalar read, no join, same
@@ -240,6 +247,10 @@ model Customer {
   latitude              Float?
   longitude             Float?
   notes                 String?
+  // JSON object keyed by field key — see Organization.customerFieldDefinitions
+  // and src/lib/categoryFields.ts (the parse/format helpers are generic,
+  // shared with equipment category custom fields).
+  attributes            String       @default("{}")
   // Comma-separated labels (e.g. "Residential,Repeat") shown as pills in the UI.
   tags                  String       @default("")
   // How this customer found us — google_ads | meta_ads | b2b_outreach |
@@ -690,6 +701,10 @@ model Booking {
   latitude              Float?
   longitude             Float?
   notes                 String?
+  // JSON object keyed by field key — see Organization.bookingFieldDefinitions
+  // and src/lib/categoryFields.ts (the parse/format helpers are generic,
+  // shared with equipment category custom fields).
+  attributes            String       @default("{}")
   // Set once a Google Calendar event has been created for this booking, so
   // we don't create duplicates if the push is ever retried.
   googleCalendarEventId String?

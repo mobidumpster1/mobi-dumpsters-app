@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { updateBooking } from "../../actions";
 import { Field, inputClass } from "@/components/Field";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { parseFieldDefinitions, parseAttributes } from "@/lib/categoryFields";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,16 +19,29 @@ export default async function EditBookingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const booking = await db.booking.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      items: { include: { equipmentItem: true } },
-    },
-  });
+  const user = await requireUser();
+  // findFirst (not findUnique) specifically so organizationId can be part
+  // of the where clause — this page previously looked a booking up by id
+  // alone, with no check that it belonged to the signed-in staff member's
+  // own organization at all.
+  const [booking, org] = await Promise.all([
+    db.booking.findFirst({
+      where: { id, organizationId: user.effectiveOrganizationId },
+      include: {
+        customer: true,
+        items: { include: { equipmentItem: true } },
+      },
+    }),
+    db.organization.findUniqueOrThrow({
+      where: { id: user.effectiveOrganizationId },
+      select: { bookingFieldDefinitions: true },
+    }),
+  ]);
 
   if (!booking) notFound();
 
+  const fieldDefs = parseFieldDefinitions(org.bookingFieldDefinitions);
+  const attributes = parseAttributes(booking.attributes);
   const updateWithId = updateBooking.bind(null, booking.id);
 
   return (
@@ -99,6 +115,8 @@ export default async function EditBookingPage({
             className={inputClass}
           />
         </Field>
+
+        <CustomFieldInputs fieldDefs={fieldDefs} values={attributes} />
 
         <div className="flex gap-3">
           <button

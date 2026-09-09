@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { parseFieldDefinitions, parseAttributes, formatAttributeValue } from "@/lib/categoryFields";
 import {
   markDelivered,
   markReturned,
@@ -64,7 +65,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, drivers, permitAreas, jobCostingSettings, openTimeEntry] = await Promise.all([
+  const [booking, vehicles, drivers, permitAreas, jobCostingSettings, openTimeEntry, org] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -99,9 +100,16 @@ export default async function BookingDetailPage({
           where: { userId: user.id, organizationId: user.effectiveOrganizationId, clockOut: null },
         })
       : Promise.resolve(null),
+    db.organization.findUniqueOrThrow({
+      where: { id: user.effectiveOrganizationId },
+      select: { bookingFieldDefinitions: true },
+    }),
   ]);
 
   if (!booking) notFound();
+
+  const customFieldDefs = parseFieldDefinitions(org.bookingFieldDefinitions);
+  const customAttributes = parseAttributes(booking.attributes);
 
   const showPermitChecklist =
     booking.permitRequired || matchesPermitArea(booking.deliveryAddress, permitAreas);
@@ -809,6 +817,19 @@ export default async function BookingDetailPage({
             Note
           </p>
           <p className="mt-1 text-sm text-zinc-700">{booking.notes}</p>
+        </div>
+      )}
+
+      {customFieldDefs.length > 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border-2 border-zinc-900 bg-white p-4 text-sm sm:grid-cols-3">
+          {customFieldDefs.map((field) => (
+            <div key={field.key}>
+              <dt className="text-zinc-500">{field.label}</dt>
+              <dd className="text-zinc-900">
+                {formatAttributeValue(field, customAttributes[field.key])}
+              </dd>
+            </div>
+          ))}
         </div>
       )}
 

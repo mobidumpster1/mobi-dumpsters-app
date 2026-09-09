@@ -20,6 +20,8 @@ import {
   updateJobCostingSettings,
   updateDumpScheduleSettings,
   updateTaxSettings,
+  updateCustomerFieldDefinitions,
+  updateBookingFieldDefinitions,
   updateAutomationSettings,
   updateDeliveryReminderSettings,
   updateJobPhotoNotificationSettings,
@@ -67,6 +69,8 @@ import { Tabs, type TabItem } from "@/components/Tabs";
 import { buildWebsiteWidgets } from "@/lib/websiteWidgets";
 import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
+import { parseFieldDefinitions } from "@/lib/categoryFields";
+import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
 import { requireUser, hasPlan } from "@/lib/session";
 import { headers } from "next/headers";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
@@ -209,6 +213,12 @@ export default async function SettingsPage({
   const jobCostingSettings = await getJobCostingSettings(currentUser.effectiveOrganizationId);
   const dumpScheduleSettings = await getDumpScheduleSettings(currentUser.effectiveOrganizationId);
   const taxSettings = await getTaxSettings(currentUser.effectiveOrganizationId);
+  const orgFieldDefs = await db.organization.findUniqueOrThrow({
+    where: { id: currentUser.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true, bookingFieldDefinitions: true },
+  });
+  const customerFieldDefs = parseFieldDefinitions(orgFieldDefs.customerFieldDefinitions);
+  const bookingFieldDefs = parseFieldDefinitions(orgFieldDefs.bookingFieldDefinitions);
   const automationSettings = hasPlan(currentUser, "pro")
     ? await getAutomationSettings(currentUser.effectiveOrganizationId)
     : null;
@@ -520,6 +530,48 @@ export default async function SettingsPage({
           Save
         </button>
       </form>
+    </section>
+  );
+
+  const customFieldsSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Custom Fields</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Extra fields your business wants to track that aren&apos;t built in — e.g. &quot;Gate
+        Code&quot; on a customer, or &quot;Referred By&quot; on a booking. Same idea as the
+        per-category fields on Equipment &rarr; Rental Types, just one shared schema for all
+        customers/bookings instead of one per category.
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <form action={updateCustomerFieldDefinitions} className="flex flex-col gap-3">
+          <CategoryFieldBuilder
+            initialFields={customerFieldDefs}
+            title="Customer Fields"
+            hiddenFieldName="customerFieldDefinitionsJson"
+            emptyHint='No custom customer fields yet. Add fields like "Gate Code" or "Preferred Contact Method".'
+          />
+          <button
+            type="submit"
+            className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Save
+          </button>
+        </form>
+        <form action={updateBookingFieldDefinitions} className="flex flex-col gap-3">
+          <CategoryFieldBuilder
+            initialFields={bookingFieldDefs}
+            title="Booking Fields"
+            hiddenFieldName="bookingFieldDefinitionsJson"
+            emptyHint='No custom booking fields yet. Add fields like "Referred By" or "Access Instructions".'
+          />
+          <button
+            type="submit"
+            className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          >
+            Save
+          </button>
+        </form>
+      </div>
     </section>
   );
 
@@ -1800,6 +1852,7 @@ export default async function SettingsPage({
           {jobCostingSection}
           {dumpScheduleSection}
           {taxSection}
+          {customFieldsSection}
           {automationSection}
         </>
       ),

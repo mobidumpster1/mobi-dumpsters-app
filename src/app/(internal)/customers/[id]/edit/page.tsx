@@ -3,7 +3,9 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { updateCustomer } from "../../actions";
 import { Field, inputClass } from "@/components/Field";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
+import { parseFieldDefinitions, parseAttributes } from "@/lib/categoryFields";
 import { requireUser } from "@/lib/session";
 
 export default async function EditCustomerPage({
@@ -17,6 +19,13 @@ export default async function EditCustomerPage({
     where: { id, organizationId: user.effectiveOrganizationId },
   });
   if (!customer) notFound();
+
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: user.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true },
+  });
+  const fieldDefs = parseFieldDefinitions(org.customerFieldDefinitions);
+  const attributes = parseAttributes(customer.attributes);
 
   const updateWithId = updateCustomer.bind(null, customer.id);
 
@@ -99,6 +108,7 @@ export default async function EditCustomerPage({
             className={inputClass}
           />
         </Field>
+        <CustomFieldInputs fieldDefs={fieldDefs} values={attributes} />
         <div className="flex gap-3">
           <button
             type="submit"

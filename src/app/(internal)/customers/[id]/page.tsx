@@ -12,6 +12,7 @@ import {
 } from "../dumpActions";
 import { Field, inputClass } from "@/components/Field";
 import { AddressLink } from "@/components/AddressLink";
+import { parseFieldDefinitions, parseAttributes, formatAttributeValue } from "@/lib/categoryFields";
 import { DumpReceiptScanField } from "@/components/DumpReceiptScanField";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
@@ -75,6 +76,12 @@ export default async function CustomerDetailPage({
     .filter((i) => i.status !== "paid")
     .reduce((sum, i) => sum + i.amount, 0);
   const tags = parseTags(customer.tags);
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: user.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true },
+  });
+  const customFieldDefs = parseFieldDefinitions(org.customerFieldDefinitions);
+  const customAttributes = parseAttributes(customer.attributes);
   const creditBalance = customer.creditEntries.reduce((sum, e) => sum + e.amount, 0);
 
   const addNoteWithId = addCustomerNote.bind(null, customer.id);
@@ -671,6 +678,14 @@ export default async function CustomerDetailPage({
             <dd className="text-zinc-900">{customer.notes}</dd>
           </div>
         )}
+        {customFieldDefs.map((field) => (
+          <div key={field.key}>
+            <dt className="text-zinc-500">{field.label}</dt>
+            <dd className="text-zinc-900">
+              {formatAttributeValue(field, customAttributes[field.key])}
+            </dd>
+          </div>
+        ))}
       </dl>
 
       <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">

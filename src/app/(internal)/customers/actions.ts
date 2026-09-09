@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { normalizeTagsInput } from "@/lib/tags";
+import { parseFieldDefinitions, buildAttributesFromForm } from "@/lib/categoryFields";
 import { geocodeAddress } from "@/lib/geocode";
 import { requireUser, requirePlanFor } from "@/lib/session";
 import { createSetupIntent, savePaymentMethodFromSetupIntent } from "@/lib/stripe";
@@ -19,6 +20,12 @@ export async function createCustomer(formData: FormData) {
   const address = str(formData, "address");
   const geocoded = address ? await geocodeAddress(address) : null;
 
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: user.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true },
+  });
+  const attributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.customerFieldDefinitions));
+
   const customer = await db.customer.create({
     data: {
       organizationId: user.effectiveOrganizationId,
@@ -32,6 +39,7 @@ export async function createCustomer(formData: FormData) {
       notes: str(formData, "notes"),
       tags: normalizeTagsInput(str(formData, "tags") ?? ""),
       leadSource: str(formData, "leadSource"),
+      attributes: JSON.stringify(attributes),
     },
   });
 
@@ -75,6 +83,12 @@ export async function updateCustomer(customerId: string, formData: FormData) {
   const address = str(formData, "address");
   const geocoded = address ? await geocodeAddress(address) : null;
 
+  const org = await db.organization.findUniqueOrThrow({
+    where: { id: user.effectiveOrganizationId },
+    select: { customerFieldDefinitions: true },
+  });
+  const attributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.customerFieldDefinitions));
+
   await db.customer.updateMany({
     where: { id: customerId, organizationId: user.effectiveOrganizationId },
     data: {
@@ -88,6 +102,7 @@ export async function updateCustomer(customerId: string, formData: FormData) {
       notes: str(formData, "notes"),
       tags: normalizeTagsInput(str(formData, "tags") ?? ""),
       leadSource: str(formData, "leadSource"),
+      attributes: JSON.stringify(attributes),
     },
   });
 

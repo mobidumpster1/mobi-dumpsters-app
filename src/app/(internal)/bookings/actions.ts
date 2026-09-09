@@ -21,6 +21,7 @@ import { getAgreementSettings } from "@/lib/agreement";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
 import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
 import { refundPayment, toCents } from "@/lib/stripe";
+import { parseFieldDefinitions, buildAttributesFromForm } from "@/lib/categoryFields";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -104,10 +105,15 @@ export async function createBooking(formData: FormData) {
       ? itemPrices.map((price) => Math.max(0, price - discountAmount! * (price / subtotal)))
       : itemPrices;
 
-  const [geocoded, permitAreas] = await Promise.all([
+  const [geocoded, permitAreas, org] = await Promise.all([
     geocodeAddress(deliveryAddress),
     db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
+    db.organization.findUniqueOrThrow({
+      where: { id: user.effectiveOrganizationId },
+      select: { bookingFieldDefinitions: true },
+    }),
   ]);
+  const bookingAttributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.bookingFieldDefinitions));
 
   const booking = await db.booking.create({
     data: {
@@ -122,6 +128,7 @@ export async function createBooking(formData: FormData) {
       promoCodeId: appliedPromoCodeId,
       discountAmount,
       discountNote,
+      attributes: JSON.stringify(bookingAttributes),
       items: {
         create: validItems.map((item, i) => ({
           equipmentItemId: item.equipmentItemId,
@@ -277,18 +284,24 @@ export async function updateBooking(bookingId: string, formData: FormData) {
   });
 
   const addressChanged = deliveryAddress !== booking.deliveryAddress;
-  const [geocoded, permitAreas] = await Promise.all([
+  const [geocoded, permitAreas, org] = await Promise.all([
     addressChanged ? geocodeAddress(deliveryAddress) : Promise.resolve(null),
     addressChanged
       ? db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } })
       : Promise.resolve([]),
+    db.organization.findUniqueOrThrow({
+      where: { id: user.effectiveOrganizationId },
+      select: { bookingFieldDefinitions: true },
+    }),
   ]);
+  const bookingAttributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.bookingFieldDefinitions));
 
   await db.booking.update({
     where: { id: bookingId },
     data: {
       deliveryAddress,
       notes: str(formData, "notes"),
+      attributes: JSON.stringify(bookingAttributes),
       ...(geocoded
         ? { latitude: geocoded.latitude, longitude: geocoded.longitude }
         : {}),

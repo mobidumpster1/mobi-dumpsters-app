@@ -6,6 +6,8 @@ import { createBooking } from "../actions";
 import { Field, inputClass } from "@/components/Field";
 import { BookingItemsBuilder } from "@/components/BookingItemsBuilder";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import type { FieldDefinition } from "@/lib/categoryFields";
 
 type CustomerOption = { id: string; name: string; address?: string | null };
 type EquipmentOption = { id: string; label: string; categoryName: string; status: string };
@@ -17,9 +19,11 @@ type EquipmentOption = { id: string; label: string; categoryName: string; status
 export function NewBookingForm({
   customers,
   items,
+  fieldDefs,
 }: {
   customers: CustomerOption[];
   items: EquipmentOption[];
+  fieldDefs: FieldDefinition[];
 }) {
   // CustomerPicker defaults to selecting the first customer in the list
   // when nothing else is passed — match that here so the address field
@@ -87,6 +91,8 @@ export function NewBookingForm({
       <Field label="Notes" htmlFor="notes">
         <textarea id="notes" name="notes" rows={3} className={inputClass} />
       </Field>
+
+      <CustomFieldInputs fieldDefs={fieldDefs} />
 
       <div className="flex gap-3">
         <button

@@ -1,12 +1,13 @@
 import { db } from "@/lib/db";
 import { NewBookingForm } from "./NewBookingForm";
+import { parseFieldDefinitions } from "@/lib/categoryFields";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewBookingPage() {
   const user = await requireUser();
-  const [customers, items] = await Promise.all([
+  const [customers, items, org] = await Promise.all([
     db.customer.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { name: "asc" },
@@ -17,7 +18,12 @@ export default async function NewBookingPage() {
       orderBy: { label: "asc" },
       include: { category: true },
     }),
+    db.organization.findUniqueOrThrow({
+      where: { id: user.effectiveOrganizationId },
+      select: { bookingFieldDefinitions: true },
+    }),
   ]);
+  const fieldDefs = parseFieldDefinitions(org.bookingFieldDefinitions);
 
   return (
     <div className="max-w-2xl">
@@ -30,6 +36,7 @@ export default async function NewBookingPage() {
           categoryName: i.category.name,
           status: i.status,
         }))}
+        fieldDefs={fieldDefs}
       />
     </div>
   );
