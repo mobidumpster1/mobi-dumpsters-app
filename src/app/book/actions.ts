@@ -19,7 +19,7 @@ import { getPublicOrganizationId } from "@/lib/session";
 import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
-import { milesBetween } from "@/lib/distance";
+import { milesBetween, drivingMilesBetween } from "@/lib/distance";
 import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
 
 export async function checkAvailability(
@@ -157,9 +157,18 @@ export async function submitBookingRequest(formData: FormData) {
   // Geocoded here (rather than down by the booking's own lat/lng) so a
   // material delivery quote can factor in the real one-way distance from
   // the yard, per the $3.50/mile-beyond-30 rule in the service agreement.
+  // Real driving distance (not straight-line) since this number directly
+  // sets a mileage charge — falls back to straight-line if the Routes API
+  // call fails for any reason, rather than blocking the booking on it.
   const geocoded = await geocodeAddress(address);
   const oneWayMiles = geocoded
-    ? milesBetween(branding.yardLatitude, branding.yardLongitude, geocoded.latitude, geocoded.longitude)
+    ? ((await drivingMilesBetween(
+        branding.yardLatitude,
+        branding.yardLongitude,
+        geocoded.latitude,
+        geocoded.longitude
+      )) ??
+      milesBetween(branding.yardLatitude, branding.yardLongitude, geocoded.latitude, geocoded.longitude))
     : null;
 
   // Categories priced by material + quantity (e.g. Material Delivery)
