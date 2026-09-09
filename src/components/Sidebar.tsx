@@ -31,6 +31,7 @@ const DEFAULT_LINKS = [
   { href: "/reviews", label: "Reviews" },
   { href: "/automation", label: "Automation" },
   { href: "/marketing", label: "Marketing" },
+  { href: "/promotions", label: "Promotions" },
   { href: "/settings", label: "Settings" },
   { href: "/platform-admin", label: "Platform Admin" },
 ];
@@ -63,6 +64,7 @@ const GROUP_FOR_HREF: Record<string, string> = {
   "/reviews": "Growth",
   "/automation": "Growth",
   "/marketing": "Growth",
+  "/promotions": "Growth",
   "/settings": "Admin",
   "/platform-admin": "Admin",
 };

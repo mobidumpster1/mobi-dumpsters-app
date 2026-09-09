@@ -67,6 +67,7 @@ model Organization {
   jobCostingSettings              JobCostingSettings?
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
+  promoCodes                      PromoCode[]
   leadOutreachSettings            LeadOutreachSettings?
   winBackSettings                 WinBackSettings?
   websiteSnippets                 WebsiteSnippet[]
@@ -625,6 +626,16 @@ model Booking {
   // self-assign every booking for it to show up there.
   driverId              String?
   driver                User?        @relation("BookingDriver", fields: [driverId], references: [id])
+  // Discount actually applied — either from a redeemed PromoCode, or a
+  // one-off amount staff typed in with no code at all (promoCodeId stays
+  // null for that case). Already baked into each BookingItem.price by the
+  // time this is set, so invoicing/reporting never has to know discounts
+  // exist — discountAmount/discountNote are purely the audit trail of why
+  // the total is lower than list price.
+  promoCodeId           String?
+  promoCode             PromoCode?   @relation(fields: [promoCodeId], references: [id])
+  discountAmount        Float?
+  discountNote          String?
   // Set once the daily review-request cron has emailed this customer, so a
   // booking never gets asked for a review twice.
   reviewRequestSentAt   DateTime?
@@ -1148,6 +1159,31 @@ model JobPhotoNotificationSettings {
   autoSend       Boolean      @default(false)
   updatedAt      DateTime     @updatedAt
   createdAt      DateTime     @default(now())
+}
+
+// A code customers type in on the booking page, or staff apply on a phone
+// booking, for a percent- or dollar-off discount. redemptionCount is a
+// plain counter (not a join table of every redemption) — which booking
+// used which code already lives on Booking itself, so a full redemption
+// history table would just duplicate that for no analytics this app
+// currently needs beyond "how many times has this been used."
+model PromoCode {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  code            String // stored uppercase
+  type            String // percent | flat
+  value           Float
+  active          Boolean      @default(true)
+  expiresAt       DateTime?
+  maxRedemptions  Int?
+  redemptionCount Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  bookings Booking[]
+
+  @@unique([organizationId, code])
 }
 
 // One "search" click on the Leads page — logged purely so we can show how

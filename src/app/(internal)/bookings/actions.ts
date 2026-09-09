@@ -19,6 +19,7 @@ import { logAction } from "@/lib/auditLog";
 import { matchesPermitArea } from "@/lib/permits";
 import { getAgreementSettings } from "@/lib/agreement";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
+import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -62,6 +63,40 @@ export async function createBooking(formData: FormData) {
     throw new Error("At least one equipment item is required");
   }
 
+  // A promo code and a manual discount are mutually exclusive per
+  // booking — a code takes priority if both were somehow filled in.
+  const itemPrices = validItems.map((item) => Number(item.price) || 0);
+  const subtotal = itemPrices.reduce((sum, p) => sum + p, 0);
+  const promoCodeInput = str(formData, "promoCode");
+  const discountType = str(formData, "discountType");
+  const discountValueStr = str(formData, "discountValue");
+
+  let appliedPromoCodeId: string | null = null;
+  let discountAmount: number | null = null;
+  let discountNote: string | null = null;
+
+  if (promoCodeInput) {
+    const check = await validatePromoCode(user.effectiveOrganizationId, promoCodeInput, subtotal);
+    if (!check.ok) throw new Error(check.error);
+    appliedPromoCodeId = check.promoCode.id;
+    discountAmount = check.amountOff;
+    discountNote = `Promo: ${check.promoCode.code}`;
+  } else if (discountType && discountValueStr) {
+    const value = Math.max(0, Number(discountValueStr) || 0);
+    if (value > 0) {
+      const rawAmount = discountType === "percent" ? subtotal * (value / 100) : value;
+      discountAmount = Math.min(rawAmount, subtotal);
+      const reason = str(formData, "discountReason");
+      const label = discountType === "percent" ? `${value}%` : `$${value.toFixed(2)}`;
+      discountNote = reason ? `Manual: ${label} off — ${reason}` : `Manual: ${label} off`;
+    }
+  }
+
+  const finalPrices =
+    discountAmount && discountAmount > 0 && subtotal > 0
+      ? itemPrices.map((price) => Math.max(0, price - discountAmount! * (price / subtotal)))
+      : itemPrices;
+
   const [geocoded, permitAreas] = await Promise.all([
     geocodeAddress(deliveryAddress),
     db.permitArea.findMany({ where: { organizationId: user.effectiveOrganizationId } }),
@@ -77,17 +112,24 @@ export async function createBooking(formData: FormData) {
       notes: str(formData, "notes"),
       status: "confirmed",
       permitRequired: matchesPermitArea(deliveryAddress, permitAreas),
+      promoCodeId: appliedPromoCodeId,
+      discountAmount,
+      discountNote,
       items: {
-        create: validItems.map((item) => ({
+        create: validItems.map((item, i) => ({
           equipmentItemId: item.equipmentItemId,
           startDate: new Date(item.startDate),
           expectedReturnDate: new Date(item.expectedReturnDate),
-          price: Number(item.price) || 0,
+          price: finalPrices[i],
         })),
       },
     },
     include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
   });
+
+  if (appliedPromoCodeId) {
+    await recordPromoCodeRedemption(appliedPromoCodeId);
+  }
 
   await db.equipmentItem.updateMany({
     where: {

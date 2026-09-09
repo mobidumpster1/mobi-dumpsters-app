@@ -52,6 +52,38 @@ export function NewBookingForm({
         }))}
       />
 
+      <Field label="Promo Code (optional)" htmlFor="promoCode">
+        <input id="promoCode" name="promoCode" placeholder="e.g. SAVE10" className={`${inputClass} uppercase`} />
+      </Field>
+
+      <details className="rounded-xl border border-zinc-200 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-zinc-700">
+          Manual discount (no code — ignored if a promo code is entered above)
+        </summary>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="Type" htmlFor="discountType">
+            <select id="discountType" name="discountType" defaultValue="" className={inputClass}>
+              <option value="">No discount</option>
+              <option value="percent">Percent off</option>
+              <option value="flat">Dollars off</option>
+            </select>
+          </Field>
+          <Field label="Amount" htmlFor="discountValue">
+            <input
+              id="discountValue"
+              name="discountValue"
+              type="number"
+              min="0"
+              step="0.01"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Reason (optional)" htmlFor="discountReason">
+            <input id="discountReason" name="discountReason" className={inputClass} />
+          </Field>
+        </div>
+      </details>
+
       <Field label="Notes" htmlFor="notes">
         <textarea id="notes" name="notes" rows={3} className={inputClass} />
       </Field>

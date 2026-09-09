@@ -20,6 +20,7 @@ import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween } from "@/lib/distance";
+import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
 
 export async function checkAvailability(
   categoryId: string,
@@ -199,11 +200,25 @@ export async function submitBookingRequest(formData: FormData) {
     );
   }
   const items = available.slice(0, needed);
-  const totalPrice = materialQuote
+  const listPrice = materialQuote
     ? materialQuote.total
     : tier
       ? (tier.price ?? 0)
       : (category.basePrice ?? 0);
+
+  const promoCodeInput = str(formData, "promoCode");
+  let totalPrice = listPrice;
+  let appliedPromoCodeId: string | null = null;
+  let discountAmount: number | null = null;
+  let discountNote: string | null = null;
+  if (promoCodeInput) {
+    const check = await validatePromoCode(organizationId, promoCodeInput, listPrice);
+    if (!check.ok) throw new Error(check.error);
+    totalPrice = listPrice - check.amountOff;
+    appliedPromoCodeId = check.promoCode.id;
+    discountAmount = check.amountOff;
+    discountNote = `Promo: ${check.promoCode.code}`;
+  }
   const pricePerItem = totalPrice / needed;
   const materialItemNote =
     material && materialQuote
@@ -263,6 +278,9 @@ export async function submitBookingRequest(formData: FormData) {
       longitude: geocoded?.longitude,
       status: "pending",
       notes: str(formData, "notes"),
+      promoCodeId: appliedPromoCodeId,
+      discountAmount,
+      discountNote,
       items: {
         create: items.map((item) => ({
           equipmentItemId: item.id,
@@ -274,6 +292,10 @@ export async function submitBookingRequest(formData: FormData) {
       },
     },
   });
+
+  if (appliedPromoCodeId) {
+    await recordPromoCodeRedemption(appliedPromoCodeId);
+  }
 
   // Computed with the same pricing rules staff would get from the
   // "Create Invoice" button — created now (not just on confirmation) so a

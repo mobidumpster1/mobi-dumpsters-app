@@ -645,6 +645,15 @@ export function BookingForm({
             <textarea id="notes" name="notes" rows={3} className={inputClass} />
           </Field>
 
+          <Field label="Promo code (optional)" htmlFor="promoCode">
+            <input
+              id="promoCode"
+              name="promoCode"
+              placeholder="e.g. SAVE10"
+              className={`${inputClass} uppercase`}
+            />
+          </Field>
+
           <Field
             label="Photos of the site, junk, or demo area (optional, but helps us quote accurately)"
             htmlFor="photos"
