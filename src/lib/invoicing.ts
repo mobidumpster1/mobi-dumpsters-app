@@ -35,6 +35,15 @@ export type ComputedLineItem = {
 // category pricing rules and actual usage. Falls back to the manually
 // entered BookingItem.price as a single base line when a category has no
 // pricing rules configured, so existing bookings keep working unchanged.
+//
+// The base line always uses item.price, never category.basePrice directly
+// — item.price is whatever was actually agreed for this specific item
+// (the category's list price, but also reflecting any promo code
+// discount, seasonal/weekend surcharge, bundle split, or manual staff
+// override already baked in at booking time). Using category.basePrice
+// here would silently re-charge the full undiscounted rate and, for a
+// bundle category, the wrong amount entirely (each unit's own category
+// rate instead of its share of the bundle's price).
 export function computeInvoiceLineItems(
   items: BookingItemForPricing[]
 ): ComputedLineItem[] {
@@ -54,7 +63,7 @@ export function computeInvoiceLineItems(
 
     lines.push({
       description: `${item.equipmentItem.label} — Base Rental`,
-      amount: category.basePrice,
+      amount: item.price,
       type: "base",
     });
 
