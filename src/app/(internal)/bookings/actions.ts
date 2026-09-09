@@ -399,7 +399,7 @@ export async function notifyOnTheWay(bookingId: string) {
       },
       user.effectiveOrganizationId
     );
-    await sendCustomerEmail(booking.customer.email, subject, body);
+    await sendCustomerEmail(booking.customer.email, subject, body, undefined, user.effectiveOrganizationId);
   } catch (error) {
     console.error("Failed to send on-the-way email:", error);
     redirect(`/bookings/${bookingId}?notified=error`);
@@ -535,7 +535,7 @@ export async function markDelivered(bookingItemId: string) {
           },
           user.effectiveOrganizationId
         );
-        await sendCustomerEmail(customer.email, subject, body);
+        await sendCustomerEmail(customer.email, subject, body, undefined, user.effectiveOrganizationId);
       }
     } catch (error) {
       // A notification hiccup shouldn't block the delivery from being recorded.
@@ -637,7 +637,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
           },
           user.effectiveOrganizationId
         );
-        await sendCustomerEmail(pickupCustomer.email, subject, body);
+        await sendCustomerEmail(pickupCustomer.email, subject, body, undefined, user.effectiveOrganizationId);
       }
     } catch (error) {
       // A notification hiccup shouldn't block the pickup from being recorded.
@@ -727,7 +727,7 @@ export async function sendReviewRequestNow(bookingId: string) {
     },
     user.effectiveOrganizationId
   );
-  await sendCustomerEmail(booking.customer.email, subject, body);
+  await sendCustomerEmail(booking.customer.email, subject, body, undefined, user.effectiveOrganizationId);
 
   await db.$transaction([
     db.booking.update({

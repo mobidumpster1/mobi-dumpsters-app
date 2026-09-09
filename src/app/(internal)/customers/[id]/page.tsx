@@ -21,7 +21,7 @@ import { Tabs } from "@/components/Tabs";
 import { CardOnFileSection } from "../CardOnFileSection";
 import { SendSmsForm } from "../SendSmsForm";
 import { CopyTextButton } from "@/components/CopyTextButton";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateAndTime } from "@/lib/date";
 import { LEAD_SOURCE_LABELS } from "@/lib/leadSource";
 import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES } from "@/lib/quoteStatus";
 import { shortReferralCode } from "@/lib/referralCode";
@@ -82,6 +82,13 @@ export default async function CustomerDetailPage({
   });
   const customFieldDefs = parseFieldDefinitions(org.customerFieldDefinitions);
   const customAttributes = parseAttributes(customer.attributes);
+  const emailDeliveryLogs = customer.email
+    ? await db.emailDeliveryLog.findMany({
+        where: { organizationId: user.effectiveOrganizationId, toEmail: customer.email },
+        orderBy: { sentAt: "desc" },
+        take: 20,
+      })
+    : [];
   const creditBalance = customer.creditEntries.reduce((sum, e) => sum + e.amount, 0);
 
   const addNoteWithId = addCustomerNote.bind(null, customer.id);
@@ -687,6 +694,46 @@ export default async function CustomerDetailPage({
           </div>
         ))}
       </dl>
+
+      {emailDeliveryLogs.length > 0 && (
+        <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+          <h2 className="p-4 pb-0 text-sm font-semibold text-zinc-700">Email Delivery</h2>
+          <p className="px-4 pb-2 text-xs text-zinc-500">
+            Booking confirmations, delivery/pickup notices, and quotes sent to this customer —
+            not every email the app sends is tracked here, just the operationally important ones.
+          </p>
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-zinc-500">
+              <tr>
+                <th className="px-4 py-2.5 font-semibold">Subject</th>
+                <th className="px-4 py-2.5 font-semibold">Status</th>
+                <th className="px-4 py-2.5 font-semibold">Sent</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {emailDeliveryLogs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-4 py-3 text-zinc-900">{log.subject}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        log.status === "bounced" || log.status === "complained"
+                          ? "bg-red-100 text-red-700"
+                          : log.status === "delivered" || log.status === "opened" || log.status === "clicked"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {log.status.replace(/_/g, " ")}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600">{formatDateAndTime(log.sentAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
         <h2 className="text-sm font-semibold text-zinc-700">Card on File</h2>

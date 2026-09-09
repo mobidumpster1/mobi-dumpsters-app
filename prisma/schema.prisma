@@ -74,6 +74,7 @@ model Organization {
   jobCostingSettings              JobCostingSettings?
   dumpScheduleSettings            DumpScheduleSettings?
   taxSettings                     TaxSettings?
+  emailDeliveryLogs               EmailDeliveryLog[]
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   promoCodes                      PromoCode[]
@@ -339,6 +340,27 @@ model CustomerNote {
   type       String   @default("note") // note | call | text | email
   content    String
   createdAt  DateTime @default(now())
+}
+
+// Tracks what actually happened to a sent email after Resend accepted it —
+// not every sendCustomerEmail call logs one (see the organizationId param
+// on that function: passing it opts a call site in), scoped to the
+// operationally important customer-facing sends (booking confirmation,
+// delivery/pickup notices, quotes) rather than every internal/transactional
+// email in the app. Updated by the /api/webhooks/resend endpoint as Resend
+// posts delivery/bounce/open/click events back.
+model EmailDeliveryLog {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  resendMessageId String       @unique
+  toEmail         String
+  subject         String
+  // sent | delivered | delivery_delayed | bounced | complained | opened | clicked
+  status          String       @default("sent")
+  sentAt          DateTime     @default(now())
+  lastEventAt     DateTime?
+  createdAt       DateTime     @default(now())
 }
 
 model CustomerPhoto {

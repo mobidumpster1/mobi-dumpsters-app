@@ -97,7 +97,7 @@ export async function sendQuote(quoteId: string) {
   ].join("\n");
 
   if (email) {
-    await sendCustomerEmail(email, `Your quote ${quote.quoteNumber}`, message);
+    await sendCustomerEmail(email, `Your quote ${quote.quoteNumber}`, message, undefined, user.effectiveOrganizationId);
   }
   // SMS is a Pro-only feature — skip it rather than hitting sendCustomerSms's
   // "Connect Twilio in Settings" error, which would be a confusing thing to

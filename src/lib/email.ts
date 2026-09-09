@@ -1,4 +1,5 @@
 import { branding } from "@/lib/branding";
+import { db } from "@/lib/db";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const NOTIFICATION_EMAIL = process.env.BUSINESS_NOTIFICATION_EMAIL;
@@ -105,11 +106,19 @@ export async function sendNotificationEmail(subject: string, body: string) {
 // best-effort business notifications above. Returns Resend's own id for
 // the send, so a later bounce webhook can be matched back to exactly
 // this email instead of just guessing "the most recent one."
+// organizationId is optional and opts this specific call into delivery
+// tracking (EmailDeliveryLog, updated later by /api/webhooks/resend as
+// Resend posts events back) — most callers don't pass it, since most sends
+// here are transactional (password reset, internal notifications) where
+// "did the customer see it" isn't really the question. Passed by the
+// customer-facing operational sends worth tracking (booking confirmation,
+// delivery/pickup notices, quotes).
 export async function sendCustomerEmail(
   to: string,
   subject: string,
   body: string,
-  replyTo?: string
+  replyTo?: string,
+  organizationId?: string
 ): Promise<string | undefined> {
   if (!RESEND_API_KEY) {
     throw new Error("Email isn't set up yet — add RESEND_API_KEY to send customer emails.");
@@ -146,5 +155,19 @@ export async function sendCustomerEmail(
   }
 
   const result = await response.json().catch(() => null);
-  return typeof result?.id === "string" ? result.id : undefined;
+  const messageId = typeof result?.id === "string" ? result.id : undefined;
+
+  if (messageId && organizationId) {
+    try {
+      await db.emailDeliveryLog.create({
+        data: { organizationId, resendMessageId: messageId, toEmail: to, subject, status: "sent" },
+      });
+    } catch (error) {
+      // Tracking is best-effort — a logging hiccup shouldn't fail a send
+      // that already succeeded.
+      console.error("Failed to log email delivery tracking:", error);
+    }
+  }
+
+  return messageId;
 }
