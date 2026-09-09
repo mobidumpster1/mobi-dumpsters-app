@@ -15,10 +15,10 @@ const MS_PER_DAY = 86_400_000;
 export default async function EquipmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; imported?: string; skipped?: string }>;
 }) {
   const user = await requireUser();
-  const { status, q } = await searchParams;
+  const { status, q, imported, skipped } = await searchParams;
 
   function statusHref(nextStatus?: string) {
     const params = new URLSearchParams();
@@ -88,6 +88,12 @@ export default async function EquipmentPage({
             </a>
           )}
           <Link
+            href="/equipment/import"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Import CSV
+          </Link>
+          <Link
             href="/equipment/new"
             className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
@@ -95,6 +101,15 @@ export default async function EquipmentPage({
           </Link>
         </div>
       </div>
+
+      {imported && (
+        <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          Imported {imported} item{imported === "1" ? "" : "s"}
+          {skipped && Number(skipped) > 0
+            ? ` — skipped ${skipped} row${skipped === "1" ? "" : "s"} missing a label or an unrecognized category.`
+            : "."}
+        </p>
+      )}
 
       <div className="mt-4">
         <EquipmentTabs />

@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; imported?: string; skipped?: string }>;
 }) {
   const user = await requireUser();
-  const { q } = await searchParams;
+  const { q, imported, skipped } = await searchParams;
 
   const customers = await db.customer.findMany({
     where: {
@@ -57,6 +57,12 @@ export default async function CustomersPage({
             </a>
           )}
           <Link
+            href="/customers/import"
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Import CSV
+          </Link>
+          <Link
             href="/customers/new"
             className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
@@ -64,6 +70,15 @@ export default async function CustomersPage({
           </Link>
         </div>
       </div>
+
+      {imported && (
+        <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          Imported {imported} customer{imported === "1" ? "" : "s"}
+          {skipped && Number(skipped) > 0
+            ? ` — skipped ${skipped} row${skipped === "1" ? "" : "s"} missing a name.`
+            : "."}
+        </p>
+      )}
 
       <div className="mt-6">
         <CustomerTabs showWinBack={hasPermission(user, "canManageLeads")} />
