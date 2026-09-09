@@ -21,6 +21,7 @@ import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween, drivingMilesBetween } from "@/lib/distance";
 import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
+import { computeSeasonalAdjustment } from "@/lib/pricingRules";
 
 export async function checkAvailability(
   categoryId: string,
@@ -209,11 +210,22 @@ export async function submitBookingRequest(formData: FormData) {
     );
   }
   const items = available.slice(0, needed);
-  const listPrice = materialQuote
+  const basePrice = materialQuote
     ? materialQuote.total
     : tier
       ? (tier.price ?? 0)
       : (category.basePrice ?? 0);
+
+  // Weekend/seasonal surcharges (see pricingRules.ts) apply before the
+  // promo code discount, same order a customer would expect: the code
+  // discounts the actual price they'd pay, surcharge included.
+  const seasonalAdjustment = await computeSeasonalAdjustment(
+    organizationId,
+    effectiveCategoryId(category),
+    startDate,
+    basePrice
+  );
+  const listPrice = basePrice + seasonalAdjustment.amount;
 
   const promoCodeInput = str(formData, "promoCode");
   let totalPrice = listPrice;
@@ -221,7 +233,9 @@ export async function submitBookingRequest(formData: FormData) {
   let discountAmount: number | null = null;
   let discountNote: string | null = null;
   if (promoCodeInput) {
-    const check = await validatePromoCode(organizationId, promoCodeInput, listPrice);
+    const check = await validatePromoCode(organizationId, promoCodeInput, listPrice, [
+      effectiveCategoryId(category),
+    ]);
     if (!check.ok) throw new Error(check.error);
     totalPrice = listPrice - check.amountOff;
     appliedPromoCodeId = check.promoCode.id;
@@ -229,6 +243,8 @@ export async function submitBookingRequest(formData: FormData) {
     discountNote = `Promo: ${check.promoCode.code}`;
   }
   const pricePerItem = totalPrice / needed;
+  const seasonalItemNote =
+    seasonalAdjustment.noteLines.length > 0 ? seasonalAdjustment.noteLines.join(", ") : null;
   const materialItemNote =
     material && materialQuote
       ? `${materialQuantity} ${material.unit} ${material.name} @ $${material.pricePerUnit.toFixed(2)}/${material.unit}` +
@@ -296,7 +312,7 @@ export async function submitBookingRequest(formData: FormData) {
           startDate,
           expectedReturnDate: endDate,
           price: pricePerItem,
-          notes: materialItemNote,
+          notes: [materialItemNote, seasonalItemNote].filter(Boolean).join(" — ") || null,
         })),
       },
     },

@@ -77,7 +77,13 @@ export async function createBooking(formData: FormData) {
   let discountNote: string | null = null;
 
   if (promoCodeInput) {
-    const check = await validatePromoCode(user.effectiveOrganizationId, promoCodeInput, subtotal);
+    const itemCategoryIds = await db.equipmentItem
+      .findMany({
+        where: { id: { in: validItems.map((i) => i.equipmentItemId) } },
+        select: { categoryId: true },
+      })
+      .then((rows) => rows.map((r) => r.categoryId));
+    const check = await validatePromoCode(user.effectiveOrganizationId, promoCodeInput, subtotal, itemCategoryIds);
     if (!check.ok) throw new Error(check.error);
     appliedPromoCodeId = check.promoCode.id;
     discountAmount = check.amountOff;

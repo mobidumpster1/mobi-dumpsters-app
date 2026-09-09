@@ -4,15 +4,19 @@ import { useState } from "react";
 import { Field, inputClass } from "@/components/Field";
 import { createPromoCode } from "./actions";
 
+type CategoryOption = { id: string; name: string };
+
 // Calls createPromoCode directly (not via <form action>) so a rejection —
 // a duplicate code, an over-100% percent, a zero amount — shows a
 // friendly inline error instead of crashing to Next's generic error page.
-export function PromoCodeForm() {
+export function PromoCodeForm({ categories }: { categories: CategoryOption[] }) {
   const [code, setCode] = useState("");
   const [type, setType] = useState("percent");
   const [value, setValue] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [maxRedemptions, setMaxRedemptions] = useState("");
+  const [minimumSpend, setMinimumSpend] = useState("");
+  const [restrictedCategoryId, setRestrictedCategoryId] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +31,15 @@ export function PromoCodeForm() {
       formData.set("value", value);
       formData.set("expiresAt", expiresAt);
       formData.set("maxRedemptions", maxRedemptions);
+      formData.set("minimumSpend", minimumSpend);
+      formData.set("restrictedCategoryId", restrictedCategoryId);
       await createPromoCode(formData);
       setCode("");
       setValue("");
       setExpiresAt("");
       setMaxRedemptions("");
+      setMinimumSpend("");
+      setRestrictedCategoryId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't create that code.");
     } finally {
@@ -82,6 +90,33 @@ export function PromoCodeForm() {
             value={maxRedemptions}
             onChange={(e) => setMaxRedemptions(e.target.value)}
           />
+        </Field>
+        <Field label="Minimum Spend (optional)" htmlFor="minimumSpend">
+          <input
+            id="minimumSpend"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="No minimum"
+            className={inputClass}
+            value={minimumSpend}
+            onChange={(e) => setMinimumSpend(e.target.value)}
+          />
+        </Field>
+        <Field label="Restrict to Category (optional)" htmlFor="restrictedCategoryId">
+          <select
+            id="restrictedCategoryId"
+            className={inputClass}
+            value={restrictedCategoryId}
+            onChange={(e) => setRestrictedCategoryId(e.target.value)}
+          >
+            <option value="">Any category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
       <Field label="Expires (optional)" htmlFor="expiresAt">

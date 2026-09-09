@@ -69,6 +69,7 @@ model Organization {
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   promoCodes                      PromoCode[]
+  pricingRules                    PricingRule[]
   leadOutreachSettings            LeadOutreachSettings?
   winBackSettings                 WinBackSettings?
   websiteSnippets                 WebsiteSnippet[]
@@ -415,6 +416,8 @@ model EquipmentCategory {
   items           EquipmentItem[]
   pricingTiers    PricingTier[]
   materialOptions MaterialOption[]
+  restrictedPromoCodes PromoCode[]
+  pricingRules         PricingRule[]
 
   @@unique([organizationId, name])
 }
@@ -1290,12 +1293,46 @@ model PromoCode {
   expiresAt       DateTime?
   maxRedemptions  Int?
   redemptionCount Int          @default(0)
+  // Both optional, both independently checkable against a booking.
+  minimumSpend    Float?
+  // Null means valid for any category. Otherwise the booking must include
+  // at least one item from this category.
+  restrictedCategoryId String?
+  restrictedCategory   EquipmentCategory? @relation(fields: [restrictedCategoryId], references: [id], onDelete: SetNull)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
   bookings Booking[]
 
   @@unique([organizationId, code])
+}
+
+// An automatic price adjustment applied at booking time (public flow only
+// -- the admin booking form already lets staff type in whatever price they
+// want per item, so there's no ambiguity to resolve there). A rule is
+// exactly one of: a weekend rule (appliesSaturday/appliesSunday) or a
+// season rule (seasonStart/EndMonth/Day, year-agnostic so it recurs every
+// year without recreating it) -- never both, enforced in
+// createPricingRule/updatePricingRule, to avoid ambiguous AND/OR
+// semantics between the two trigger kinds. Multiple matching rules stack.
+model PricingRule {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  categoryId     String?
+  category       EquipmentCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name           String
+  adjustmentType String // percent | flat
+  adjustmentValue Float
+  appliesSaturday Boolean @default(false)
+  appliesSunday   Boolean @default(false)
+  seasonStartMonth Int?
+  seasonStartDay   Int?
+  seasonEndMonth   Int?
+  seasonEndDay     Int?
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }
 
 // One "search" click on the Leads page — logged purely so we can show how

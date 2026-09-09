@@ -7,16 +7,23 @@ export type PromoCodeCheck =
 // Server-authoritative on purpose — never trust a discount amount computed
 // client-side, same reasoning as tier/material pricing being recomputed
 // here instead of trusted from the booking form.
+//
+// categoryIds is every equipment category actually in the booking (usually
+// one, since the public flow only ever books a single category — the admin
+// side can have several). A category-restricted code just needs one match,
+// not all of them, so a mixed order isn't rejected outright.
 export async function validatePromoCode(
   organizationId: string,
   rawCode: string,
-  subtotal: number
+  subtotal: number,
+  categoryIds: string[]
 ): Promise<PromoCodeCheck> {
   const code = rawCode.trim().toUpperCase();
   if (!code) return { ok: false, error: "Enter a promo code." };
 
   const promo = await db.promoCode.findUnique({
     where: { organizationId_code: { organizationId, code } },
+    include: { restrictedCategory: true },
   });
 
   if (!promo || !promo.active) {
@@ -27,6 +34,18 @@ export async function validatePromoCode(
   }
   if (promo.maxRedemptions !== null && promo.redemptionCount >= promo.maxRedemptions) {
     return { ok: false, error: "That promo code has already been fully redeemed." };
+  }
+  if (promo.minimumSpend !== null && subtotal < promo.minimumSpend) {
+    return {
+      ok: false,
+      error: `This code needs a minimum order of $${promo.minimumSpend.toFixed(2)}.`,
+    };
+  }
+  if (promo.restrictedCategoryId !== null && !categoryIds.includes(promo.restrictedCategoryId)) {
+    return {
+      ok: false,
+      error: `This code only applies to ${promo.restrictedCategory?.name ?? "a specific rental type"}.`,
+    };
   }
 
   const rawAmount = promo.type === "percent" ? subtotal * (promo.value / 100) : promo.value;
