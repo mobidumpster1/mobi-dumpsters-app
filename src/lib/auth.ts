@@ -62,6 +62,46 @@ export function verifySessionToken(token: string | undefined | null): { userId: 
   try {
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString());
     if (typeof payload.userId !== "string" || typeof payload.exp !== "number") return null;
+    if (payload.purpose) return null; // a pending-2FA token, not a real session
+    if (Date.now() > payload.exp) return null;
+    return { userId: payload.userId };
+  } catch {
+    return null;
+  }
+}
+
+export const PENDING_TWO_FACTOR_COOKIE = "mobi_2fa_pending";
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+// A short-lived, separate signed token proving "this browser just entered
+// the right password for this user" — set after password verification
+// succeeds but before the real session cookie exists, only when the
+// account has 2FA enabled. Deliberately its own cookie/shape (a "purpose"
+// field the real session token never carries) rather than reusing
+// createSessionToken with a short expiry, so a pending-2FA token can never
+// be mistaken for — or manually swapped in as — a real logged-in session,
+// and vice versa.
+export function createPendingTwoFactorToken(userId: string): string {
+  const payload = JSON.stringify({ userId, exp: Date.now() + FIVE_MINUTES_MS, purpose: "2fa_pending" });
+  const encoded = Buffer.from(payload).toString("base64url");
+  return `${encoded}.${sign(encoded)}`;
+}
+
+export function verifyPendingTwoFactorToken(token: string | undefined | null): { userId: string } | null {
+  if (!token) return null;
+  const [encoded, signature] = token.split(".");
+  if (!encoded || !signature) return null;
+
+  const expected = sign(encoded);
+  const signatureBuffer = Buffer.from(signature, "hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString());
+    if (typeof payload.userId !== "string" || typeof payload.exp !== "number") return null;
+    if (payload.purpose !== "2fa_pending") return null;
     if (Date.now() > payload.exp) return null;
     return { userId: payload.userId };
   } catch {

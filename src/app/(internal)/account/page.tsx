@@ -1,6 +1,8 @@
+import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { Field, inputClass } from "@/components/Field";
 import { changeMyPassword } from "./actions";
+import { TwoFactorSetup } from "./TwoFactorSetup";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,10 @@ export default async function AccountPage({
 }) {
   const user = await requireUser();
   const { saved, error } = await searchParams;
+  const fullUser = await db.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { twoFactorEnabled: true },
+  });
 
   return (
     <div className="max-w-md">
@@ -82,6 +88,13 @@ export default async function AccountPage({
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h2 className="text-xl font-black text-ink">Two-Factor Authentication</h2>
+        <div className="mt-3">
+          <TwoFactorSetup enabled={fullUser.twoFactorEnabled} />
+        </div>
       </section>
     </div>
   );

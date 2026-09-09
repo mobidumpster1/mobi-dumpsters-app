@@ -159,6 +159,20 @@ model User {
   // just also has /driver available, rather than being restricted to it).
   isDriverOnly Boolean @default(false)
 
+  // TOTP two-factor login (Google Authenticator/Authy-style app codes).
+  // twoFactorSecret is set as soon as enrollment starts but
+  // twoFactorEnabled stays false until the user proves they actually
+  // scanned it right (entered a real code back) — see
+  // confirmTwoFactorEnrollment in account/actions.ts. Only an enabled
+  // account is ever challenged for a code at login.
+  twoFactorSecret      String?
+  twoFactorEnabled     Boolean @default(false)
+  // JSON array of {hash, usedAt} — one-time recovery codes for a lost
+  // authenticator device, hashed the same way as API keys/tokens
+  // elsewhere in this app; shown in plaintext exactly once, at
+  // generation.
+  twoFactorBackupCodes String  @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
