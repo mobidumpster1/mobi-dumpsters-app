@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getPublicOrganizationId } from "@/lib/session";
+import { nextDumpAvailableTime } from "@/lib/dumpSchedule";
 
 const UNBOOKABLE_STATUSES = ["retired", "needs_repair"];
 
@@ -56,6 +57,13 @@ export async function listBookableCategories(organizationId?: string) {
 // Equipment items in a category that are free for the requested date
 // range: not retired or needing repair, and with no existing (not-yet-
 // returned) booking whose dates overlap the request.
+//
+// "Overlap" accounts for the dump-run buffer: a unit isn't really free the
+// instant a rental's expectedReturnDate hits — it still has to get dumped
+// before it can go back out (see dumpSchedule.ts). We buffer the *pickup*
+// side of both the requested range and every existing booking before
+// comparing, so a unit due back Saturday evening (dump closed) doesn't
+// look bookable again until Monday.
 export async function findAvailableItems(
   categoryId: string,
   startDate: Date,
@@ -63,6 +71,7 @@ export async function findAvailableItems(
 ) {
   // Same public-caller situation as listBookableCategories above.
   const organizationId = await getPublicOrganizationId();
+  const bufferedEndDate = nextDumpAvailableTime(endDate);
   const items = await db.equipmentItem.findMany({
     where: {
       categoryId,
@@ -73,12 +82,15 @@ export async function findAvailableItems(
       bookingItems: {
         where: {
           actualReturnDate: null,
-          startDate: { lt: endDate },
-          expectedReturnDate: { gt: startDate },
+          startDate: { lt: bufferedEndDate },
         },
       },
     },
   });
 
-  return items.filter((item) => item.bookingItems.length === 0);
+  return items.filter((item) =>
+    item.bookingItems.every(
+      (bi) => nextDumpAvailableTime(bi.expectedReturnDate) <= startDate
+    )
+  );
 }

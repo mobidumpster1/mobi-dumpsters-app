@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { nextDumpAvailableTime } from "@/lib/dumpSchedule";
 
 function startOfDayUTC(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -43,17 +44,26 @@ export async function rescheduleBookingItem(
 
   // Only checked against OTHER bookings on the same physical unit — this
   // item's own current reservation obviously "conflicts" with itself.
-  const conflict = await db.bookingItem.findFirst({
+  //
+  // Overlap accounts for the dump-run buffer on both sides: neither this
+  // item's new pickup nor an existing booking's pickup counts as freeing
+  // the unit until the next time the dump is actually open (see
+  // dumpSchedule.ts) — a Saturday-evening pickup doesn't free the unit
+  // again until Monday.
+  const bufferedNewReturn = nextDumpAvailableTime(newExpectedReturnDate);
+  const candidates = await db.bookingItem.findMany({
     where: {
       id: { not: bookingItemId },
       equipmentItemId: item.equipmentItemId,
       actualReturnDate: null,
-      startDate: { lt: newExpectedReturnDate },
-      expectedReturnDate: { gt: newStartDate },
+      startDate: { lt: bufferedNewReturn },
     },
   });
+  const conflict = candidates.find(
+    (c) => nextDumpAvailableTime(c.expectedReturnDate) > newStartDate
+  );
   if (conflict) {
-    throw new Error("That would overlap with another booking already using this equipment.");
+    throw new Error("That would overlap with another booking already using this equipment — the dump isn't open in time to free it up.");
   }
 
   await db.bookingItem.update({
