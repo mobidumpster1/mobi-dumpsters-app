@@ -74,6 +74,17 @@ export async function rescheduleBookingItem(
     throw new Error("That would overlap with another booking already using this equipment — the dump isn't open in time to free it up.");
   }
 
+  const maintenanceConflict = await db.maintenanceWindow.findFirst({
+    where: {
+      equipmentItemId: item.equipmentItemId,
+      startDate: { lt: newExpectedReturnDate },
+      endDate: { gt: newStartDate },
+    },
+  });
+  if (maintenanceConflict) {
+    throw new Error("This equipment is scheduled for maintenance during that window.");
+  }
+
   await db.bookingItem.update({
     where: { id: bookingItemId },
     data: { startDate: newStartDate, expectedReturnDate: newExpectedReturnDate },

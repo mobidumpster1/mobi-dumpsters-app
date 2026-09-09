@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { StatusQuickSelect } from "@/components/StatusQuickSelect";
 import { formatAttributeValue, parseAttributes, parseFieldDefinitions } from "@/lib/categoryFields";
 import { uploadEquipmentPhoto, deleteEquipmentPhoto } from "../photoActions";
-import { quickSetEquipmentStatus } from "../actions";
+import { quickSetEquipmentStatus, scheduleMaintenanceWindow, cancelMaintenanceWindow } from "../actions";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { LocationMap } from "@/components/LocationMap";
+import { Field, inputClass } from "@/components/Field";
 import { branding } from "@/lib/branding";
 import { requireUser } from "@/lib/session";
 
@@ -49,6 +50,10 @@ export default async function EquipmentDetailPage({
         where: { actualReturnDate: null, startDate: { gt: new Date() } },
         orderBy: { startDate: "asc" },
         take: 1,
+      },
+      maintenanceWindows: {
+        where: { endDate: { gt: new Date() } },
+        orderBy: { startDate: "asc" },
       },
     },
   });
@@ -175,6 +180,87 @@ export default async function EquipmentDetailPage({
           )
         );
       })()}
+
+      <h2 className="mt-8 text-xl font-black text-ink">Scheduled Maintenance</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Block out a future date range for planned work — the item won&apos;t
+        show as available to book, or be draggable in the calendar, during
+        that window. This doesn&apos;t change the item&apos;s current
+        status; flip that separately once it&apos;s actually pulled for
+        repair.
+      </p>
+      <div className="mt-3 flex flex-col gap-3">
+        {item.maintenanceWindows.map((window) => (
+          <div
+            key={window.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-zinc-900 bg-white p-4"
+          >
+            <div>
+              <p className="font-medium text-zinc-900">
+                {formatDateTime(window.startDate)} &ndash; {formatDateTime(new Date(window.endDate.getTime() - MS_PER_DAY))}
+              </p>
+              {window.reason && (
+                <p className="text-sm text-zinc-500">{window.reason}</p>
+              )}
+            </div>
+            <form action={cancelMaintenanceWindow.bind(null, window.id)}>
+              <button
+                type="submit"
+                className="text-sm font-semibold text-red-600 hover:underline"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        ))}
+        {item.maintenanceWindows.length === 0 && (
+          <p className="text-zinc-400">No upcoming maintenance scheduled.</p>
+        )}
+        <details className="rounded-lg border border-dashed border-zinc-300 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-brand">
+            + Schedule maintenance
+          </summary>
+          <form
+            action={scheduleMaintenanceWindow.bind(null, item.id)}
+            className="mt-3 flex flex-col gap-3"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Start" htmlFor="startDate">
+                <input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="End" htmlFor="endDate">
+                <input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Field label="Reason (optional)" htmlFor="reason">
+              <input
+                id="reason"
+                name="reason"
+                placeholder="e.g. Gate repair, new axle"
+                className={inputClass}
+              />
+            </Field>
+            <button
+              type="submit"
+              className="self-start rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            >
+              Schedule
+            </button>
+          </form>
+        </details>
+      </div>
 
       <h2 className="mt-8 text-xl font-black text-ink">Location History</h2>
       <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">

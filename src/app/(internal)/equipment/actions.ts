@@ -131,3 +131,50 @@ export async function quickSetEquipmentStatus(
   revalidatePath("/equipment");
   revalidatePath(`/equipment/${itemId}`);
 }
+
+// Blocks a future date range out for planned maintenance — the item won't
+// show as available for booking, and can't be dragged onto in the calendar,
+// for that range (see findAvailableItems/rescheduleBookingItem). Doesn't
+// touch the item's current status; that's still a separate manual flip
+// when the item is actually pulled for work.
+export async function scheduleMaintenanceWindow(itemId: string, formData: FormData) {
+  const user = await requireUser();
+  await db.equipmentItem.findFirstOrThrow({
+    where: { id: itemId, organizationId: user.effectiveOrganizationId },
+  });
+
+  const startDateStr = str(formData, "startDate");
+  const endDateStr = str(formData, "endDate");
+  if (!startDateStr || !endDateStr) throw new Error("Start and end dates are required.");
+
+  const startDate = new Date(startDateStr);
+  // Runs through the end of the chosen end day, not its midnight start, so
+  // a one-day window (start === end) actually blocks that whole day.
+  const endDate = new Date(new Date(endDateStr).getTime() + 24 * 60 * 60 * 1000);
+  if (endDate <= startDate) throw new Error("End date must be on or after the start date.");
+
+  await db.maintenanceWindow.create({
+    data: {
+      organizationId: user.effectiveOrganizationId,
+      equipmentItemId: itemId,
+      startDate,
+      endDate,
+      reason: str(formData, "reason"),
+    },
+  });
+
+  revalidatePath(`/equipment/${itemId}`);
+  revalidatePath("/equipment");
+}
+
+export async function cancelMaintenanceWindow(windowId: string) {
+  const user = await requireUser();
+  const window = await db.maintenanceWindow.findFirstOrThrow({
+    where: { id: windowId, organizationId: user.effectiveOrganizationId },
+  });
+
+  await db.maintenanceWindow.delete({ where: { id: windowId } });
+
+  revalidatePath(`/equipment/${window.equipmentItemId}`);
+  revalidatePath("/equipment");
+}

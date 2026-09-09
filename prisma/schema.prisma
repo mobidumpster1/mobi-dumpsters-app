@@ -77,6 +77,7 @@ model Organization {
   smsMessages                     CustomerSmsMessage[]
   quotes                          Quote[]
   maintenanceLogEntries           MaintenanceLogEntry[]
+  maintenanceWindows              MaintenanceWindow[]
   timeEntries                     TimeEntry[]
   googleBusinessProfileConnection GoogleBusinessProfileConnection?
   googleReviews                   GoogleReview[]
@@ -482,6 +483,25 @@ model EquipmentItem {
   damageReports         DamageReport[]
   quoteLineItems        QuoteLineItem[]
   maintenanceLogEntries MaintenanceLogEntry[]
+  maintenanceWindows    MaintenanceWindow[]
+}
+
+// A future date range an item is blocked out for planned maintenance —
+// distinct from MaintenanceLogEntry (a record of service already done).
+// Blocks booking availability and calendar rescheduling for the range,
+// same as an existing rental would, but doesn't touch EquipmentItem.status
+// itself: staff still flip status to "needs_repair" separately once the
+// item is actually pulled for work.
+model MaintenanceWindow {
+  id              String        @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+  equipmentItemId String
+  equipmentItem   EquipmentItem @relation(fields: [equipmentItemId], references: [id])
+  startDate       DateTime
+  endDate         DateTime
+  reason          String?
+  createdAt       DateTime      @default(now())
 }
 
 // A company-owned vehicle (a truck used to tow/deliver equipment) —

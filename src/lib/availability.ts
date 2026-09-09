@@ -95,12 +95,19 @@ export async function findAvailableItems(
           startDate: { lt: bufferedEndDate },
         },
       },
+      // Planned maintenance blocks the range like a booking would, but
+      // with no dump-run buffer — it's a hard block, not a pickup event.
+      maintenanceWindows: {
+        where: { startDate: { lt: endDate }, endDate: { gt: startDate } },
+      },
     },
   });
 
-  return items.filter((item) =>
-    item.bookingItems.every(
-      (bi) => unitFreeAfter(bi.expectedReturnDate, category.dumpsAtOwnYard, dumpSchedule) <= startDate
-    )
+  return items.filter(
+    (item) =>
+      item.maintenanceWindows.length === 0 &&
+      item.bookingItems.every(
+        (bi) => unitFreeAfter(bi.expectedReturnDate, category.dumpsAtOwnYard, dumpSchedule) <= startDate
+      )
   );
 }
