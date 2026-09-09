@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DonutChart } from "@/components/DonutChart";
 import { BarChart } from "@/components/BarChart";
+import { LineChart } from "@/components/LineChart";
 import { Tabs } from "@/components/Tabs";
 import { ReportsFilterBar } from "@/components/ReportsFilterBar";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -1152,8 +1153,334 @@ export default async function ReportsPage({
     </section>
   );
 
+  // Formal P&L statement — Revenue and Total Operating Expenses here are
+  // deliberately the exact same totalRevenue/totalExpenses/profit figures
+  // as the summary cards at the top of the page (not a separate
+  // recomputation), so this can never disagree with them. Labor cost is
+  // tracked separately (TimeEntry, not Expense) and is intentionally left
+  // out of this total for the same reason — folding it in here would make
+  // this statement's Net Income differ from the page-level Net Profit
+  // card, which would look like a bug. See the Labor tab for that figure.
+  const plTrendMonths = [...months].reverse();
+  const plTrendLabels = plTrendMonths.map(([key]) => monthLabel(key));
+  const plTrendRevenue = plTrendMonths.map(([, d]) => d.revenue);
+  const plTrendExpenses = plTrendMonths.map(([, d]) => d.expenses);
+  const plTrendNet = plTrendMonths.map(([, d]) => d.revenue - d.expenses);
+
+  const plTab = (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Profit &amp; Loss Statement</h2>
+        <ExportCsvButton
+          filename="profit-and-loss"
+          headers={["Line", "Amount"]}
+          rows={[
+            ["Revenue", totalRevenue.toFixed(2)],
+            ...categoryRevenueRows.map((r) => [`  ${r.name}`, r.revenue.toFixed(2)]),
+            ["Total Revenue", totalRevenue.toFixed(2)],
+            ...categoryRows.map((r) => [`  ${r.label}`, r.value.toFixed(2)]),
+            ["Total Operating Expenses", totalExpenses.toFixed(2)],
+            ["Net Income", profit.toFixed(2)],
+          ]}
+        />
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">
+        {range
+          ? `${dateLabel(range.start)} – ${dateLabel(new Date(range.end.getTime() - 86_400_000))}`
+          : "All-time"}
+        . Based on invoiced/incurred amounts, same as the summary cards above — see Cash Flow for
+        what&apos;s actually been collected and paid.
+      </p>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
+          <span className="font-bold text-ink">Revenue</span>
+          <span className="font-bold text-ink">${totalRevenue.toFixed(2)}</span>
+        </div>
+        <div className="mt-2 flex flex-col gap-1.5 pl-4 text-sm">
+          {categoryRevenueRows.map((row) => (
+            <div key={row.name} className="flex justify-between text-zinc-600">
+              <span>{row.name}</span>
+              <span>${row.revenue.toFixed(2)}</span>
+            </div>
+          ))}
+          {categoryRevenueRows.length === 0 && (
+            <p className="text-zinc-400">No categorized revenue yet.</p>
+          )}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between border-b border-zinc-200 pb-2">
+          <span className="font-bold text-ink">Operating Expenses</span>
+          <span className="font-bold text-ink">${totalExpenses.toFixed(2)}</span>
+        </div>
+        <div className="mt-2 flex flex-col gap-1.5 pl-4 text-sm">
+          {categoryRows.map((row) => (
+            <div key={row.label} className="flex justify-between text-zinc-600">
+              <span>{row.label}</span>
+              <span>${row.value.toFixed(2)}</span>
+            </div>
+          ))}
+          {categoryRows.length === 0 && (
+            <p className="text-zinc-400">No expenses logged yet.</p>
+          )}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between border-t-2 border-zinc-900 pt-3">
+          <span className="text-lg font-black text-ink">Net Income</span>
+          <span className={`text-lg font-black ${profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+            ${profit.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h3 className="text-sm font-semibold text-zinc-700">Revenue, Expenses &amp; Net Income by Month</h3>
+        <div className="mt-3">
+          <LineChart
+            labels={plTrendLabels}
+            series={[
+              { label: "Revenue", values: plTrendRevenue, color: "#16a34a" },
+              { label: "Expenses", values: plTrendExpenses, color: "#ef4444" },
+              { label: "Net Income", values: plTrendNet, color: "#2563eb" },
+            ]}
+            formatValue={(v) => `$${v.toFixed(0)}`}
+          />
+        </div>
+      </div>
+    </section>
+  );
+
+  // AP mirrors the AR Aging tab exactly, just anchored on unpaid Expense
+  // records (dueDate falling back to the incurred date) instead of unpaid
+  // Invoice records.
+  const apRows = expenses
+    .filter((e) => e.status !== "paid")
+    .map((e) => {
+      const anchor = e.dueDate ?? e.date;
+      const daysOverdue = Math.floor((agingToday.getTime() - anchor.getTime()) / 86_400_000);
+      return {
+        id: e.id,
+        vendor: e.vendor,
+        category: e.category,
+        amount: e.amount,
+        bucket: agingBucket(daysOverdue),
+      };
+    });
+  const apByBucket = new Map<AgingBucket, { count: number; total: number }>();
+  for (const row of apRows) {
+    const entry = apByBucket.get(row.bucket) ?? { count: 0, total: 0 };
+    entry.count += 1;
+    entry.total += row.amount;
+    apByBucket.set(row.bucket, entry);
+  }
+  const apBars = AGING_BUCKET_ORDER.map((bucket) => ({
+    label: AGING_BUCKET_LABELS[bucket],
+    value: apByBucket.get(bucket)?.total ?? 0,
+  }));
+
+  const apAgingTab = (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Accounts Payable Aging</h2>
+        <ExportCsvButton
+          filename="ap-aging"
+          headers={["Vendor", "Category", "Amount", "Bucket"]}
+          rows={apRows.map((row) => [row.vendor, row.category, row.amount.toFixed(2), AGING_BUCKET_LABELS[row.bucket]])}
+        />
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">
+        Unpaid expenses/bills, bucketed by how overdue they are.
+      </p>
+      <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <BarChart bars={apBars} formatValue={(v) => `$${v.toFixed(0)}`} color="#f59e0b" />
+      </div>
+      <div className="mt-3 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Vendor</th>
+              <th className="px-5 py-3.5 font-semibold">Category</th>
+              <th className="px-5 py-3.5 font-semibold">Amount</th>
+              <th className="px-5 py-3.5 font-semibold">Bucket</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {apRows.map((row) => (
+              <tr key={row.id}>
+                <td className="px-5 py-4 font-medium text-zinc-900">{row.vendor}</td>
+                <td className="px-5 py-4 text-zinc-600">{row.category}</td>
+                <td className="px-5 py-4 text-zinc-600">${row.amount.toFixed(2)}</td>
+                <td className="px-5 py-4">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      row.bucket === "current"
+                        ? "bg-zinc-100 text-zinc-600"
+                        : row.bucket === "1-30"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {AGING_BUCKET_LABELS[row.bucket]}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {apRows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-5 py-4 text-center text-zinc-400">
+                  Nothing owed.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
+  // Cash flow tracks money that actually moved (paidDate on a paid
+  // invoice/expense), not accrual amounts (issueDate/date) like every
+  // other tab on this page — deliberately built off the raw, unfiltered
+  // invoicesRaw/expensesRaw rather than the range-filtered invoices/
+  // expenses above, since a payment's paidDate can fall in a different
+  // month than the invoice's issueDate or the expense's incurred date.
+  const cashMonthly = new Map<string, { cashIn: number; cashOut: number }>();
+  for (const invoice of invoicesRaw) {
+    if (invoice.status !== "paid" || !invoice.paidDate) continue;
+    const key = monthKey(invoice.paidDate);
+    const entry = cashMonthly.get(key) ?? { cashIn: 0, cashOut: 0 };
+    entry.cashIn += invoice.amount;
+    cashMonthly.set(key, entry);
+  }
+  for (const expense of expensesRaw) {
+    if (expense.status !== "paid" || !expense.paidDate) continue;
+    const key = monthKey(expense.paidDate);
+    const entry = cashMonthly.get(key) ?? { cashIn: 0, cashOut: 0 };
+    entry.cashOut += expense.amount;
+    cashMonthly.set(key, entry);
+  }
+  const cashMonthsDesc = Array.from(cashMonthly.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const cashMonthsInRange = range
+    ? cashMonthsDesc.filter(([key]) => {
+        const [y, m] = key.split("-").map(Number);
+        return inRange(new Date(Date.UTC(y, m - 1, 1)), range);
+      })
+    : cashMonthsDesc.slice(0, 12);
+  const cashMonthsAsc = [...cashMonthsInRange].reverse();
+
+  // Cumulative running total since the earliest recorded payment — not a
+  // real bank balance (this app has no starting-balance figure to anchor
+  // to), just the net of every payment logged here, labeled as such below
+  // rather than implied to be an actual account balance.
+  const cumulativeByKey = new Map<string, number>();
+  let runningCashBalance = 0;
+  for (const [key, d] of [...cashMonthsDesc].reverse()) {
+    runningCashBalance += d.cashIn - d.cashOut;
+    cumulativeByKey.set(key, runningCashBalance);
+  }
+
+  const cashFlowLabels = cashMonthsAsc.map(([key]) => monthLabel(key));
+  const cashInSeries = cashMonthsAsc.map(([, d]) => d.cashIn);
+  const cashOutSeries = cashMonthsAsc.map(([, d]) => d.cashOut);
+  const netCashSeries = cashMonthsAsc.map(([, d]) => d.cashIn - d.cashOut);
+  const cumulativeSeries = cashMonthsAsc.map(([key]) => cumulativeByKey.get(key) ?? 0);
+
+  const totalCashIn = cashMonthsInRange.reduce((sum, [, d]) => sum + d.cashIn, 0);
+  const totalCashOut = cashMonthsInRange.reduce((sum, [, d]) => sum + d.cashOut, 0);
+
+  const cashFlowTab = (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Cash Flow</h2>
+        <ExportCsvButton
+          filename="cash-flow"
+          headers={["Month", "Cash In", "Cash Out", "Net", "Cumulative"]}
+          rows={cashMonthsAsc.map(([key, d]) => [
+            monthLabel(key),
+            d.cashIn.toFixed(2),
+            d.cashOut.toFixed(2),
+            (d.cashIn - d.cashOut).toFixed(2),
+            (cumulativeByKey.get(key) ?? 0).toFixed(2),
+          ])}
+        />
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">
+        Money that&apos;s actually been collected and paid (by payment date), not invoiced/incurred
+        amounts — see the P&amp;L Statement for that.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3">
+        <SummaryCard label="Cash In" value={totalCashIn} />
+        <SummaryCard label="Cash Out" value={totalCashOut} />
+        <SummaryCard label="Net Cash Flow" value={totalCashIn - totalCashOut} highlight />
+      </div>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h3 className="text-sm font-semibold text-zinc-700">Cash In / Out / Net by Month</h3>
+        <div className="mt-3">
+          <LineChart
+            labels={cashFlowLabels}
+            series={[
+              { label: "Cash In", values: cashInSeries, color: "#16a34a" },
+              { label: "Cash Out", values: cashOutSeries, color: "#ef4444" },
+              { label: "Net", values: netCashSeries, color: "#2563eb" },
+            ]}
+            formatValue={(v) => `$${v.toFixed(0)}`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <h3 className="text-sm font-semibold text-zinc-700">
+          Cumulative Net Cash Flow (since earliest recorded payment)
+        </h3>
+        <div className="mt-3">
+          <LineChart
+            labels={cashFlowLabels}
+            series={[{ label: "Cumulative", values: cumulativeSeries, color: "#8b5cf6" }]}
+            formatValue={(v) => `$${v.toFixed(0)}`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Month</th>
+              <th className="px-5 py-3.5 font-semibold">Cash In</th>
+              <th className="px-5 py-3.5 font-semibold">Cash Out</th>
+              <th className="px-5 py-3.5 font-semibold">Net</th>
+              <th className="px-5 py-3.5 font-semibold">Cumulative</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {[...cashMonthsAsc].reverse().map(([key, d]) => (
+              <tr key={key}>
+                <td className="px-5 py-4 font-medium text-zinc-900">{monthLabel(key)}</td>
+                <td className="px-5 py-4 text-zinc-600">${d.cashIn.toFixed(2)}</td>
+                <td className="px-5 py-4 text-zinc-600">${d.cashOut.toFixed(2)}</td>
+                <td className="px-5 py-4 text-zinc-600">${(d.cashIn - d.cashOut).toFixed(2)}</td>
+                <td className="px-5 py-4 text-zinc-600">${(cumulativeByKey.get(key) ?? 0).toFixed(2)}</td>
+              </tr>
+            ))}
+            {cashMonthsAsc.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-4 text-center text-zinc-400">
+                  No paid invoices or expenses yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
   const tabs = [
     { id: "revenue", label: "Revenue", content: revenueTab },
+    { id: "pl", label: "P&L Statement", content: plTab },
+    { id: "cash-flow", label: "Cash Flow", content: cashFlowTab },
     { id: "expenses", label: "Expenses", content: expensesTab },
     ...(hasPlan(user, "pro")
       ? [{ id: "job-profitability", label: "Job Profitability", content: jobProfitabilityTab }]
@@ -1161,6 +1488,7 @@ export default async function ReportsPage({
     { id: "customers", label: "Customers", content: customersTab },
     ...(equipmentTab ? [{ id: "equipment", label: "Equipment", content: equipmentTab }] : []),
     { id: "ar-aging", label: "AR Aging", content: arAgingTab },
+    { id: "ap-aging", label: "AP Aging", content: apAgingTab },
     ...(hasPlan(user, "pro") ? [{ id: "labor", label: "Labor", content: laborTab }] : []),
   ];
   const tabsElement = <Tabs tabs={tabs} initialTab="revenue" />;
