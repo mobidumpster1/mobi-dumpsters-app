@@ -23,6 +23,7 @@ type CategoryOption = {
   overageTonnageRate: number | null;
   includedMileage: number | null;
   overageMileageRate: number | null;
+  securityDepositAmount: number | null;
   bundleQuantity: number;
   pricingTiers: PricingTier[];
   materialOptions: MaterialOption[];
@@ -109,6 +110,11 @@ function includedTerms(c: CategoryOption): string[] {
     const maxDays = Math.max(...c.pricingTiers.map((t) => t.days));
     lines.push(
       `Max rental length: ${maxDays} days — need it longer? That's treated as a new rental period.`
+    );
+  }
+  if (c.securityDepositAmount != null && c.securityDepositAmount > 0) {
+    lines.push(
+      `A refundable $${c.securityDepositAmount.toFixed(2)} security deposit is included in the total below, and returned after your rental.`
     );
   }
   return lines;

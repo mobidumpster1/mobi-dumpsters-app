@@ -10,6 +10,7 @@ import {
   notifyOnTheWay,
   setBookingVehicle,
   setBookingDriver,
+  releaseDeposit,
   resolveServiceRequest,
   markBookingReviewed,
   sendReviewRequestNow,
@@ -34,6 +35,7 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { AddressLink } from "@/components/AddressLink";
 import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { DriverQuickSelect } from "@/components/DriverQuickSelect";
+import { DepositReleaseButton } from "@/components/DepositReleaseButton";
 import { Tabs } from "@/components/Tabs";
 import { requireUser, hasPlan } from "@/lib/session";
 
@@ -701,6 +703,34 @@ export default async function BookingDetailPage({
                 View Invoice
               </Link>
             ))}
+          {booking.depositAmount != null && booking.depositAmount > 0 && (() => {
+            const releasedSoFar = booking.depositReleasedAmount ?? 0;
+            const depositRemaining = booking.depositAmount - releasedSoFar;
+            const payingInvoice = booking.invoices.find((i) => i.stripePaymentIntentId);
+            return (
+              <div className="w-full rounded-lg border-2 border-zinc-900 bg-white p-4">
+                <p className="text-sm font-semibold text-ink">
+                  Deposit: ${booking.depositAmount.toFixed(2)}
+                  {releasedSoFar > 0 && ` — $${releasedSoFar.toFixed(2)} released`}
+                </p>
+                {booking.depositNote && (
+                  <p className="mt-1 text-xs text-zinc-500">{booking.depositNote}</p>
+                )}
+                {depositRemaining > 0 &&
+                  (payingInvoice ? (
+                    <DepositReleaseButton
+                      bookingId={booking.id}
+                      remaining={depositRemaining}
+                      action={releaseDeposit}
+                    />
+                  ) : (
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Deposit not yet paid through Stripe — nothing to release yet.
+                    </p>
+                  ))}
+              </div>
+            );
+          })()}
           <Link
             href={`/bookings/${booking.id}/edit`}
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"

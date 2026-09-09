@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { markPaid, markUnpaid, deleteInvoice } from "../actions";
 import { uploadInvoicePhoto, deleteInvoicePhoto } from "../photoActions";
-import { ChargeCardButton, SendCheckoutLinkButton } from "../InvoicePaymentActions";
+import { ChargeCardButton, SendCheckoutLinkButton, RefundButton } from "../InvoicePaymentActions";
 import {
   createPaymentSchedule,
   deleteInstallment,
@@ -247,6 +247,22 @@ export default async function InvoiceDetailPage({
           )}
         </div>
       )}
+
+      {invoice.stripePaymentIntentId &&
+        invoice.amount - (invoice.refundedAmount ?? 0) > 0 && (
+          <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">
+            <h2 className="text-lg font-semibold text-ink">Refund</h2>
+            {invoice.refundedAmount && invoice.refundedAmount > 0 && (
+              <p className="mt-1 text-sm text-zinc-500">
+                ${invoice.refundedAmount.toFixed(2)} already refunded.
+              </p>
+            )}
+            <RefundButton
+              invoiceId={invoice.id}
+              remaining={invoice.amount - (invoice.refundedAmount ?? 0)}
+            />
+          </div>
+        )}
 
       {(invoice.installments.length > 0 || invoice.status !== "paid") && (
         <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5 print:hidden">

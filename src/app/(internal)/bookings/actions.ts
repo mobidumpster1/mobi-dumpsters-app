@@ -20,6 +20,7 @@ import { matchesPermitArea } from "@/lib/permits";
 import { getAgreementSettings } from "@/lib/agreement";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
 import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
+import { refundPayment, toCents } from "@/lib/stripe";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -396,6 +397,60 @@ export async function setBookingVehicle(bookingId: string, formData: FormData) {
     data: { vehicleId: vehicleId || null },
   });
   revalidatePath(`/bookings/${bookingId}`);
+}
+
+// Refunds all or part of a booking's collected deposit, against the same
+// Stripe payment the rental itself was charged on (see
+// createDraftInvoiceForBooking — the deposit was never a separate charge).
+// A smaller amountDollars than the full deposit means keeping the rest —
+// e.g. for damage — with the reason recorded in depositNote.
+export async function releaseDeposit(bookingId: string, formData: FormData) {
+  const user = await requirePermission("canManageInvoices");
+
+  const booking = await db.booking.findFirstOrThrow({
+    where: { id: bookingId, organizationId: user.effectiveOrganizationId },
+    include: { invoices: true },
+  });
+  if (!booking.depositAmount || booking.depositAmount <= 0) {
+    throw new Error("This booking has no deposit to release.");
+  }
+  const invoice = booking.invoices.find((i) => i.stripePaymentIntentId);
+  if (!invoice?.stripePaymentIntentId) {
+    throw new Error("The deposit wasn't paid through Stripe — release it outside the app.");
+  }
+
+  const alreadyReleased = booking.depositReleasedAmount ?? 0;
+  const remaining = booking.depositAmount - alreadyReleased;
+  const amountStr = str(formData, "amountDollars");
+  const amount = amountStr ? Math.min(Math.max(0, Number(amountStr) || 0), remaining) : remaining;
+  if (amount <= 0) {
+    throw new Error("Nothing left of this deposit to release.");
+  }
+
+  const result = await refundPayment(user.effectiveOrganizationId, invoice.stripePaymentIntentId, toCents(amount));
+
+  const alreadyRefundedOnInvoice = invoice.refundedAmount ?? 0;
+  await db.$transaction([
+    db.booking.update({
+      where: { id: bookingId },
+      data: {
+        depositReleasedAmount: alreadyReleased + result.amountCents / 100,
+        depositReleasedAt: new Date(),
+        depositNote: str(formData, "note"),
+      },
+    }),
+    db.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        refundedAmount: alreadyRefundedOnInvoice + result.amountCents / 100,
+        refundedAt: new Date(),
+      },
+    }),
+  ]);
+
+  await logAction("booking.deposit_released", "Booking", bookingId);
+  revalidatePath(`/bookings/${bookingId}`);
+  revalidatePath(`/invoices/${invoice.id}`);
 }
 
 export async function setBookingDriver(bookingId: string, formData: FormData) {

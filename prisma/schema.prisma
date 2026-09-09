@@ -370,11 +370,18 @@ model EquipmentCategory {
   // Pricing rules used to auto-generate invoice line items. All optional —
   // a category only needs the rules relevant to it (e.g. an excavator may
   // skip tonnage, a dumpster may skip mileage).
-  basePrice          Float?
-  includedDays       Int?
-  overageDayRate     Float?
-  includedTonnage    Float?
-  overageTonnageRate Float?
+  basePrice             Float?
+  includedDays          Int?
+  overageDayRate        Float?
+  includedTonnage       Float?
+  overageTonnageRate    Float?
+  // Refundable deposit charged per unit of this category, folded into the
+  // invoice as its own line item at invoice-creation time (see
+  // createDraftInvoiceForBooking) — collected as part of the same payment
+  // as the rental, then refunded back via the booking's deposit-release
+  // action rather than a separate hold/capture flow, which has expiry
+  // limits on many cards that don't suit multi-week rentals.
+  securityDepositAmount Float?
   includedMileage    Float?
   overageMileageRate Float?
 
@@ -636,6 +643,15 @@ model Booking {
   promoCode             PromoCode?   @relation(fields: [promoCodeId], references: [id])
   discountAmount        Float?
   discountNote          String?
+  // Snapshotted once the deposit line is added to this booking's invoice
+  // (see createDraftInvoiceForBooking) — the source of truth for "how
+  // much deposit is there to release" even if category deposit amounts
+  // change later. depositReleasedAmount is cumulative across however many
+  // partial releases happen; null/0 means nothing's been returned yet.
+  depositAmount         Float?
+  depositReleasedAmount Float?
+  depositReleasedAt     DateTime?
+  depositNote           String?
   // Set once the daily review-request cron has emailed this customer, so a
   // booking never gets asked for a review twice.
   reviewRequestSentAt   DateTime?
@@ -779,6 +795,12 @@ model Invoice {
   // lets the webhook confirm/reconcile status without guessing which
   // invoice a given PaymentIntent belongs to.
   stripePaymentIntentId String?
+  // Cumulative across however many separate refunds (e.g. one for a
+  // returned item, a later one for the deposit) — never reset, so the
+  // invoice detail page can always show "how much of this has actually
+  // come back" regardless of how many refund clicks it took.
+  refundedAmount        Float?
+  refundedAt            DateTime?
   // Tracks the most recent automated overdue-payment reminder, so the daily
   // cron can space repeat nags out instead of re-sending every run.
   lastReminderSentAt    DateTime?

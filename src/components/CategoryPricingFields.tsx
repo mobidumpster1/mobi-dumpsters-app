@@ -9,6 +9,7 @@ type CategoryPricingValues = {
   overageTonnageRate: number | null;
   includedMileage: number | null;
   overageMileageRate: number | null;
+  securityDepositAmount: number | null;
 };
 
 function numOrEmpty(value: number | null) {
@@ -79,6 +80,16 @@ export function CategoryPricingFields({
             type="number"
             step="0.01"
             defaultValue={numOrEmpty(initial?.overageDayRate ?? null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Security Deposit ($, refundable)" htmlFor="securityDepositAmount">
+          <input
+            id="securityDepositAmount"
+            name="securityDepositAmount"
+            type="number"
+            step="0.01"
+            defaultValue={numOrEmpty(initial?.securityDepositAmount ?? null)}
             className={inputClass}
           />
         </Field>

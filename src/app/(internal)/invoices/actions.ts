@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { pushInvoicePayment } from "@/lib/quickbooks";
 import { computeInvoiceLineItems, markInvoicePaidViaStripe } from "@/lib/invoicing";
-import { chargeCardOnFile, createCheckoutSession, toCents } from "@/lib/stripe";
+import { chargeCardOnFile, createCheckoutSession, refundPayment, toCents } from "@/lib/stripe";
 import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { requirePermission } from "@/lib/session";
@@ -168,6 +168,48 @@ export async function chargeInvoiceViaStripe(invoiceId: string) {
 
   await markInvoicePaidViaStripe(invoice.id, user.effectiveOrganizationId, paymentIntentId);
   await logAction("invoice.charged_stripe", "Invoice", invoiceId);
+  revalidatePath(`/invoices/${invoiceId}`);
+}
+
+// Refunds all or part of this invoice's Stripe payment. amountDollars
+// omitted (or covering the full remaining paid amount) does a full
+// refund; a smaller number does a partial one — e.g. refunding a rental
+// but keeping a deposit for damage, or vice versa. Stripe allows several
+// separate refunds against the same charge, so this can be called more
+// than once as long as the running total stays under what was paid.
+export async function refundInvoicePayment(invoiceId: string, formData: FormData) {
+  const user = await requirePermission("canManageInvoices");
+
+  const invoice = await db.invoice.findFirstOrThrow({
+    where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+  });
+  if (!invoice.stripePaymentIntentId) {
+    throw new Error("This invoice wasn't paid through Stripe — refund it outside the app.");
+  }
+
+  const alreadyRefunded = invoice.refundedAmount ?? 0;
+  const remaining = invoice.amount - alreadyRefunded;
+  const amountStr = str(formData, "amountDollars");
+  const amount = amountStr ? Math.min(Math.max(0, Number(amountStr) || 0), remaining) : remaining;
+  if (amount <= 0) {
+    throw new Error("Nothing left to refund on this invoice.");
+  }
+
+  const result = await refundPayment(
+    user.effectiveOrganizationId,
+    invoice.stripePaymentIntentId,
+    toCents(amount)
+  );
+
+  await db.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      refundedAmount: alreadyRefunded + result.amountCents / 100,
+      refundedAt: new Date(),
+    },
+  });
+
+  await logAction("invoice.refunded", "Invoice", invoiceId);
   revalidatePath(`/invoices/${invoiceId}`);
 }
 

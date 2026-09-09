@@ -99,6 +99,7 @@ export default async function EditCategoryPage({
             overageTonnageRate: category.overageTonnageRate,
             includedMileage: category.includedMileage,
             overageMileageRate: category.overageMileageRate,
+            securityDepositAmount: category.securityDepositAmount,
           }}
         />
         <PricingTierBuilder

@@ -140,10 +140,26 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
   if (existing) return existing;
 
   const lines = computeInvoiceLineItems(booking.items);
+
+  // One deposit line per unit whose category has a deposit configured —
+  // folded into the same invoice/payment as the rental rather than
+  // collected separately, then given back later via releaseDeposit.
+  const depositAmount = booking.items.reduce(
+    (sum, item) => sum + (item.equipmentItem.category.securityDepositAmount ?? 0),
+    0
+  );
+  if (depositAmount > 0) {
+    lines.push({
+      description: "Refundable Security Deposit",
+      amount: depositAmount,
+      type: "deposit",
+    });
+  }
+
   const amount = lines.reduce((sum, line) => sum + line.amount, 0);
   const invoiceNumber = await nextInvoiceNumber(booking.organizationId);
 
-  return db.invoice.create({
+  const invoice = await db.invoice.create({
     data: {
       organizationId: booking.organizationId,
       bookingId,
@@ -153,6 +169,12 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
       lineItems: { create: lines },
     },
   });
+
+  if (depositAmount > 0) {
+    await db.booking.update({ where: { id: bookingId }, data: { depositAmount } });
+  }
+
+  return invoice;
 }
 
 // Marks an invoice paid after a successful Stripe charge and pushes the

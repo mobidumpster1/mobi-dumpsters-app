@@ -160,6 +160,36 @@ export async function chargeCardOnFile(
   }
 }
 
+// Refunds all or part of a completed charge. Stripe allows multiple
+// partial refunds against the same PaymentIntent up to its total amount —
+// the caller (refundInvoicePayment) is responsible for not exceeding what
+// was actually paid, since Stripe's own error for that is a generic
+// "amount too large" rather than anything specific to invoices.
+export async function refundPayment(
+  organizationId: string,
+  paymentIntentId: string,
+  amountCents?: number
+): Promise<{ refundId: string; amountCents: number }> {
+  const connection = await getStripeConnection(organizationId);
+  if (!connection) {
+    throw new Error("Connect Stripe in Settings before issuing a refund.");
+  }
+  const stripe = client(connection);
+
+  try {
+    const refund = await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      amount: amountCents,
+    });
+    return { refundId: refund.id, amountCents: refund.amount };
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      throw new Error(error.message);
+    }
+    throw new Error("Couldn't process that refund — try again.");
+  }
+}
+
 // Fallback for a customer without a saved card yet (existing/legacy
 // customers, or anyone who skipped the card step at booking) — a
 // Stripe-hosted Checkout page emailed to them. setup_future_usage means a

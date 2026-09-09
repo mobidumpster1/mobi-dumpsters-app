@@ -22,6 +22,7 @@ function pricingFields(formData: FormData) {
     overageTonnageRate: num(formData, "overageTonnageRate"),
     includedMileage: num(formData, "includedMileage"),
     overageMileageRate: num(formData, "overageMileageRate"),
+    securityDepositAmount: num(formData, "securityDepositAmount"),
   };
 }
 
