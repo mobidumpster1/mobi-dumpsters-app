@@ -71,6 +71,7 @@ import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
+import { ApiKeysSection } from "./ApiKeysSection";
 import { requireUser, hasPlan } from "@/lib/session";
 import { headers } from "next/headers";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
@@ -219,6 +220,11 @@ export default async function SettingsPage({
   });
   const customerFieldDefs = parseFieldDefinitions(orgFieldDefs.customerFieldDefinitions);
   const bookingFieldDefs = parseFieldDefinitions(orgFieldDefs.bookingFieldDefinitions);
+  const apiKeys = await db.apiKey.findMany({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, keyPrefix: true, lastUsedAt: true, revokedAt: true, createdAt: true },
+  });
   const automationSettings = hasPlan(currentUser, "pro")
     ? await getAutomationSettings(currentUser.effectiveOrganizationId)
     : null;
@@ -574,6 +580,8 @@ export default async function SettingsPage({
       </div>
     </section>
   );
+
+  const apiKeysSection = <ApiKeysSection initialKeys={apiKeys} />;
 
   const automationSection = automationSettings && (
     <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
@@ -1853,6 +1861,7 @@ export default async function SettingsPage({
           {dumpScheduleSection}
           {taxSection}
           {customFieldsSection}
+          {apiKeysSection}
           {automationSection}
         </>
       ),

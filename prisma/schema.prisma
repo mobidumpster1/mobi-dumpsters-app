@@ -75,6 +75,7 @@ model Organization {
   dumpScheduleSettings            DumpScheduleSettings?
   taxSettings                     TaxSettings?
   emailDeliveryLogs               EmailDeliveryLog[]
+  apiKeys                          ApiKey[]
   deliveryReminderSettings        DeliveryReminderSettings?
   jobPhotoNotificationSettings    JobPhotoNotificationSettings?
   promoCodes                      PromoCode[]
@@ -329,6 +330,26 @@ model CustomerCreditEntry {
   amount     Float
   reason     String
   createdAt  DateTime @default(now())
+}
+
+// A key for the public read-only API (/api/v1/*), letting a third-party
+// tool (Zapier, a partner's system, a script) pull this org's data.
+// keyHash is a SHA-256 hash of the actual secret -- the real key is only
+// ever shown once, at creation, exactly like Stripe/GitHub's own API keys;
+// there's nothing to recover if it's lost, only revoke and issue a new
+// one. keyPrefix is the first several characters of the real key, kept in
+// plaintext purely so a staff member can tell keys apart in the list
+// without the full secret ever being stored or shown again.
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  keyHash        String       @unique
+  keyPrefix      String
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
 }
 
 // A single entry in a customer's communication timeline (a note, or a
