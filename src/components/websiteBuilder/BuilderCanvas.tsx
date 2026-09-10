@@ -15,6 +15,7 @@ const PALETTE: { type: Block["type"]; label: string }[] = [
   { type: "bookingWidget", label: "+ Booking Widget" },
   { type: "button", label: "+ Button" },
   { type: "shape", label: "+ Shape" },
+  { type: "html", label: "+ HTML" },
 ];
 
 export function BuilderCanvas({

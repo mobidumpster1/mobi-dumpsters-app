@@ -43,6 +43,8 @@ function blockPreviewColor(block: Block): string {
       return block.color;
     case "bookingWidget":
       return "#eef2ea";
+    case "html":
+      return "#e0e7ff";
   }
 }
 

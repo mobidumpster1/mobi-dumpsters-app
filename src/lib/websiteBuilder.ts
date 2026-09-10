@@ -52,6 +52,21 @@ export type ShapeBlock = {
   color: string;
 };
 
+// A raw-HTML embed, same idea as Wix's "Embed Code" widget — for a
+// business owner who has a snippet from somewhere else (a review widget,
+// a map embed, a hand-written banner) and just wants to drop it in.
+// Rendered inside a sandboxed iframe (see CanvasRenderer) so it can never
+// break out and affect the rest of the page's styles/scripts.
+export type HtmlBlock = {
+  id: string;
+  type: "html";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  html: string;
+};
+
 // No configurable props — it's a fixed feature block that renders the real
 // booking flow (BookingForm) sized to whatever box it's given. Position/
 // size are the only things about it a business owner can control.
@@ -64,7 +79,7 @@ export type BookingWidgetBlock = {
   height: number;
 };
 
-export type Block = TextBlock | ImageBlock | ButtonBlock | ShapeBlock | BookingWidgetBlock;
+export type Block = TextBlock | ImageBlock | ButtonBlock | ShapeBlock | BookingWidgetBlock | HtmlBlock;
 
 // Exported so websiteBuilderTemplates.ts can assign fresh ids when a
 // starter template is applied, rather than reusing the same fixed ids
@@ -91,6 +106,8 @@ export function createDefaultBlock(type: Block["type"], canvasWidth: number): Bl
       return { id, type, x, y: 20, width: 280, height: 120, color: "#f4f4f5" };
     case "bookingWidget":
       return { id, type, x: 20, y: 20, width: Math.max(320, canvasWidth - 40), height: 700 };
+    case "html":
+      return { id, type, x, y: 20, width: 280, height: 160, html: "<p style=\"text-align:center;font-family:sans-serif\">Paste your own HTML here</p>" };
   }
 }
 

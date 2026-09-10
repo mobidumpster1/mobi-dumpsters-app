@@ -210,6 +210,24 @@ export function BlockInspector({
           above.
         </p>
       )}
+
+      {block.type === "html" && (
+        <>
+          <p className="text-xs text-zinc-500">
+            Paste a code snippet from somewhere else — a review widget, a map, anything with its
+            own embed code. Runs sandboxed, so it can&apos;t affect the rest of the page.
+          </p>
+          <Field label="HTML" htmlFor="inspector-html">
+            <textarea
+              id="inspector-html"
+              rows={6}
+              value={block.html}
+              onChange={(e) => onChange({ html: e.target.value })}
+              className={`${inputClass} font-mono text-xs`}
+            />
+          </Field>
+        </>
+      )}
     </div>
   );
 }

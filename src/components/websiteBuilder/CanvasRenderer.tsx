@@ -13,6 +13,7 @@ const BLOCK_LABELS: Record<Block["type"], { icon: string; label: string }> = {
   button: { icon: "▭", label: "Button" },
   shape: { icon: "◻", label: "Shape" },
   bookingWidget: { icon: "📋", label: "Booking Widget" },
+  html: { icon: "</>", label: "HTML" },
 };
 
 const DRAG_GRID: [number, number] = [10, 10];
@@ -85,6 +86,21 @@ function BlockContent({
           <BookingForm {...bookingFormProps} />
         </div>
       ) : null;
+    case "html":
+      // Sandboxed so a pasted embed (scripts included, like a review
+      // widget) can never reach the parent page's DOM/cookies. Not
+      // pointer-interactive while editing — same reasoning as the
+      // booking widget placeholder above, so dragging the block around
+      // doesn't get swallowed by whatever's inside the iframe — but it's
+      // still a real live preview of the actual HTML, not a placeholder.
+      return (
+        <iframe
+          title="Custom HTML"
+          srcDoc={block.html}
+          sandbox="allow-scripts allow-popups"
+          className={`h-full w-full border-0 ${editable ? "pointer-events-none" : ""}`}
+        />
+      );
   }
 }
 
