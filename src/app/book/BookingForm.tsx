@@ -9,7 +9,7 @@ import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 type PricingTier = { id: string; label: string; days: number; price: number | null };
 type MaterialOption = { id: string; name: string; unit: string; pricePerUnit: number };
 
-type CategoryOption = {
+export type CategoryOption = {
   id: string;
   name: string;
   description: string | null;
@@ -137,12 +137,7 @@ function deliveryCaption(c: CategoryOption): string {
   return `Delivered to your door. First ${c.includedTonnage} ton${c.includedTonnage === 1 ? "" : "s"} & first dump included.`;
 }
 
-export function BookingForm({
-  categories,
-  agreementTitle,
-  agreementContent,
-  initialCategoryId,
-}: {
+export type BookingFormProps = {
   categories: CategoryOption[];
   agreementTitle: string;
   agreementContent: string;
@@ -150,7 +145,20 @@ export function BookingForm({
   // (e.g. "Book Junk Removal Online") — skips the browse grid and opens
   // directly on that category's review step, same as tapping its card.
   initialCategoryId?: string;
-}) {
+  // Threaded through as a hidden field so submitBookingRequest can carry
+  // embed=1 into the thank-you redirect — otherwise a customer who books
+  // inside an iframe lands on a broken (non-transparent, non-resizing)
+  // confirmation screen. See book/thank-you/page.tsx.
+  isEmbed?: boolean;
+};
+
+export function BookingForm({
+  categories,
+  agreementTitle,
+  agreementContent,
+  initialCategoryId,
+  isEmbed,
+}: BookingFormProps) {
   const [step, setStep] = useState<Step>(initialCategoryId ? "review" : "browse");
   const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
   const selectedCategory = categories.find((c) => c.id === categoryId);
@@ -306,6 +314,7 @@ export function BookingForm({
   return (
     <form action={submitBookingRequest} className="flex flex-col gap-4">
       <input type="hidden" name="categoryId" value={categoryId} required />
+      {isEmbed && <input type="hidden" name="embed" value="1" />}
 
       {/* Step 1: browse — CSS-hidden (not unmounted) once past it, same as
           the other steps below, so nothing typed further along is lost if

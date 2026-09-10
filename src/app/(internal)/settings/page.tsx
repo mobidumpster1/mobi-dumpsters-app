@@ -1912,6 +1912,20 @@ export default async function SettingsPage({
           </div>
 
           <div className="mt-6 border-t border-zinc-100 pt-4">
+            <h3 className="text-sm font-semibold text-ink">Want more control over how this looks?</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Design a custom layout for your embedded widget — drag text, images, and the booking
+              form itself anywhere on a canvas.
+            </p>
+            <Link
+              href="/website-builder"
+              className="mt-2 inline-block text-sm font-semibold text-brand hover:underline"
+            >
+              Open Website Builder →
+            </Link>
+          </div>
+
+          <div className="mt-6 border-t border-zinc-100 pt-4">
             <h3 className="text-sm font-semibold text-ink">Saved Snippets</h3>
             <p className="mt-1 text-sm text-zinc-500">
               Your own custom HTML — a hand-tweaked embed, a promo banner,

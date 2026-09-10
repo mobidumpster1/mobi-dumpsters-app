@@ -156,6 +156,7 @@ export async function submitBookingRequest(formData: FormData) {
   const email = str(formData, "email");
   const address = str(formData, "address");
   const agreed = formData.get("agreed") === "on";
+  const isEmbed = formData.get("embed") === "1";
 
   if (!categoryId) throw new Error("Please choose what you'd like to rent");
   if (!startDateStr) throw new Error("Please choose a date");
@@ -453,7 +454,7 @@ export async function submitBookingRequest(formData: FormData) {
   }
 
   redirect(
-    `/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}&invoice=${invoice.id}`
+    `/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}&invoice=${invoice.id}${isEmbed ? "&embed=1" : ""}`
   );
 }
 

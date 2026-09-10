@@ -32,6 +32,7 @@ const DEFAULT_LINKS = [
   { href: "/automation", label: "Automation" },
   { href: "/marketing", label: "Marketing" },
   { href: "/promotions", label: "Promotions" },
+  { href: "/website-builder", label: "Website Builder" },
   { href: "/activity", label: "Activity Log" },
   { href: "/settings", label: "Settings" },
   { href: "/platform-admin", label: "Platform Admin" },
@@ -66,6 +67,7 @@ const GROUP_FOR_HREF: Record<string, string> = {
   "/automation": "Growth",
   "/marketing": "Growth",
   "/promotions": "Growth",
+  "/website-builder": "Growth",
   "/activity": "Admin",
   "/settings": "Admin",
   "/platform-admin": "Admin",
@@ -120,7 +122,7 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
   const permissionFiltered = user.role === "owner"
     ? DEFAULT_LINKS
     : DEFAULT_LINKS.filter((link) => {
-        if (link.href === "/settings" || link.href === "/automation") return false;
+        if (link.href === "/settings" || link.href === "/automation" || link.href === "/website-builder") return false;
         if (link.href === "/reports" || link.href === "/marketing") return user.canViewReports;
         if (link.href === "/documents") return user.canViewReports;
         if (link.href === "/leads" || link.href === "/prospecting") return user.canManageLeads;
@@ -128,7 +130,7 @@ function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
         return true;
       });
   const planFiltered = permissionFiltered.filter((link) => {
-    if (link.href === "/leads" || link.href === "/quotes" || link.href === "/reports") {
+    if (link.href === "/leads" || link.href === "/quotes" || link.href === "/reports" || link.href === "/website-builder") {
       return planAtLeast(user.plan, "team");
     }
     if (

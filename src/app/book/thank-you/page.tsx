@@ -5,13 +5,15 @@ import { getPublicOrganizationId } from "@/lib/session";
 import { getStripeConnection, createSetupIntent } from "@/lib/stripe";
 import { payBookingInvoiceNow } from "../actions";
 import { SaveCardSection } from "../SaveCardSection";
+import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 
 export default async function ThankYouPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string; agreement?: string; invoice?: string; payError?: string }>;
+  searchParams: Promise<{ ref?: string; agreement?: string; invoice?: string; payError?: string; embed?: string }>;
 }) {
-  const { ref, agreement, invoice: invoiceId, payError } = await searchParams;
+  const { ref, agreement, invoice: invoiceId, payError, embed } = await searchParams;
+  const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
   const branding = await getOrgBranding(organizationId);
 
@@ -42,7 +44,14 @@ export default async function ThankYouPage({
       : null;
 
   return (
-    <div className="theme-public-dark flex min-h-screen items-center justify-center bg-background px-4">
+    <div
+      className={
+        isEmbed
+          ? "theme-embed flex items-center justify-center px-2 py-4"
+          : "theme-public-dark flex min-h-screen items-center justify-center bg-background px-4"
+      }
+    >
+      {isEmbed && <EmbedAutoResize />}
       <div className="max-w-md rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
         <h1 className="text-2xl font-bold text-ink">Request received!</h1>
         <p className="mt-3 text-zinc-600">

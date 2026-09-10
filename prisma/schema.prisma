@@ -105,6 +105,7 @@ model Organization {
   demolitionAgreements            DemolitionAgreement[]
   bookingAvailabilitySettings     BookingAvailabilitySettings?
   blackoutDates                   BlackoutDate[]
+  websiteBuilderPage              WebsiteBuilderPage?
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1777,6 +1778,25 @@ model WebsiteSnippet {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, name])
+}
+
+// A staff-designed layout for the /book?embed=1 widget — free-position
+// blocks (text, image, the real booking form, a button, a shape) on a
+// single fixed-size canvas. One row per org (a single embeddable page,
+// not a multi-page site). The live embed only ever uses this when
+// `published` is true — otherwise it falls back to the default,
+// unconfigurable widget rendering, so an in-progress edit can never
+// break Chase's actual live embed. See src/lib/websiteBuilder.ts.
+model WebsiteBuilderPage {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  canvasWidth    Int          @default(640)
+  canvasHeight   Int          @default(1200)
+  blocksJson     String       @default("[]")
+  published      Boolean      @default(false)
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
 }
 
 // One staff member's worked span, either self-logged via the Clock
