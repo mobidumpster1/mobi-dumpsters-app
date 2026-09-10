@@ -108,7 +108,7 @@ export function BuilderCanvas({
   async function handleTogglePublished() {
     const next = !published;
     setPublished(next);
-    await togglePublished(next);
+    await togglePublished(next, "canvas");
   }
 
   if (blocks.length === 0) {

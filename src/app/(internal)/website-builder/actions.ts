@@ -27,14 +27,18 @@ export async function saveWebsiteBuilderPage(formData: FormData) {
   revalidatePath("/book");
 }
 
-export async function togglePublished(published: boolean) {
+// `mode`, when given, is which editor is being published — Canvas and
+// Sections each publish independently, so hitting Publish always makes
+// *that* editor's content live (and the other one just stays saved,
+// ready to publish later without having lost anything).
+export async function togglePublished(published: boolean, mode?: "canvas" | "sections") {
   const user = await requireUser();
   requirePlanFor(user, "team");
   const page = await getWebsiteBuilderPage(user.effectiveOrganizationId);
 
   await db.websiteBuilderPage.update({
     where: { id: page.id },
-    data: { published },
+    data: { published, ...(mode && published ? { builderMode: mode } : {}) },
   });
 
   revalidatePath("/website-builder");

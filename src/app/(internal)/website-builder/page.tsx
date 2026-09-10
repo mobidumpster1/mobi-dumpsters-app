@@ -3,9 +3,10 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { requireUser, hasPlan } from "@/lib/session";
 import { parseBlocks } from "@/lib/websiteBuilder";
+import { parseSections } from "@/lib/websiteSections";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
-import { BuilderCanvas } from "@/components/websiteBuilder/BuilderCanvas";
+import { BuilderModeTabs } from "@/components/websiteBuilder/BuilderModeTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +53,20 @@ export default async function WebsiteBuilderPage() {
       </p>
 
       <div className="mt-6">
-        <BuilderCanvas
-          initialBlocks={parseBlocks(page.blocksJson)}
-          canvasWidth={page.canvasWidth}
-          canvasHeight={page.canvasHeight}
-          initialPublished={page.published}
-          previewUrl={previewUrl}
+        <BuilderModeTabs
+          initialMode={page.builderMode === "sections" ? "sections" : "canvas"}
+          canvasProps={{
+            initialBlocks: parseBlocks(page.blocksJson),
+            canvasWidth: page.canvasWidth,
+            canvasHeight: page.canvasHeight,
+            initialPublished: page.published && page.builderMode === "canvas",
+            previewUrl,
+          }}
+          sectionsProps={{
+            initialSections: parseSections(page.sectionsJson),
+            initialPublished: page.published && page.builderMode === "sections",
+            previewUrl,
+          }}
         />
       </div>
     </div>

@@ -9,8 +9,10 @@ import { getPublicOrganizationId } from "@/lib/session";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { parseCrossSellCategoryIds } from "@/lib/crossSell";
 import { parseBlocks } from "@/lib/websiteBuilder";
+import { parseSections } from "@/lib/websiteSections";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
 import { CanvasRenderer } from "@/components/websiteBuilder/CanvasRenderer";
+import { SectionList } from "@/components/websiteBuilder/SectionRenderer";
 
 export const dynamic = "force-dynamic";
 
@@ -76,15 +78,18 @@ export default async function PublicBookingPage({
   // A custom layout only ever takes over when it's actually embedded AND
   // either published (live) or being checked via ?builderPreview=1 (so
   // Chase can look at a draft before flipping it live) AND has at least
-  // one block — an empty published canvas falls back to the default
-  // widget rather than showing a blank page, since that's almost
-  // certainly not what was intended.
+  // one block/section AND is actually the mode currently set to publish
+  // — otherwise it's today's exact default widget, unchanged. Canvas and
+  // Sections are independent: whichever was last Published (see
+  // togglePublished) is the one `builderMode` names here.
   const builderBlocks = websiteBuilderPage ? parseBlocks(websiteBuilderPage.blocksJson) : [];
+  const builderSections = websiteBuilderPage ? parseSections(websiteBuilderPage.sectionsJson) : [];
+  const isLiveOrPreview =
+    isEmbed && websiteBuilderPage !== null && (websiteBuilderPage.published || builderPreview === "1");
   const useCustomLayout =
-    isEmbed &&
-    websiteBuilderPage !== null &&
-    (websiteBuilderPage.published || builderPreview === "1") &&
-    builderBlocks.length > 0;
+    isLiveOrPreview && websiteBuilderPage?.builderMode === "canvas" && builderBlocks.length > 0;
+  const useSections =
+    isLiveOrPreview && websiteBuilderPage?.builderMode === "sections" && builderSections.length > 0;
 
   return (
     <div
@@ -103,7 +108,21 @@ export default async function PublicBookingPage({
       <UtmCapture />
       <ReferralCapture />
       {isEmbed && <EmbedAutoResize />}
-      {useCustomLayout && websiteBuilderPage ? (
+      {useSections ? (
+        <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <SectionList
+            sections={builderSections}
+            categories={mappedCategories}
+            bookingFormProps={{
+              categories: mappedCategories,
+              agreementTitle: agreement.title,
+              agreementContent: agreement.content,
+              initialCategoryId,
+              isEmbed,
+            }}
+          />
+        </div>
+      ) : useCustomLayout && websiteBuilderPage ? (
         <div className="mx-auto" style={{ width: websiteBuilderPage.canvasWidth }}>
           <CanvasRenderer
             blocks={builderBlocks}
