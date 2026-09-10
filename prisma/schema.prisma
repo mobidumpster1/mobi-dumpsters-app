@@ -459,6 +459,12 @@ model EquipmentCategory {
   // restricted — checking this skips the public dump-hours buffer for
   // availability/reschedule checks on this category.
   dumpsAtOwnYard     Boolean      @default(false)
+  // Other categories to suggest on the public booking page's review step
+  // for this one — e.g. a dumpster category suggesting a trailer category.
+  // JSON array of EquipmentCategory ids, same encoding convention as
+  // fieldDefinitions above. Staff-curated rather than inferred, since
+  // nothing about the data reliably implies "often rented together."
+  crossSellCategoryIds String     @default("[]")
 
   // Pricing rules used to auto-generate invoice line items. All optional —
   // a category only needs the rules relevant to it (e.g. an excavator may

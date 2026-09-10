@@ -72,6 +72,10 @@ function bundleFields(formData: FormData) {
   };
 }
 
+function crossSellCategoryIds(formData: FormData): string {
+  return JSON.stringify(formData.getAll("crossSellCategoryIds").filter((v) => typeof v === "string"));
+}
+
 // A name-only category, for adding a new rental type inline while adding
 // equipment (see EquipmentItemForm's "+ New Category") instead of leaving
 // the page. Pricing, photo, and dimensions are still filled in later from
@@ -113,6 +117,7 @@ export async function createCategory(formData: FormData) {
       dumpsAtOwnYard: formData.get("dumpsAtOwnYard") === "on",
       imageUrl: str(formData, "imageUrl"),
       fieldDefinitions,
+      crossSellCategoryIds: crossSellCategoryIds(formData),
       ...pricingFields(formData),
       ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },
@@ -149,6 +154,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
       dumpsAtOwnYard: formData.get("dumpsAtOwnYard") === "on",
       imageUrl: str(formData, "imageUrl"),
       fieldDefinitions,
+      crossSellCategoryIds: crossSellCategoryIds(formData),
       ...pricingFields(formData),
       ...bundleFields(formData),
       pricingTiers: { create: pricingTiers(formData) },

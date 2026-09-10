@@ -25,6 +25,7 @@ type CategoryOption = {
   overageMileageRate: number | null;
   securityDepositAmount: number | null;
   bundleQuantity: number;
+  crossSellCategoryIds: string[];
   pricingTiers: PricingTier[];
   materialOptions: MaterialOption[];
 };
@@ -154,6 +155,9 @@ export function BookingForm({
   const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
   const selectedCategory = categories.find((c) => c.id === categoryId);
   const hasTiers = (selectedCategory?.pricingTiers.length ?? 0) > 0;
+  const crossSellSuggestions = selectedCategory
+    ? categories.filter((c) => selectedCategory.crossSellCategoryIds.includes(c.id))
+    : [];
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recommended");
@@ -201,6 +205,26 @@ export function BookingForm({
     isAvailable: boolean;
   }>({ checked: false, isAvailable: false });
   const [isPending, startTransition] = useTransition();
+
+  // Controlled (unlike most other fields here) so a cross-sell suggestion
+  // tapped on the review step can flag interest into it — staff see the
+  // note and can follow up with a combined quote, since the public flow
+  // only ever books one category per request.
+  const [notes, setNotes] = useState("");
+  function toggleCrossSellInterest(name: string) {
+    const line = `Interested in: ${name}`;
+    setNotes((prev) =>
+      prev.split("\n").includes(line)
+        ? prev
+            .split("\n")
+            .filter((l) => l !== line)
+            .join("\n")
+            .trim()
+        : prev
+          ? `${prev}\n${line}`
+          : line
+    );
+  }
 
   const durationDays = hasTiers ? (selectedTier?.days ?? 1) : 1;
   const fetchUnavailable = useCallback(
@@ -449,6 +473,55 @@ export function BookingForm({
             </div>
           )}
 
+          {crossSellSuggestions.length > 0 && (
+            <div className="rounded-xl border border-zinc-200 p-4">
+              <p className="mb-2 text-sm font-semibold text-ink">You might also need</p>
+              <div className="flex flex-col gap-2">
+                {crossSellSuggestions.map((suggestion) => {
+                  const interested = notes.split("\n").includes(`Interested in: ${suggestion.name}`);
+                  return (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      onClick={() => toggleCrossSellInterest(suggestion.name)}
+                      className={`flex items-center justify-between gap-3 rounded-lg border p-2.5 text-left transition-colors ${
+                        interested ? "border-brand bg-brand/5" : "border-zinc-200 hover:border-brand/50"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {suggestion.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={suggestion.imageUrl}
+                            alt=""
+                            className="h-10 w-10 flex-shrink-0 rounded bg-zinc-50 object-contain"
+                          />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-ink">
+                            {suggestion.name}
+                          </span>
+                          {suggestion.description && (
+                            <span className="block truncate text-xs text-zinc-500">
+                              {suggestion.description}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <span className="flex-shrink-0 text-xs font-semibold text-brand">
+                        {interested ? "Added ✓" : "+ I'm interested"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-zinc-400">
+                We&apos;ll follow up on anything you flag here — it&apos;s just a note for now, not a
+                separate order.
+              </p>
+            </div>
+          )}
+
           <div>
             <p className="text-sm font-semibold text-ink">{agreementTitle}</p>
             <div className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600">
@@ -648,7 +721,14 @@ export function BookingForm({
             <input id="address" name="address" required className={inputClass} />
           </Field>
           <Field label="Anything else we should know? (optional)" htmlFor="notes">
-            <textarea id="notes" name="notes" rows={3} className={inputClass} />
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={inputClass}
+            />
           </Field>
 
           <Field label="Promo code (optional)" htmlFor="promoCode">

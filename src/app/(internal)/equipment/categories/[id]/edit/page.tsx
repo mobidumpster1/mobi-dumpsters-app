@@ -8,8 +8,10 @@ import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { MaterialOptionBuilder } from "@/components/MaterialOptionBuilder";
 import { BundleFields } from "@/components/BundleFields";
+import { CrossSellFields } from "@/components/CrossSellFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
+import { parseCrossSellCategoryIds } from "@/lib/crossSell";
 import { requireUser } from "@/lib/session";
 
 export default async function EditCategoryPage({
@@ -142,6 +144,10 @@ export default async function EditCategoryPage({
             bundleOfCategoryId: category.bundleOfCategoryId,
             bundleQuantity: category.bundleQuantity,
           }}
+        />
+        <CrossSellFields
+          categoryOptions={categoryOptions}
+          initial={parseCrossSellCategoryIds(category.crossSellCategoryIds)}
         />
         <div className="flex gap-3">
           <button

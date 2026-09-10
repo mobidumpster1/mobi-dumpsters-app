@@ -7,6 +7,7 @@ import { ReferralCapture } from "@/components/ReferralCapture";
 import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 import { getPublicOrganizationId } from "@/lib/session";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
+import { parseCrossSellCategoryIds } from "@/lib/crossSell";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,7 @@ export default async function PublicBookingPage({
                 overageMileageRate: c.overageMileageRate,
                 securityDepositAmount: c.securityDepositAmount,
                 bundleQuantity: c.bundleQuantity,
+                crossSellCategoryIds: parseCrossSellCategoryIds(c.crossSellCategoryIds),
                 pricingTiers: c.pricingTiers.map((t) => ({
                   id: t.id,
                   label: t.label,

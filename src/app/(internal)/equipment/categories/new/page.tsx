@@ -7,6 +7,7 @@ import { CategoryPricingFields } from "@/components/CategoryPricingFields";
 import { PricingTierBuilder } from "@/components/PricingTierBuilder";
 import { MaterialOptionBuilder } from "@/components/MaterialOptionBuilder";
 import { BundleFields } from "@/components/BundleFields";
+import { CrossSellFields } from "@/components/CrossSellFields";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { requireUser } from "@/lib/session";
 
@@ -86,6 +87,7 @@ export default async function NewCategoryPage() {
         <PricingTierBuilder />
         <MaterialOptionBuilder />
         <BundleFields categoryOptions={categoryOptions} />
+        <CrossSellFields categoryOptions={categoryOptions} />
         <div className="flex gap-3">
           <button
             type="submit"
