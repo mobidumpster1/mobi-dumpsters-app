@@ -52,19 +52,28 @@ export function BlockInspector({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {(["x", "y", "width", "height"] as const).map((key) => (
-          <Field key={key} label={key.toUpperCase()} htmlFor={`inspector-${key}`}>
-            <input
-              id={`inspector-${key}`}
-              type="number"
-              value={block[key]}
-              onChange={(e) => onChange({ [key]: Number(e.target.value) || 0 } as Partial<Block>)}
-              className={`${inputClass} py-1.5 text-sm`}
-            />
-          </Field>
-        ))}
-      </div>
+      <p className="text-xs text-zinc-500">
+        Drag the block to move it. Drag a corner or edge to resize it.
+      </p>
+
+      <details className="rounded-lg border border-zinc-200 p-2">
+        <summary className="cursor-pointer text-xs font-semibold text-zinc-500">
+          Exact position &amp; size (optional)
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {(["x", "y", "width", "height"] as const).map((key) => (
+            <Field key={key} label={key.toUpperCase()} htmlFor={`inspector-${key}`}>
+              <input
+                id={`inspector-${key}`}
+                type="number"
+                value={block[key]}
+                onChange={(e) => onChange({ [key]: Number(e.target.value) || 0 } as Partial<Block>)}
+                className={`${inputClass} py-1.5 text-sm`}
+              />
+            </Field>
+          ))}
+        </div>
+      </details>
 
       <div className="flex gap-2">
         <button

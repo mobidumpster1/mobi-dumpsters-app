@@ -4,6 +4,19 @@ import { Rnd } from "react-rnd";
 import type { Block } from "@/lib/websiteBuilder";
 import { BookingForm, type BookingFormProps } from "@/app/book/BookingForm";
 
+// Shown in the editor only (never the live embed) so it's always obvious
+// what each box is without having to click it first — addresses "hard to
+// tell what's happening" on the canvas.
+const BLOCK_LABELS: Record<Block["type"], { icon: string; label: string }> = {
+  text: { icon: "T", label: "Text" },
+  image: { icon: "🖼", label: "Image" },
+  button: { icon: "▭", label: "Button" },
+  shape: { icon: "◻", label: "Shape" },
+  bookingWidget: { icon: "📋", label: "Booking Widget" },
+};
+
+const DRAG_GRID: [number, number] = [10, 10];
+
 // Renders one block's actual content — shared between the editor (where
 // it's wrapped in a draggable/resizable <Rnd>) and the live embed (where
 // it's just a plain absolutely-positioned box) so the two can never
@@ -97,13 +110,24 @@ export function CanvasRenderer({
   return (
     <div
       className="relative overflow-hidden bg-white"
-      style={{ width: canvasWidth, height: canvasHeight }}
+      style={
+        editable
+          ? {
+              width: canvasWidth,
+              height: canvasHeight,
+              backgroundImage: "radial-gradient(circle, #d4d4d8 1px, transparent 1px)",
+              backgroundSize: "10px 10px",
+            }
+          : { width: canvasWidth, height: canvasHeight }
+      }
     >
       {blocks.map((block) =>
         editable ? (
           <Rnd
             key={block.id}
             bounds="parent"
+            dragGrid={DRAG_GRID}
+            resizeGrid={DRAG_GRID}
             size={{ width: block.width, height: block.height }}
             position={{ x: block.x, y: block.y }}
             onDragStop={(_e, d) => onChange?.(block.id, { x: d.x, y: d.y })}
@@ -122,6 +146,10 @@ export function CanvasRenderer({
                 : "outline outline-1 outline-offset-1 outline-transparent hover:outline-zinc-300"
             }
           >
+            <span className="pointer-events-none absolute -top-2.5 left-1 flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm">
+              <span>{BLOCK_LABELS[block.type].icon}</span>
+              {BLOCK_LABELS[block.type].label}
+            </span>
             <BlockContent block={block} editable />
           </Rnd>
         ) : (

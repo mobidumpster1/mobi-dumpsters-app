@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { CanvasRenderer } from "./CanvasRenderer";
 import { BlockInspector } from "./BlockInspector";
+import { TemplatePicker } from "./TemplatePicker";
 import { createDefaultBlock, type Block } from "@/lib/websiteBuilder";
 import { saveWebsiteBuilderPage, togglePublished } from "@/app/(internal)/website-builder/actions";
+
+const TALLER_CANVAS_STEP = 200;
 
 const PALETTE: { type: Block["type"]; label: string }[] = [
   { type: "text", label: "+ Text" },
@@ -16,8 +19,8 @@ const PALETTE: { type: Block["type"]; label: string }[] = [
 
 export function BuilderCanvas({
   initialBlocks,
-  canvasWidth,
-  canvasHeight,
+  canvasWidth: initialCanvasWidth,
+  canvasHeight: initialCanvasHeight,
   initialPublished,
   previewUrl,
 }: {
@@ -28,6 +31,8 @@ export function BuilderCanvas({
   previewUrl: string;
 }) {
   const [blocks, setBlocks] = useState(initialBlocks);
+  const [canvasWidth, setCanvasWidth] = useState(initialCanvasWidth);
+  const [canvasHeight, setCanvasHeight] = useState(initialCanvasHeight);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [published, setPublished] = useState(initialPublished);
   const [saving, setSaving] = useState(false);
@@ -66,6 +71,25 @@ export function BuilderCanvas({
     });
   }
 
+  function chooseTemplate(templateBlocks: Block[], width: number, height: number) {
+    setBlocks(templateBlocks);
+    setCanvasWidth(width);
+    setCanvasHeight(height);
+    setSelectedId(null);
+  }
+
+  function startOver() {
+    if (blocks.length > 0 && !window.confirm("Clear the current layout and choose a different starting point?")) {
+      return;
+    }
+    setBlocks([]);
+    setSelectedId(null);
+  }
+
+  function addTallerCanvas() {
+    setCanvasHeight((h) => h + TALLER_CANVAS_STEP);
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -86,6 +110,10 @@ export function BuilderCanvas({
     await togglePublished(next);
   }
 
+  if (blocks.length === 0) {
+    return <TemplatePicker onChoose={chooseTemplate} />;
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-zinc-900 bg-white p-3">
@@ -99,6 +127,20 @@ export function BuilderCanvas({
             {p.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={addTallerCanvas}
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+        >
+          + Taller Canvas
+        </button>
+        <button
+          type="button"
+          onClick={startOver}
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+        >
+          Start Over
+        </button>
         <div className="ml-auto flex items-center gap-2">
           {savedAt && !saving && <span className="text-xs text-zinc-400">Saved</span>}
           <a

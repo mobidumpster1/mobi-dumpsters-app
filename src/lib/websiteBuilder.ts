@@ -66,7 +66,11 @@ export type BookingWidgetBlock = {
 
 export type Block = TextBlock | ImageBlock | ButtonBlock | ShapeBlock | BookingWidgetBlock;
 
-function newId() {
+// Exported so websiteBuilderTemplates.ts can assign fresh ids when a
+// starter template is applied, rather than reusing the same fixed ids
+// every time (harmless since one set always replaces the other, but
+// avoids ever having two blocks share an id even transiently).
+export function newBlockId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
@@ -74,7 +78,7 @@ function newId() {
 // centered-ish, sized to be immediately visible and useful without the
 // business owner having to resize before they can tell what they added.
 export function createDefaultBlock(type: Block["type"], canvasWidth: number): Block {
-  const id = newId();
+  const id = newBlockId();
   const x = Math.max(20, Math.round(canvasWidth / 2 - 140));
   switch (type) {
     case "text":
