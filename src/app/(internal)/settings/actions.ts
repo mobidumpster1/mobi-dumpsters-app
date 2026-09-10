@@ -13,6 +13,7 @@ import { sendPendingInvoiceReminders } from "@/lib/invoiceReminder";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
+import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { getTaxSettings } from "@/lib/taxSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
@@ -358,6 +359,60 @@ export async function updateDumpScheduleSettings(formData: FormData) {
   });
 
   revalidatePath("/settings");
+}
+
+export async function updateBookingAvailabilitySettings(formData: FormData) {
+  const user = await requireUser();
+  const settings = await getBookingAvailabilitySettings(user.effectiveOrganizationId);
+
+  const minimumNoticeHours = Math.max(0, Number(str(formData, "minimumNoticeHours")) || 0);
+  const awayModeMessage =
+    str(formData, "awayModeMessage") || "We're not accepting online booking requests right now — please call us.";
+
+  await db.bookingAvailabilitySettings.update({
+    where: { id: settings.id },
+    data: {
+      awayModeEnabled: formData.get("awayModeEnabled") === "on",
+      awayModeMessage,
+      minimumNoticeHours,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/book");
+}
+
+export async function addBlackoutDate(formData: FormData) {
+  const user = await requireUser();
+  const startDateStr = str(formData, "startDate");
+  const endDateStr = str(formData, "endDate") || startDateStr;
+  if (!startDateStr) throw new Error("Start date is required.");
+
+  const startDate = new Date(`${startDateStr}T00:00:00.000Z`);
+  const endDate = new Date(`${endDateStr}T00:00:00.000Z`);
+  endDate.setUTCDate(endDate.getUTCDate() + 1); // stored as an exclusive end, like every other date range in the app
+  if (endDate <= startDate) throw new Error("End date must be on or after the start date.");
+
+  await db.blackoutDate.create({
+    data: {
+      organizationId: user.effectiveOrganizationId,
+      startDate,
+      endDate,
+      reason: str(formData, "reason") || null,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/book");
+}
+
+export async function deleteBlackoutDate(blackoutDateId: string) {
+  const user = await requireUser();
+  await db.blackoutDate.deleteMany({
+    where: { id: blackoutDateId, organizationId: user.effectiveOrganizationId },
+  });
+  revalidatePath("/settings");
+  revalidatePath("/book");
 }
 
 export async function updateTaxSettings(formData: FormData) {

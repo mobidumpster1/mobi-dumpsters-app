@@ -19,6 +19,9 @@ import {
   updateJobNotificationSettings,
   updateJobCostingSettings,
   updateDumpScheduleSettings,
+  updateBookingAvailabilitySettings,
+  addBlackoutDate,
+  deleteBlackoutDate,
   updateTaxSettings,
   updateCustomerFieldDefinitions,
   updateBookingFieldDefinitions,
@@ -50,6 +53,7 @@ import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { getDumpScheduleSettings } from "@/lib/dumpScheduleSettings";
+import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { getTaxSettings } from "@/lib/taxSettings";
 import { getAutomationSettings } from "@/lib/automationSettings";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
@@ -146,6 +150,10 @@ function formatHourLabel(hour: number) {
   return `${displayHour}${period}`;
 }
 
+function formatBlackoutDate(date: Date) {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -213,6 +221,11 @@ export default async function SettingsPage({
   const jobNotificationSettings = await getJobNotificationSettings(currentUser.effectiveOrganizationId);
   const jobCostingSettings = await getJobCostingSettings(currentUser.effectiveOrganizationId);
   const dumpScheduleSettings = await getDumpScheduleSettings(currentUser.effectiveOrganizationId);
+  const bookingAvailabilitySettings = await getBookingAvailabilitySettings(currentUser.effectiveOrganizationId);
+  const blackoutDates = await db.blackoutDate.findMany({
+    where: { organizationId: currentUser.effectiveOrganizationId },
+    orderBy: { startDate: "asc" },
+  });
   const taxSettings = await getTaxSettings(currentUser.effectiveOrganizationId);
   const orgFieldDefs = await db.organization.findUniqueOrThrow({
     where: { id: currentUser.effectiveOrganizationId },
@@ -479,6 +492,113 @@ export default async function SettingsPage({
           className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
         >
           Save
+        </button>
+      </form>
+    </section>
+  );
+
+  const bookingAvailabilitySection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Online Booking Availability</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Away mode turns off the online booking form entirely — for a planned closure. Minimum
+        notice keeps a same-day (or next-day) request from showing up as bookable if you need more
+        lead time than that.
+      </p>
+      <form action={updateBookingAvailabilitySettings} className="mt-3 flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm font-bold text-zinc-700">
+          <input
+            type="checkbox"
+            name="awayModeEnabled"
+            defaultChecked={bookingAvailabilitySettings.awayModeEnabled}
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Away mode — stop accepting online booking requests
+        </label>
+        <Field label="Message shown on the booking page while away" htmlFor="awayModeMessage">
+          <textarea
+            id="awayModeMessage"
+            name="awayModeMessage"
+            defaultValue={bookingAvailabilitySettings.awayModeMessage}
+            rows={2}
+            className={inputClass}
+          />
+        </Field>
+        <div className="w-40">
+          <Field label="Minimum notice (hours)" htmlFor="minimumNoticeHours">
+            <input
+              id="minimumNoticeHours"
+              name="minimumNoticeHours"
+              type="number"
+              min={0}
+              step={1}
+              defaultValue={bookingAvailabilitySettings.minimumNoticeHours}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        >
+          Save
+        </button>
+      </form>
+
+      <h3 className="mt-6 text-sm font-black uppercase tracking-wide text-zinc-500">Blackout Dates</h3>
+      <p className="mt-1 text-sm text-zinc-500">
+        One-off dates you&apos;re not delivering on (a holiday, a crew tied up elsewhere) — blocked
+        on the booking page without turning on away mode.
+      </p>
+      {blackoutDates.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          {blackoutDates.map((blackout) => (
+            <div
+              key={blackout.id}
+              className="flex items-center justify-between gap-2 rounded-lg border-2 border-zinc-200 px-4 py-2.5"
+            >
+              <div>
+                <span className="text-sm font-bold text-zinc-900">
+                  {formatBlackoutDate(blackout.startDate)}
+                  {blackout.endDate.getTime() - blackout.startDate.getTime() > 86_400_000 &&
+                    ` – ${formatBlackoutDate(new Date(blackout.endDate.getTime() - 86_400_000))}`}
+                </span>
+                {blackout.reason && <span className="ml-2 text-sm text-zinc-500">{blackout.reason}</span>}
+              </div>
+              <form action={deleteBlackoutDate.bind(null, blackout.id)}>
+                <button
+                  type="submit"
+                  aria-label="Remove blackout date"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                >
+                  ×
+                </button>
+              </form>
+            </div>
+          ))}
+        </div>
+      )}
+      <form action={addBlackoutDate} className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="w-40">
+          <Field label="Start date" htmlFor="blackoutStartDate">
+            <input id="blackoutStartDate" name="startDate" type="date" required className={inputClass} />
+          </Field>
+        </div>
+        <div className="w-40">
+          <Field label="End date (optional)" htmlFor="blackoutEndDate">
+            <input id="blackoutEndDate" name="endDate" type="date" className={inputClass} />
+          </Field>
+        </div>
+        <div className="flex-1">
+          <Field label="Reason (optional)" htmlFor="blackoutReason">
+            <input id="blackoutReason" name="reason" placeholder="e.g. Thanksgiving" className={inputClass} />
+          </Field>
+        </div>
+        <button
+          type="submit"
+          className="flex-shrink-0 rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+        >
+          + Add Blackout Date
         </button>
       </form>
     </section>
@@ -1859,6 +1979,7 @@ export default async function SettingsPage({
           {bookingLinkSection}
           {jobCostingSection}
           {dumpScheduleSection}
+          {bookingAvailabilitySection}
           {taxSection}
           {customFieldsSection}
           {apiKeysSection}

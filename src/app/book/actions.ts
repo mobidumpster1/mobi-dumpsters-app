@@ -22,6 +22,8 @@ import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween, drivingMilesBetween } from "@/lib/distance";
 import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
 import { computeSeasonalAdjustment } from "@/lib/pricingRules";
+import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
+import { listBlackoutDates, isDateBlackedOut, meetsMinimumNotice } from "@/lib/blackoutDates";
 
 export async function checkAvailability(
   categoryId: string,
@@ -37,9 +39,21 @@ export async function checkAvailability(
   });
   if (!category) return { availableCount: 0, isAvailable: false };
 
+  const requestedStart = new Date(startDate);
+  const [settings, blackoutRanges] = await Promise.all([
+    getBookingAvailabilitySettings(organizationId),
+    listBlackoutDates(organizationId),
+  ]);
+  if (
+    isDateBlackedOut(requestedStart, blackoutRanges) ||
+    !meetsMinimumNotice(requestedStart, settings.minimumNoticeHours)
+  ) {
+    return { availableCount: 0, isAvailable: false };
+  }
+
   const items = await findAvailableItems(
     effectiveCategoryId(category),
-    new Date(startDate),
+    requestedStart,
     new Date(endDate)
   );
   const needed = requiredQuantity(category);
@@ -65,6 +79,11 @@ export async function getUnavailableStartDates(
   const effectiveId = effectiveCategoryId(category);
   const needed = requiredQuantity(category);
   const days = Math.max(durationDays, 1);
+
+  const [settings, blackoutRanges] = await Promise.all([
+    getBookingAvailabilitySettings(organizationId),
+    listBlackoutDates(organizationId),
+  ]);
 
   const monthStartDate = new Date(`${monthStart}T00:00:00.000Z`);
   const monthEndDate = new Date(monthStartDate);
@@ -106,7 +125,12 @@ export async function getUnavailableStartDates(
         )
     ).length;
 
-    if (freeCount < needed) {
+    const blocked =
+      freeCount < needed ||
+      isDateBlackedOut(dayStart, blackoutRanges) ||
+      !meetsMinimumNotice(dayStart, settings.minimumNoticeHours);
+
+    if (blocked) {
       unavailable.push(dayStart.toISOString().slice(0, 10));
     }
   }
@@ -197,6 +221,22 @@ export async function submitBookingRequest(formData: FormData) {
   const endDate = tier
     ? new Date(`${addDays(startDateStr, tier.days)}T${pickupTime}`)
     : new Date(`${startDateStr}T${deliveryTime}`);
+
+  const [bookingAvailabilitySettings, blackoutRanges] = await Promise.all([
+    getBookingAvailabilitySettings(organizationId),
+    listBlackoutDates(organizationId),
+  ]);
+  if (bookingAvailabilitySettings.awayModeEnabled) {
+    throw new Error(bookingAvailabilitySettings.awayModeMessage);
+  }
+  if (isDateBlackedOut(startDate, blackoutRanges)) {
+    throw new Error("Sorry, we're not delivering on that date. Please try a different date.");
+  }
+  if (!meetsMinimumNotice(startDate, bookingAvailabilitySettings.minimumNoticeHours)) {
+    throw new Error(
+      `Sorry, deliveries need at least ${bookingAvailabilitySettings.minimumNoticeHours} hours' notice. Please choose a later date or call us.`
+    );
+  }
 
   const needed = requiredQuantity(category);
   const available = await findAvailableItems(

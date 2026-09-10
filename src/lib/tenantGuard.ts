@@ -32,6 +32,7 @@ export const ORG_SCOPED_MODELS = new Set([
   "DeliveryReminderSettings",
   "LeadOutreachSettings",
   "WinBackSettings",
+  "BlackoutDate",
 ]);
 
 // Only the operations whose `where` is both optional AND capable of

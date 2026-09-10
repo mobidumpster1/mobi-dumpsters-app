@@ -103,6 +103,8 @@ model Organization {
   facebookConnection              FacebookConnection?
   facebookPosts                   FacebookPost[]
   demolitionAgreements            DemolitionAgreement[]
+  bookingAvailabilitySettings     BookingAvailabilitySettings?
+  blackoutDates                   BlackoutDate[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1309,6 +1311,41 @@ model JobCostingSettings {
 // 17 = 5pm), same convention as the rest of the app's dates. Singleton
 // row, same pattern as JobCostingSettings; defaults match the original
 // hardcoded 7am-5pm Monday-Saturday.
+// Controls whether the public /book page accepts new requests at all, and
+// how much lead time it requires when it does. Separate from
+// DumpScheduleSettings below (which governs when equipment can go back out
+// after a pickup, not whether new bookings can come in).
+model BookingAvailabilitySettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  // When on, /book shows awayModeMessage instead of the booking form —
+  // for a planned closure (vacation, off-season) rather than a one-off
+  // blackout date (see BlackoutDate below).
+  awayModeEnabled    Boolean @default(false)
+  awayModeMessage    String  @default("We're not accepting online booking requests right now — please call us.")
+  // How many hours of lead time a delivery date must have — a same-day
+  // request submitted at 4pm won't show as bookable if this is, say, 12.
+  minimumNoticeHours Int     @default(0)
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
+}
+
+// A one-off date range the business isn't delivering on (a holiday, a crew
+// out for a job, etc.) — as opposed to BookingAvailabilitySettings'
+// awayModeEnabled, which blocks booking entirely rather than just specific
+// dates. Blocks every category equally; there's no per-category blackout
+// today since the need for one hasn't come up.
+model BlackoutDate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+}
+
 model DumpScheduleSettings {
   id             String       @id @default(cuid())
   organizationId String       @unique

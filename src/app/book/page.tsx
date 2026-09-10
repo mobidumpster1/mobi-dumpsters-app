@@ -6,6 +6,7 @@ import { UtmCapture } from "@/components/UtmCapture";
 import { ReferralCapture } from "@/components/ReferralCapture";
 import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 import { getPublicOrganizationId } from "@/lib/session";
+import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,11 @@ export default async function PublicBookingPage({
   const { embed, category } = await searchParams;
   const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
-  const [categories, agreement, branding] = await Promise.all([
+  const [categories, agreement, branding, bookingAvailabilitySettings] = await Promise.all([
     listBookableCategories(),
     getAgreementSettings(organizationId),
     getOrgBranding(organizationId),
+    getBookingAvailabilitySettings(organizationId),
   ]);
   // Lets a link on Chase's own website (e.g. the Junk Removal section) go
   // straight to that category's review step, instead of dropping the
@@ -58,7 +60,9 @@ export default async function PublicBookingPage({
           </div>
         )}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          {categories.length === 0 ? (
+          {bookingAvailabilitySettings.awayModeEnabled ? (
+            <p className="text-center text-zinc-500">{bookingAvailabilitySettings.awayModeMessage}</p>
+          ) : categories.length === 0 ? (
             <p className="text-center text-zinc-500">
               Nothing is available to book online right now — please give us
               a call.
