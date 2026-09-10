@@ -14,6 +14,8 @@ import { computeJobMargin, marginStyle } from "@/lib/jobCosting";
 import { getJobCostingSettings } from "@/lib/jobCostingSettings";
 import { computeUtilization } from "@/lib/utilization";
 import { agingBucket, AGING_BUCKET_LABELS, type AgingBucket } from "@/lib/arAging";
+import { computeFulfillmentRows, summarizeFulfillment } from "@/lib/fulfillment";
+import { computeCustomerLtv } from "@/lib/customerLtv";
 import { parseDateRangeParams, priorPeriod, inRange } from "@/lib/dateRange";
 
 export const dynamic = "force-dynamic";
@@ -137,7 +139,7 @@ export default async function ReportsPage({
   const range = parseDateRangeParams({ from, to });
   const priorRange = range ? priorPeriod(range) : null;
 
-  const [invoicesRaw, expensesRaw, recurringBills, jobCostingSettings, bookingItems, timeEntriesRaw, quotesRaw, maintenanceLogEntriesRaw] =
+  const [invoicesRaw, expensesRaw, recurringBills, jobCostingSettings, bookingItems, timeEntriesRaw, quotesRaw, maintenanceLogEntriesRaw, customersRaw] =
     await Promise.all([
       db.invoice.findMany({
         where: { organizationId: user.effectiveOrganizationId },
@@ -154,7 +156,10 @@ export default async function ReportsPage({
       getJobCostingSettings(user.effectiveOrganizationId),
       db.bookingItem.findMany({
         where: { booking: { organizationId: user.effectiveOrganizationId } },
-        include: { equipmentItem: { include: { category: true } } },
+        include: {
+          equipmentItem: { include: { category: true } },
+          booking: { include: { customer: true, driver: true } },
+        },
       }),
       hasPlan(user, "pro")
         ? db.timeEntry.findMany({
@@ -166,6 +171,10 @@ export default async function ReportsPage({
       db.maintenanceLogEntry.findMany({
         where: { organizationId: user.effectiveOrganizationId },
         include: { vehicle: true },
+      }),
+      db.customer.findMany({
+        where: { organizationId: user.effectiveOrganizationId },
+        select: { id: true, name: true, companyName: true, createdAt: true },
       }),
     ]);
 
@@ -1477,6 +1486,208 @@ export default async function ReportsPage({
     </section>
   );
 
+  // Historical fulfillment — how deliveries/pickups scheduled in the past
+  // actually went (on-time vs. late), as opposed to Dispatch which only
+  // ever shows today's live state. Scoped by the same range/last-30-days
+  // fallback as Equipment Utilization above.
+  const fulfillmentBookingItems = bookingItems.filter(
+    (bi) => bi.startDate >= utilizationPeriodStart && bi.startDate < utilizationPeriodEnd
+  );
+  const fulfillmentRows = computeFulfillmentRows(fulfillmentBookingItems);
+  const fulfillmentSummary = summarizeFulfillment(fulfillmentRows);
+  const deliveryOnTimeRate =
+    fulfillmentSummary.deliveriesCompleted > 0
+      ? (fulfillmentSummary.deliveriesOnTime / fulfillmentSummary.deliveriesCompleted) * 100
+      : null;
+  const pickupOnTimeRate =
+    fulfillmentSummary.pickupsCompleted > 0
+      ? (fulfillmentSummary.pickupsOnTime / fulfillmentSummary.pickupsCompleted) * 100
+      : null;
+
+  const fulfillmentTab = (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">
+          Fulfillment History ({range ? "Selected Period" : "Last 30 Days"})
+        </h2>
+        <ExportCsvButton
+          filename="fulfillment-history"
+          headers={["Customer", "Equipment", "Driver", "Scheduled Delivery", "Actual Delivery", "Delivery Status", "Scheduled Pickup", "Actual Pickup", "Pickup Status"]}
+          rows={fulfillmentRows.map((row) => [
+            row.customerName,
+            row.equipmentLabel,
+            row.driverName ?? "—",
+            dateLabel(row.scheduledDelivery),
+            row.actualDelivery ? dateLabel(row.actualDelivery) : "—",
+            row.deliveryStatus,
+            dateLabel(row.scheduledPickup),
+            row.actualPickup ? dateLabel(row.actualPickup) : "—",
+            row.pickupStatus,
+          ])}
+        />
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">
+        Every delivery/pickup leg scheduled in this period and whether it happened on time.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <SummaryCard
+          label="On-Time Delivery Rate"
+          value={deliveryOnTimeRate ?? 0}
+          formatValue={(v) => (deliveryOnTimeRate === null ? "—" : `${v.toFixed(0)}%`)}
+          sub={`${fulfillmentSummary.deliveriesOnTime}/${fulfillmentSummary.deliveriesCompleted} completed, ${fulfillmentSummary.deliveriesPending} pending`}
+        />
+        <SummaryCard
+          label="On-Time Pickup Rate"
+          value={pickupOnTimeRate ?? 0}
+          formatValue={(v) => (pickupOnTimeRate === null ? "—" : `${v.toFixed(0)}%`)}
+          sub={`${fulfillmentSummary.pickupsOnTime}/${fulfillmentSummary.pickupsCompleted} completed, ${fulfillmentSummary.pickupsPending} pending`}
+        />
+        <SummaryCard
+          label="Avg. Delivery Delay"
+          value={fulfillmentSummary.avgDeliveryDelayHours ?? 0}
+          formatValue={(v) => (fulfillmentSummary.avgDeliveryDelayHours === null ? "—" : `${v.toFixed(1)}h`)}
+          sub="Among late deliveries only"
+        />
+        <SummaryCard
+          label="Avg. Pickup Delay"
+          value={fulfillmentSummary.avgPickupDelayHours ?? 0}
+          formatValue={(v) => (fulfillmentSummary.avgPickupDelayHours === null ? "—" : `${v.toFixed(1)}h`)}
+          sub="Among late pickups only"
+        />
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Customer</th>
+              <th className="px-5 py-3.5 font-semibold">Equipment</th>
+              <th className="px-5 py-3.5 font-semibold">Driver</th>
+              <th className="px-5 py-3.5 font-semibold">Delivery</th>
+              <th className="px-5 py-3.5 font-semibold">Pickup</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {fulfillmentRows.map((row) => (
+              <tr key={row.bookingItemId}>
+                <td className="px-5 py-4 font-medium text-zinc-900">{row.customerName}</td>
+                <td className="px-5 py-4 text-zinc-600">{row.equipmentLabel}</td>
+                <td className="px-5 py-4 text-zinc-600">{row.driverName ?? "—"}</td>
+                <td className="px-5 py-4 text-zinc-600">
+                  {dateLabel(row.scheduledDelivery)}
+                  {row.deliveryStatus !== "pending" && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-bold ${
+                        row.deliveryStatus === "on_time" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                      }`}
+                    >
+                      {row.deliveryStatus === "on_time" ? "On time" : "Late"}
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">
+                  {dateLabel(row.scheduledPickup)}
+                  {row.pickupStatus !== "pending" && (
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-bold ${
+                        row.pickupStatus === "on_time" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                      }`}
+                    >
+                      {row.pickupStatus === "on_time" ? "On time" : "Late"}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {fulfillmentRows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-4 text-center text-zinc-400">
+                  No deliveries scheduled in this period.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
+  const ltvRows = computeCustomerLtv(customersRaw, invoicesRaw);
+  const avgLtv = ltvRows.length > 0 ? ltvRows.reduce((sum, r) => sum + r.lifetimeRevenue, 0) / ltvRows.length : 0;
+
+  const customerLtvTab = (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-black text-ink">Customer Lifetime Value</h2>
+        <ExportCsvButton
+          filename="customer-lifetime-value"
+          headers={["Customer", "Lifetime Revenue", "Orders", "Avg. Order Value", "First Order", "Last Order", "Customer Since"]}
+          rows={ltvRows.map((row) => [
+            row.name,
+            row.lifetimeRevenue.toFixed(2),
+            String(row.orderCount),
+            row.avgOrderValue.toFixed(2),
+            row.firstOrderDate ? dateLabel(row.firstOrderDate) : "—",
+            row.lastOrderDate ? dateLabel(row.lastOrderDate) : "—",
+            dateLabel(row.customerSince),
+          ])}
+        />
+      </div>
+      <p className="mt-1 text-sm text-zinc-500">
+        All-time revenue per customer — not affected by the date filter above, since lifetime value is
+        never a single-period figure.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3">
+        <SummaryCard label="Customers With Orders" value={ltvRows.length} formatValue={(v) => v.toFixed(0)} />
+        <SummaryCard label="Average LTV" value={avgLtv} />
+        <SummaryCard
+          label="Top Customer LTV"
+          value={ltvRows[0]?.lifetimeRevenue ?? 0}
+          sub={ltvRows[0]?.name}
+        />
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border-2 border-zinc-900 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3.5 font-semibold">Customer</th>
+              <th className="px-5 py-3.5 font-semibold">Lifetime Revenue</th>
+              <th className="px-5 py-3.5 font-semibold">Orders</th>
+              <th className="px-5 py-3.5 font-semibold">Avg. Order</th>
+              <th className="px-5 py-3.5 font-semibold">First Order</th>
+              <th className="px-5 py-3.5 font-semibold">Customer Since</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {ltvRows.slice(0, 100).map((row) => (
+              <tr key={row.customerId}>
+                <td className="px-5 py-4 font-medium text-zinc-900">
+                  {row.name}
+                  {row.companyName && <span className="ml-1 text-zinc-400">({row.companyName})</span>}
+                </td>
+                <td className="px-5 py-4 text-zinc-600">${row.lifetimeRevenue.toFixed(2)}</td>
+                <td className="px-5 py-4 text-zinc-600">{row.orderCount}</td>
+                <td className="px-5 py-4 text-zinc-600">${row.avgOrderValue.toFixed(2)}</td>
+                <td className="px-5 py-4 text-zinc-600">{row.firstOrderDate ? dateLabel(row.firstOrderDate) : "—"}</td>
+                <td className="px-5 py-4 text-zinc-600">{dateLabel(row.customerSince)}</td>
+              </tr>
+            ))}
+            {ltvRows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-5 py-4 text-center text-zinc-400">
+                  No customers with orders yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
   const tabs = [
     { id: "revenue", label: "Revenue", content: revenueTab },
     { id: "pl", label: "P&L Statement", content: plTab },
@@ -1486,7 +1697,9 @@ export default async function ReportsPage({
       ? [{ id: "job-profitability", label: "Job Profitability", content: jobProfitabilityTab }]
       : []),
     { id: "customers", label: "Customers", content: customersTab },
+    { id: "customer-ltv", label: "Customer LTV", content: customerLtvTab },
     ...(equipmentTab ? [{ id: "equipment", label: "Equipment", content: equipmentTab }] : []),
+    { id: "fulfillment", label: "Fulfillment", content: fulfillmentTab },
     { id: "ar-aging", label: "AR Aging", content: arAgingTab },
     { id: "ap-aging", label: "AP Aging", content: apAgingTab },
     ...(hasPlan(user, "pro") ? [{ id: "labor", label: "Labor", content: laborTab }] : []),
