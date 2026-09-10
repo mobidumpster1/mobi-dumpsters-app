@@ -49,6 +49,10 @@ export function saveMaintenanceReceiptFile(file: File): Promise<string> {
   return saveUploadedFile("maintenance", crypto.randomUUID(), file);
 }
 
+export function saveUserAvatarFile(userId: string, file: File): Promise<string> {
+  return saveUploadedFile("avatars", userId, file);
+}
+
 // Deletes a previously-uploaded file given the full URL stored on its
 // record. Safe to call even if the file is already gone.
 export async function deleteUploadedFile(url: string): Promise<void> {

@@ -9,6 +9,7 @@ import { quickSetEquipmentStatus, scheduleMaintenanceWindow, cancelMaintenanceWi
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { LocationMap } from "@/components/LocationMap";
+import { Avatar } from "@/components/Avatar";
 import { Field, inputClass } from "@/components/Field";
 import { branding } from "@/lib/branding";
 import { requireUser } from "@/lib/session";
@@ -42,7 +43,7 @@ export default async function EquipmentDetailPage({
       locationEvents: {
         orderBy: { startedAt: "desc" },
         take: 20,
-        include: { customer: true, movedByUser: { select: { name: true } } },
+        include: { customer: true, movedByUser: { select: { id: true, name: true, avatarUrl: true } } },
       },
       photos: { orderBy: { createdAt: "desc" } },
       // Status flips to "reserved" the moment a booking is created, even
@@ -319,7 +320,19 @@ export default async function EquipmentDetailPage({
                   {event.customer?.name ?? "—"}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
-                  {event.movedByUser?.name ?? "—"}
+                  {event.movedByUser ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        userId={event.movedByUser.id}
+                        name={event.movedByUser.name}
+                        avatarUrl={event.movedByUser.avatarUrl}
+                        size={22}
+                      />
+                      {event.movedByUser.name}
+                    </div>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {formatDateTime(event.startedAt)}

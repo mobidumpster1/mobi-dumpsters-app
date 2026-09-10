@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/session";
 import { Field, inputClass } from "@/components/Field";
 import { changeMyPassword } from "./actions";
 import { TwoFactorSetup } from "./TwoFactorSetup";
+import { AvatarUpload } from "./AvatarUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function AccountPage({
   const { saved, error } = await searchParams;
   const fullUser = await db.user.findUniqueOrThrow({
     where: { id: user.id },
-    select: { twoFactorEnabled: true },
+    select: { twoFactorEnabled: true, avatarUrl: true },
   });
 
   return (
@@ -23,7 +24,8 @@ export default async function AccountPage({
       <h1 className="text-3xl font-black tracking-tight text-ink">My Account</h1>
 
       <section className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
-        <dl className="flex flex-col gap-1 text-sm">
+        <AvatarUpload userId={user.id} name={user.name} avatarUrl={fullUser.avatarUrl} />
+        <dl className="mt-4 flex flex-col gap-1 text-sm">
           <div className="flex justify-between">
             <dt className="text-zinc-500">Name</dt>
             <dd className="text-zinc-900">{user.name}</dd>

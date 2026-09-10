@@ -119,6 +119,11 @@ model User {
   passwordHash    String
   role            String    @default("staff") // owner | staff
   active          Boolean   @default(true)
+  // Shown next to their name wherever "who did this" matters (activity
+  // log, equipment location history, driver assignment). Falls back to a
+  // colored initials circle (see Avatar.tsx) when not set — never
+  // required, since not every staff member will bother uploading one.
+  avatarUrl       String?
   // Set once the /verify-email link is clicked. Existing accounts (seeded
   // owner logins, accounts created before this field existed) are
   // backfilled as already verified — this is about confirming a
