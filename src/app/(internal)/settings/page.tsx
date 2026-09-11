@@ -1914,8 +1914,8 @@ export default async function SettingsPage({
           <div className="mt-6 border-t border-zinc-100 pt-4">
             <h3 className="text-sm font-semibold text-ink">Want more control over how this looks?</h3>
             <p className="mt-1 text-sm text-zinc-500">
-              Design a custom layout for your embedded widget — drag text, images, and the booking
-              form itself anywhere on a canvas.
+              Design a custom layout for your embedded widget — stack ready-made sections, or drop
+              in a Free Layout section to drag anything anywhere.
             </p>
             <Link
               href="/website-builder"

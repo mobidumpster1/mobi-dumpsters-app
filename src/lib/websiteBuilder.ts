@@ -1,9 +1,15 @@
 // Client-safe: types + pure block helpers only. Deliberately no `db`
 // import here — this module is pulled into the client bundle by
-// BuilderCanvas.tsx, and `src/lib/db.ts` uses Node-only APIs
+// FreeCanvasSectionEditor.tsx, and `src/lib/db.ts` uses Node-only APIs
 // (node:async_hooks) that can't ship to the browser. The one function that
 // actually touches the database (getWebsiteBuilderPage) lives in
 // websiteBuilderPage.ts instead, imported only from server components.
+
+// Omitted entirely (not shown scaled-down-to-unreadable) once a
+// free-canvas band is narrower than its designWidth — see
+// FreeCanvasBand.tsx. Optional on every block type, toggled in
+// BlockInspector.tsx.
+type MobileVisibility = { hideOnMobile?: boolean };
 
 export type TextBlock = {
   id: string;
@@ -17,7 +23,7 @@ export type TextBlock = {
   color: string;
   bold: boolean;
   align: "left" | "center" | "right";
-};
+} & MobileVisibility;
 
 export type ImageBlock = {
   id: string;
@@ -28,7 +34,7 @@ export type ImageBlock = {
   height: number;
   url: string | null;
   alt: string;
-};
+} & MobileVisibility;
 
 export type ButtonBlock = {
   id: string;
@@ -40,7 +46,7 @@ export type ButtonBlock = {
   label: string;
   href: string;
   color: string;
-};
+} & MobileVisibility;
 
 export type ShapeBlock = {
   id: string;
@@ -50,7 +56,7 @@ export type ShapeBlock = {
   width: number;
   height: number;
   color: string;
-};
+} & MobileVisibility;
 
 // A raw-HTML embed, same idea as Wix's "Embed Code" widget — for a
 // business owner who has a snippet from somewhere else (a review widget,
@@ -65,7 +71,7 @@ export type HtmlBlock = {
   width: number;
   height: number;
   html: string;
-};
+} & MobileVisibility;
 
 // No configurable props — it's a fixed feature block that renders the real
 // booking flow (BookingForm) sized to whatever box it's given. Position/
@@ -77,7 +83,7 @@ export type BookingWidgetBlock = {
   y: number;
   width: number;
   height: number;
-};
+} & MobileVisibility;
 
 export type Block = TextBlock | ImageBlock | ButtonBlock | ShapeBlock | BookingWidgetBlock | HtmlBlock;
 

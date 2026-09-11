@@ -92,6 +92,16 @@ export function BlockInspector({
         </button>
       </div>
 
+      <label className="flex items-center gap-1.5 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          checked={block.hideOnMobile ?? false}
+          onChange={(e) => onChange({ hideOnMobile: e.target.checked })}
+          className="h-4 w-4 rounded border-zinc-300"
+        />
+        Hide on phone-sized screens
+      </label>
+
       {block.type === "text" && (
         <>
           <Field label="Text" htmlFor="inspector-content">

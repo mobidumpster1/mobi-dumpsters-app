@@ -106,6 +106,7 @@ model Organization {
   bookingAvailabilitySettings     BookingAvailabilitySettings?
   blackoutDates                   BlackoutDate[]
   websiteBuilderPage              WebsiteBuilderPage?
+  websiteBuilderPageVersions      WebsiteBuilderPageVersion[]
 }
 
 // A staff login. "owner" has unrestricted access regardless of the
@@ -1791,18 +1792,39 @@ model WebsiteBuilderPage {
   id             String       @id @default(cuid())
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id])
+  // DEPRECATED as of the unified-page migration (2026-09-11) — the old
+  // two-editor (Canvas vs Sections) split. Left in place, unread by any
+  // code, purely as a migration safety net rather than dropped outright;
+  // see scripts/migrateBuilderPages.ts. Safe to remove in a later cleanup
+  // migration once the unified model has been live for a while.
   canvasWidth    Int          @default(640)
   canvasHeight   Int          @default(1200)
   blocksJson     String       @default("[]")
-  // Which of the two editors the live embed actually renders from —
-  // "canvas" (free-position blocks, blocksJson) or "sections" (safe,
-  // stacked, can't be broken on mobile — sectionsJson). Switching modes
-  // never discards the other mode's saved content, just changes which
-  // one is live when published. See src/lib/websiteSections.ts.
   builderMode    String       @default("canvas")
+  // The one page, as an ordered list of sections — see
+  // src/lib/websiteSections.ts for the SectionInstance shape, including
+  // the "freeCanvas" section type that contains the old free-position
+  // block editor as one contained band instead of a parallel page.
   sectionsJson   String       @default("[]")
   published      Boolean      @default(false)
   updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+}
+
+// A named, restorable snapshot of a page's sectionsJson — written on
+// every autosave (label "Autosave", one rolling slot) and before a
+// destructive action like Start Over, plus once per org by the unified-
+// page migration for whichever draft (Canvas or Sections) didn't become
+// the new live page, so it's recoverable rather than silently discarded.
+// Pruned to the most recent WEBSITE_BUILDER_MAX_VERSIONS per org (see
+// src/lib/websiteBuilderVersions.ts) — this is a rolling safety net, not
+// full version history.
+model WebsiteBuilderPageVersion {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  label          String
+  sectionsJson   String
   createdAt      DateTime     @default(now())
 }
 

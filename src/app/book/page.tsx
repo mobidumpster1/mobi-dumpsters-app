@@ -8,11 +8,10 @@ import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 import { getPublicOrganizationId } from "@/lib/session";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { parseCrossSellCategoryIds } from "@/lib/crossSell";
-import { parseBlocks } from "@/lib/websiteBuilder";
-import { parseSections } from "@/lib/websiteSections";
+import { parseSections, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
-import { CanvasRenderer } from "@/components/websiteBuilder/CanvasRenderer";
 import { SectionList } from "@/components/websiteBuilder/SectionRenderer";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +23,7 @@ export default async function PublicBookingPage({
   const { embed, category, builderPreview } = await searchParams;
   const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
-  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage] =
+  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage, org] =
     await Promise.all([
       listBookableCategories(),
       getAgreementSettings(organizationId),
@@ -34,6 +33,7 @@ export default async function PublicBookingPage({
       // (not iframed) always gets the default widget, so this lookup is
       // free to skip there. See the Website Builder feature.
       isEmbed ? getWebsiteBuilderPage(organizationId) : Promise.resolve(null),
+      isEmbed ? db.organization.findUnique({ where: { id: organizationId }, select: { plan: true } }) : Promise.resolve(null),
     ]);
   // Lets a link on Chase's own website (e.g. the Junk Removal section) go
   // straight to that category's review step, instead of dropping the
@@ -78,18 +78,17 @@ export default async function PublicBookingPage({
   // A custom layout only ever takes over when it's actually embedded AND
   // either published (live) or being checked via ?builderPreview=1 (so
   // Chase can look at a draft before flipping it live) AND has at least
-  // one block/section AND is actually the mode currently set to publish
-  // — otherwise it's today's exact default widget, unchanged. Canvas and
-  // Sections are independent: whichever was last Published (see
-  // togglePublished) is the one `builderMode` names here.
-  const builderBlocks = websiteBuilderPage ? parseBlocks(websiteBuilderPage.blocksJson) : [];
-  const builderSections = websiteBuilderPage ? parseSections(websiteBuilderPage.sectionsJson) : [];
-  const isLiveOrPreview =
-    isEmbed && websiteBuilderPage !== null && (websiteBuilderPage.published || builderPreview === "1");
-  const useCustomLayout =
-    isLiveOrPreview && websiteBuilderPage?.builderMode === "canvas" && builderBlocks.length > 0;
+  // one section — otherwise it's today's exact default widget, unchanged.
+  // HTML embed blocks are stripped here too (not just on save) so a plan
+  // downgrade after saving one can never leave it rendering live.
+  const builderSections = websiteBuilderPage
+    ? stripUngatedHtmlBlocks(parseSections(websiteBuilderPage.sectionsJson), org?.plan === "pro")
+    : [];
   const useSections =
-    isLiveOrPreview && websiteBuilderPage?.builderMode === "sections" && builderSections.length > 0;
+    isEmbed &&
+    websiteBuilderPage !== null &&
+    (websiteBuilderPage.published || builderPreview === "1") &&
+    builderSections.length > 0;
 
   return (
     <div
@@ -113,22 +112,6 @@ export default async function PublicBookingPage({
           <SectionList
             sections={builderSections}
             categories={mappedCategories}
-            bookingFormProps={{
-              categories: mappedCategories,
-              agreementTitle: agreement.title,
-              agreementContent: agreement.content,
-              initialCategoryId,
-              isEmbed,
-            }}
-          />
-        </div>
-      ) : useCustomLayout && websiteBuilderPage ? (
-        <div className="mx-auto" style={{ width: websiteBuilderPage.canvasWidth }}>
-          <CanvasRenderer
-            blocks={builderBlocks}
-            canvasWidth={websiteBuilderPage.canvasWidth}
-            canvasHeight={websiteBuilderPage.canvasHeight}
-            editable={false}
             bookingFormProps={{
               categories: mappedCategories,
               agreementTitle: agreement.title,

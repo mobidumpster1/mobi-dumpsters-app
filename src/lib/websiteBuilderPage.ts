@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 
 // Server-only — separated from websiteBuilder.ts so that file (which
-// BuilderCanvas.tsx, a client component, also imports for its types/block
-// helpers) never pulls `db` into the client bundle.
+// FreeCanvasSectionEditor.tsx, a client component, also imports for its
+// types/block helpers) never pulls `db` into the client bundle.
 //
 // One row per organization, created blank on first visit to the editor —
 // same pattern as getBookingAvailabilitySettings/getDumpScheduleSettings.

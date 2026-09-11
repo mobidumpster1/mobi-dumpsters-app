@@ -1,6 +1,7 @@
 import type { SectionInstance } from "@/lib/websiteSections";
 import { BookingForm, type BookingFormProps } from "@/app/book/BookingForm";
 import { priceLabel, includedTerms, type CategoryOption } from "@/app/book/categoryPricing";
+import { FreeCanvasBand } from "./FreeCanvasBand";
 
 function SectionWrapper({ children }: { children: React.ReactNode }) {
   return <section className="px-4 py-10 sm:px-8">{children}</section>;
@@ -137,6 +138,16 @@ export function SectionList({
                   <BookingForm {...bookingFormProps} />
                 </div>
               </SectionWrapper>
+            );
+          case "freeCanvas":
+            return (
+              <FreeCanvasBand
+                key={section.id}
+                blocks={section.props.blocks}
+                designWidth={section.props.designWidth}
+                height={section.props.height}
+                bookingFormProps={bookingFormProps}
+              />
             );
         }
       })}

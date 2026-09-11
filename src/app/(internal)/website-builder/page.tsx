@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { requireUser, hasPlan } from "@/lib/session";
-import { parseBlocks } from "@/lib/websiteBuilder";
 import { parseSections } from "@/lib/websiteSections";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
+import { listWebsiteBuilderVersions } from "@/lib/websiteBuilderVersions";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
-import { BuilderModeTabs } from "@/components/websiteBuilder/BuilderModeTabs";
+import { SectionEditor } from "@/components/websiteBuilder/SectionEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -23,18 +23,19 @@ export default async function WebsiteBuilderPage() {
         </p>
         <PlanGateNotice
           requiredPlan="team"
-          description="Drag text, images, and the booking form itself anywhere on a canvas to design your own embedded widget layout."
+          description="Stack sections or drag blocks freely to design your own embedded widget layout."
         />
       </div>
     );
   }
 
-  const [page, org] = await Promise.all([
+  const [page, org, versions] = await Promise.all([
     getWebsiteBuilderPage(user.effectiveOrganizationId),
     db.organization.findUniqueOrThrow({
       where: { id: user.effectiveOrganizationId },
       select: { publicDomain: true },
     }),
+    listWebsiteBuilderVersions(user.effectiveOrganizationId),
   ]);
 
   const headerList = await headers();
@@ -47,26 +48,19 @@ export default async function WebsiteBuilderPage() {
     <div>
       <h1 className="text-3xl font-black tracking-tight text-ink">Website Builder</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        Design a custom layout for your embedded booking widget — drag blocks anywhere, resize
-        them, layer them. Nothing here affects your live embed until you hit Publish; use Preview
-        to check it first.
+        Design a custom layout for your embedded booking widget — stack sections that always look
+        right on a phone, drop in a Free Layout section anywhere you want full drag-and-drop
+        control. Nothing here affects your live embed until you hit Publish; use Preview to check
+        it first.
       </p>
 
       <div className="mt-6">
-        <BuilderModeTabs
-          initialMode={page.builderMode === "sections" ? "sections" : "canvas"}
-          canvasProps={{
-            initialBlocks: parseBlocks(page.blocksJson),
-            canvasWidth: page.canvasWidth,
-            canvasHeight: page.canvasHeight,
-            initialPublished: page.published && page.builderMode === "canvas",
-            previewUrl,
-          }}
-          sectionsProps={{
-            initialSections: parseSections(page.sectionsJson),
-            initialPublished: page.published && page.builderMode === "sections",
-            previewUrl,
-          }}
+        <SectionEditor
+          initialSections={parseSections(page.sectionsJson)}
+          initialPublished={page.published}
+          initialVersions={versions}
+          canUseHtml={hasPlan(user, "pro")}
+          previewUrl={previewUrl}
         />
       </div>
     </div>

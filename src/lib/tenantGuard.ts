@@ -33,6 +33,7 @@ export const ORG_SCOPED_MODELS = new Set([
   "LeadOutreachSettings",
   "WinBackSettings",
   "BlackoutDate",
+  "WebsiteBuilderPageVersion",
 ]);
 
 // Only the operations whose `where` is both optional AND capable of
