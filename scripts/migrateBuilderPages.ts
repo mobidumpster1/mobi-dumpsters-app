@@ -43,7 +43,7 @@ async function pruneVersions(organizationId: string) {
     select: { id: true },
   });
   if (stale.length > 0) {
-    await db.websiteBuilderPageVersion.deleteMany({ where: { id: { in: stale.map((v) => v.id) } } });
+    await db.websiteBuilderPageVersion.deleteMany({ where: { organizationId, id: { in: stale.map((v) => v.id) } } });
   }
 }
 

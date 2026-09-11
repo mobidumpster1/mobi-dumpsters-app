@@ -2,6 +2,7 @@
 
 import { WEBSITE_BUILDER_TEMPLATES, instantiateTemplate, type WebsiteBuilderTemplate } from "@/lib/websiteBuilderTemplates";
 import type { Block } from "@/lib/websiteBuilder";
+import type { PageTheme } from "@/lib/websiteBuilderTheme";
 
 // A tiny scaled-down preview of a template's layout — a real rendering of
 // its blocks (not a screenshot), so it stays accurate if the templates
@@ -48,7 +49,16 @@ function blockPreviewColor(block: Block): string {
   }
 }
 
-export function TemplatePicker({ onChoose }: { onChoose: (blocks: Block[], canvasWidth: number, canvasHeight: number) => void }) {
+// Themes are presets now, not just canvas layouts — picking one also sets
+// the page-level theme (brand/accent/text/surface colors + font pairing),
+// via the optional 4th argument. "Start from scratch" deliberately omits
+// it, since starting blank shouldn't also silently change the page's
+// existing colors/fonts.
+export function TemplatePicker({
+  onChoose,
+}: {
+  onChoose: (blocks: Block[], canvasWidth: number, canvasHeight: number, theme?: PageTheme) => void;
+}) {
   return (
     <div className="rounded-lg border-2 border-zinc-900 bg-white p-6">
       <h2 className="text-xl font-black text-ink">Start with a layout</h2>
@@ -60,7 +70,7 @@ export function TemplatePicker({ onChoose }: { onChoose: (blocks: Block[], canva
           <button
             key={template.id}
             type="button"
-            onClick={() => onChoose(instantiateTemplate(template), template.canvasWidth, template.canvasHeight)}
+            onClick={() => onChoose(instantiateTemplate(template), template.canvasWidth, template.canvasHeight, template.theme)}
             className="flex flex-col items-center gap-2 rounded-lg border-2 border-zinc-200 p-3 text-center transition-colors hover:border-brand"
           >
             <TemplateThumbnail template={template} />

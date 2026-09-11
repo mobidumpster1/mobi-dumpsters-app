@@ -6,6 +6,7 @@ import { BlockInspector } from "./BlockInspector";
 import { TemplatePicker } from "./TemplatePicker";
 import { createDefaultBlock, type Block } from "@/lib/websiteBuilder";
 import type { FreeCanvasSectionInstance } from "@/lib/websiteSections";
+import type { PageTheme } from "@/lib/websiteBuilderTheme";
 
 const TALLER_CANVAS_STEP = 200;
 
@@ -28,10 +29,12 @@ export function FreeCanvasSectionEditor({
   section,
   onChange,
   canUseHtml,
+  onApplyTheme,
 }: {
   section: FreeCanvasSectionInstance;
   onChange: (props: FreeCanvasSectionInstance["props"]) => void;
   canUseHtml: boolean;
+  onApplyTheme?: (theme: PageTheme) => void;
 }) {
   const { blocks, designWidth, height } = section.props;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -68,8 +71,9 @@ export function FreeCanvasSectionEditor({
     setBlocks([block, ...blocks.filter((b) => b.id !== id)]);
   }
 
-  function chooseTemplate(templateBlocks: Block[], width: number, templateHeight: number) {
+  function chooseTemplate(templateBlocks: Block[], width: number, templateHeight: number, theme?: PageTheme) {
     onChange({ designWidth: width, height: templateHeight, blocks: templateBlocks });
+    if (theme) onApplyTheme?.(theme);
     setSelectedId(null);
   }
 

@@ -8,9 +8,11 @@ import { EmbedAutoResize } from "@/components/EmbedAutoResize";
 import { getPublicOrganizationId } from "@/lib/session";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { parseCrossSellCategoryIds } from "@/lib/crossSell";
-import { parseSections, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
+import { parsePageData, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
 import { SectionList } from "@/components/websiteBuilder/SectionRenderer";
+import { themeToCssVars } from "@/lib/websiteBuilderTheme";
+import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -81,34 +83,33 @@ export default async function PublicBookingPage({
   // one section — otherwise it's today's exact default widget, unchanged.
   // HTML embed blocks are stripped here too (not just on save) so a plan
   // downgrade after saving one can never leave it rendering live.
-  const builderSections = websiteBuilderPage
-    ? stripUngatedHtmlBlocks(parseSections(websiteBuilderPage.sectionsJson), org?.plan === "pro")
-    : [];
+  const pageData = websiteBuilderPage ? parsePageData(websiteBuilderPage.sectionsJson, branding.primaryColor) : null;
+  const builderSections = pageData ? stripUngatedHtmlBlocks(pageData.sections, org?.plan === "pro") : [];
   const useSections =
     isEmbed &&
     websiteBuilderPage !== null &&
     (websiteBuilderPage.published || builderPreview === "1") &&
     builderSections.length > 0;
 
+  // The default (non-sections) booking widget keeps using the org's plain
+  // branding color exactly as before; a published custom layout uses its
+  // own page-level theme, which may have been customized away from that.
+  const cssVars = useSections && pageData
+    ? themeToCssVars(pageData.theme)
+    : ({ "--rt-brand": branding.primaryColor, "--rt-brand-dark": branding.primaryColorDark } as React.CSSProperties);
+
   return (
     <div
-      className={
-        isEmbed
-          ? "theme-embed px-2 py-4"
-          : "theme-public-dark min-h-screen bg-background px-4 py-10"
-      }
-      style={
-        {
-          "--rt-brand": branding.primaryColor,
-          "--rt-brand-dark": branding.primaryColorDark,
-        } as React.CSSProperties
-      }
+      className={`${FONT_VARIABLES_CLASS} ${
+        isEmbed ? "theme-embed px-2 py-4" : "theme-public-dark min-h-screen bg-background px-4 py-10"
+      }`}
+      style={cssVars}
     >
       <UtmCapture />
       <ReferralCapture />
       {isEmbed && <EmbedAutoResize />}
       {useSections ? (
-        <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 shadow-sm" style={{ backgroundColor: "var(--pt-surface)" }}>
           <SectionList
             sections={builderSections}
             categories={mappedCategories}

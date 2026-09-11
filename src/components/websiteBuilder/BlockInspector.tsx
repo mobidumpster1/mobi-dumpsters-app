@@ -1,11 +1,7 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
-import { useState } from "react";
 import type { Block } from "@/lib/websiteBuilder";
 import { Field, inputClass } from "@/components/Field";
-
-const labelClass = "text-xs font-semibold text-zinc-500";
 
 export function BlockInspector({
   block,
@@ -20,23 +16,6 @@ export function BlockInspector({
   onBringToFront: () => void;
   onSendToBack: () => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-
-  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const blob = await upload(`website-builder/${Date.now()}-${file.name}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/blob-upload",
-      });
-      onChange({ url: blob.url } as Partial<Block>);
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <div className="flex w-64 flex-shrink-0 flex-col gap-4 rounded-lg border-2 border-zinc-900 bg-white p-4">
       <div className="flex items-center justify-between">
@@ -104,15 +83,7 @@ export function BlockInspector({
 
       {block.type === "text" && (
         <>
-          <Field label="Text" htmlFor="inspector-content">
-            <textarea
-              id="inspector-content"
-              rows={3}
-              value={block.content}
-              onChange={(e) => onChange({ content: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
+          <p className="text-xs text-zinc-500">Click the text on the canvas to edit it directly.</p>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Size" htmlFor="inspector-fontSize">
               <input
@@ -158,9 +129,7 @@ export function BlockInspector({
 
       {block.type === "image" && (
         <>
-          <p className={labelClass}>Image</p>
-          <input type="file" accept="image/*" onChange={handleImageFile} className={inputClass} />
-          {uploading && <p className="text-xs text-amber-600">Uploading…</p>}
+          <p className="text-xs text-zinc-500">Click the image on the canvas to upload or replace it.</p>
           <Field label="Alt text (optional)" htmlFor="inspector-alt">
             <input
               id="inspector-alt"
@@ -174,14 +143,7 @@ export function BlockInspector({
 
       {block.type === "button" && (
         <>
-          <Field label="Label" htmlFor="inspector-label">
-            <input
-              id="inspector-label"
-              value={block.label}
-              onChange={(e) => onChange({ label: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
+          <p className="text-xs text-zinc-500">Click the button text on the canvas to edit it directly.</p>
           <Field label="Link (https://, tel:, or mailto:)" htmlFor="inspector-href">
             <input
               id="inspector-href"

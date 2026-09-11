@@ -5,13 +5,20 @@ import { db } from "@/lib/db";
 import { requireUser, requirePlanFor, hasPlan } from "@/lib/session";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
 import { saveWebsiteBuilderVersion, getWebsiteBuilderVersion } from "@/lib/websiteBuilderVersions";
-import { parseSections, serializeSections, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
+import { parsePageData, serializePageData, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
+
+// A neutral fallback — only ever used if `submitted` turns out to be a
+// legacy bare-array value with no theme attached, which shouldn't happen
+// from the running editor (it always submits the full {sections,theme}
+// blob) but keeps parsePageData total either way.
+const FALLBACK_BRAND_COLOR = "#3f6b2f";
 
 // The one save action for the whole page — every section type (including
-// a freeCanvas band's blocks) lives in this one sectionsJson now, so
-// there's nothing left to save separately. Called both by the explicit
-// Save button and by the editor's 2s-debounced autosave; either way it
-// also snapshots a recoverable version (see websiteBuilderVersions.ts).
+// a freeCanvas band's blocks) plus the page-level theme live in this one
+// sectionsJson now, so there's nothing left to save separately. Called
+// both by the explicit Save button and by the editor's 2s-debounced
+// autosave; either way it also snapshots a recoverable version (see
+// websiteBuilderVersions.ts).
 export async function saveSections(formData: FormData) {
   const user = await requireUser();
   requirePlanFor(user, "team");
@@ -19,7 +26,8 @@ export async function saveSections(formData: FormData) {
 
   const sectionsJson = formData.get("sectionsJson");
   const submitted = typeof sectionsJson === "string" ? sectionsJson : page.sectionsJson;
-  const next = serializeSections(stripUngatedHtmlBlocks(parseSections(submitted), hasPlan(user, "pro")));
+  const { sections, theme } = parsePageData(submitted, FALLBACK_BRAND_COLOR);
+  const next = serializePageData(stripUngatedHtmlBlocks(sections, hasPlan(user, "pro")), theme);
 
   await db.websiteBuilderPage.update({
     where: { id: page.id },

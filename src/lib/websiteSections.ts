@@ -15,6 +15,7 @@
 // field list, so it's registered separately from SECTION_REGISTRY.
 
 import type { Block } from "@/lib/websiteBuilder";
+import { makeDefaultTheme, type PageTheme } from "@/lib/websiteBuilderTheme";
 
 export type SectionPropFieldType = "text" | "longtext" | "image" | "link";
 
@@ -156,6 +157,35 @@ export function createDefaultSection(type: NormalSectionType): NormalSectionInst
   return { id: newSectionId(), type, props: { ...getSectionDefinition(type).defaultProps } };
 }
 
+// Structural helpers shared by both the toolbar's "add" buttons (append,
+// index = sections.length) and the on-page "+" insert gaps (insert at a
+// specific index) — one code path either way, so there's no chance of the
+// two producing different results.
+export function insertSectionAt(sections: SectionInstance[], index: number, section: SectionInstance): SectionInstance[] {
+  const next = [...sections];
+  next.splice(Math.max(0, Math.min(index, sections.length)), 0, section);
+  return next;
+}
+
+export function duplicateSection(section: SectionInstance): SectionInstance {
+  const clone = JSON.parse(JSON.stringify(section)) as SectionInstance;
+  clone.id = newSectionId();
+  if (isFreeCanvasSection(clone)) {
+    clone.props.blocks = clone.props.blocks.map((b) => ({ ...b, id: newSectionId() }));
+  }
+  return clone;
+}
+
+// Used by both the arrow buttons and drag-to-reorder so the two paths can
+// never disagree about the resulting order.
+export function reorderSections(sections: SectionInstance[], fromIndex: number, toIndex: number): SectionInstance[] {
+  if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= sections.length) return sections;
+  const next = [...sections];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, moved);
+  return next;
+}
+
 // `blocks` defaults empty (a blank band) — the editor offers seeding it
 // from the existing starter templates (TemplatePicker) as a separate step,
 // not baked into this constructor, so this function stays a plain default
@@ -173,7 +203,10 @@ export function isFreeCanvasSection(section: SectionInstance): section is FreeCa
 }
 
 // Defensive parse, same reasoning as parseBlocks in websiteBuilder.ts — a
-// malformed sectionsJson value should never crash the live embed.
+// malformed sectionsJson value should never crash the live embed. Kept
+// exactly as-is (bare array in/out) for scripts/migrateBuilderPages.ts,
+// which already ran against real data and imports this signature —
+// parsePageData below is the new entry point for everything else.
 export function parseSections(json: string): SectionInstance[] {
   try {
     const parsed = JSON.parse(json);
@@ -185,6 +218,36 @@ export function parseSections(json: string): SectionInstance[] {
 
 export function serializeSections(sections: SectionInstance[]): string {
   return JSON.stringify(sections);
+}
+
+export type PageData = { sections: SectionInstance[]; theme: PageTheme };
+
+// The single column (WebsiteBuilderPage.sectionsJson) now holds both the
+// section list and the page-level theme, as one object instead of a bare
+// array — no schema migration needed, since a legacy row's bare-array
+// shape (every row that existed before this feature, including every
+// WebsiteBuilderPageVersion snapshot saved before it) still parses fine
+// here, just defaulting to a fresh theme. `defaultBrandColor` should be the
+// org's real getOrgBranding() color, so a page that's never had its theme
+// touched starts matching the business's existing brand.
+export function parsePageData(json: string, defaultBrandColor: string): PageData {
+  const fallbackTheme = makeDefaultTheme(defaultBrandColor);
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) {
+      return { sections: parsed as SectionInstance[], theme: fallbackTheme };
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.sections)) {
+      return { sections: parsed.sections as SectionInstance[], theme: { ...fallbackTheme, ...parsed.theme } };
+    }
+    return { sections: [], theme: fallbackTheme };
+  } catch {
+    return { sections: [], theme: fallbackTheme };
+  }
+}
+
+export function serializePageData(sections: SectionInstance[], theme: PageTheme): string {
+  return JSON.stringify({ sections, theme });
 }
 
 // HTML embed blocks need the Pro plan (see FreeCanvasSectionEditor.tsx's

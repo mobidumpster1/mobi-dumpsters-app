@@ -23,7 +23,7 @@ export async function saveWebsiteBuilderVersion(organizationId: string, label: s
   });
   if (stale.length > 0) {
     await db.websiteBuilderPageVersion.deleteMany({
-      where: { id: { in: stale.map((v) => v.id) } },
+      where: { organizationId, id: { in: stale.map((v) => v.id) } },
     });
   }
 }

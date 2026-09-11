@@ -3,6 +3,8 @@
 import { Rnd } from "react-rnd";
 import type { Block } from "@/lib/websiteBuilder";
 import { BookingForm, type BookingFormProps } from "@/app/book/BookingForm";
+import { EditableText } from "./EditableText";
+import { EditableImage } from "./EditableImage";
 
 // Shown in the editor only (never the live embed) so it's always obvious
 // what each box is without having to click it first — addresses "hard to
@@ -22,48 +24,60 @@ const DRAG_GRID: [number, number] = [10, 10];
 // it's wrapped in a draggable/resizable <Rnd>) and the live embed (where
 // it's just a plain absolutely-positioned box) so the two can never
 // visually drift apart; there's exactly one place that knows what a
-// "text block" or "button block" looks like.
+// "text block" or "button block" looks like. Text/image/button content is
+// directly click-to-edit (EditableText/EditableImage) when editable —
+// everything else (font size, color, bold, align, href, hide-on-mobile)
+// stays in BlockInspector's side panel.
 function BlockContent({
   block,
   editable,
+  onFieldChange,
   bookingFormProps,
 }: {
   block: Block;
   editable: boolean;
+  onFieldChange?: (patch: Partial<Block>) => void;
   bookingFormProps?: BookingFormProps;
 }) {
   switch (block.type) {
     case "text":
       return (
-        <div
-          style={{
-            fontSize: block.fontSize,
-            color: block.color,
-            fontWeight: block.bold ? 700 : 400,
-            textAlign: block.align,
-          }}
-          className="h-full w-full overflow-hidden whitespace-pre-wrap"
-        >
-          {block.content}
-        </div>
+        <EditableText
+          as="div"
+          value={block.content}
+          editable={editable}
+          multiline
+          placeholder="Add text"
+          onCommit={(v) => onFieldChange?.({ content: v })}
+          className="h-full w-full overflow-hidden"
+          style={{ fontSize: block.fontSize, color: block.color, fontWeight: block.bold ? 700 : 400, textAlign: block.align }}
+        />
       );
     case "image":
-      return block.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={block.url} alt={block.alt} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-400">
-          No image yet
-        </div>
+      return (
+        <EditableImage
+          url={block.url}
+          alt={block.alt}
+          editable={editable}
+          onChange={(url) => onFieldChange?.({ url } as Partial<Block>)}
+          className="h-full w-full"
+          emptyLabel="Click to add an image"
+        />
       );
     case "button": {
       const className =
         "flex h-full w-full items-center justify-center rounded-lg px-4 text-center text-sm font-bold text-white";
       const style = { backgroundColor: block.color };
       return editable ? (
-        <div className={className} style={style}>
-          {block.label}
-        </div>
+        <EditableText
+          as="div"
+          value={block.label}
+          editable
+          placeholder="Button text"
+          onCommit={(v) => onFieldChange?.({ label: v })}
+          className={className}
+          style={style}
+        />
       ) : (
         <a href={block.href} className={className} style={style}>
           {block.label}
@@ -93,6 +107,7 @@ function BlockContent({
       // booking widget placeholder above, so dragging the block around
       // doesn't get swallowed by whatever's inside the iframe — but it's
       // still a real live preview of the actual HTML, not a placeholder.
+      // Raw code stays edited in BlockInspector's textarea, not inline.
       return (
         <iframe
           title="Custom HTML"
@@ -120,7 +135,7 @@ export function CanvasRenderer({
   editable: boolean;
   selectedBlockId?: string | null;
   onSelect?: (id: string) => void;
-  onChange?: (id: string, patch: Partial<Pick<Block, "x" | "y" | "width" | "height">>) => void;
+  onChange?: (id: string, patch: Partial<Block>) => void;
   bookingFormProps?: BookingFormProps;
 }) {
   return (
@@ -144,6 +159,10 @@ export function CanvasRenderer({
             bounds="parent"
             dragGrid={DRAG_GRID}
             resizeGrid={DRAG_GRID}
+            // Clicking into editable text/image content types/uploads
+            // instead of starting a drag — only grabbing empty space on
+            // the block (or its label chip) moves it.
+            cancel='[contenteditable="true"], input, button, a'
             size={{ width: block.width, height: block.height }}
             position={{ x: block.x, y: block.y }}
             onDragStop={(_e, d) => onChange?.(block.id, { x: d.x, y: d.y })}
@@ -166,7 +185,7 @@ export function CanvasRenderer({
               <span>{BLOCK_LABELS[block.type].icon}</span>
               {BLOCK_LABELS[block.type].label}
             </span>
-            <BlockContent block={block} editable />
+            <BlockContent block={block} editable onFieldChange={(patch) => onChange?.(block.id, patch)} />
           </Rnd>
         ) : (
           <div
