@@ -44,15 +44,24 @@ export function FreeCanvasBand({
   const visibleBlocks = scale < 1 ? blocks.filter((b) => !b.hideOnMobile) : blocks;
 
   return (
-    <div ref={containerRef} className="w-full overflow-hidden" style={{ height: height * scale }}>
-      <div style={{ width: designWidth, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        <CanvasRenderer
-          blocks={visibleBlocks}
-          canvasWidth={designWidth}
-          canvasHeight={height}
-          editable={false}
-          bookingFormProps={bookingFormProps}
-        />
+    // Outer div stays full-width purely so containerRef measures the real
+    // available space (that's what `scale` is computed from). Now that
+    // sections can sit in a much wider page than this band's fixed
+    // designWidth (full-bleed siblings no longer cap the whole page at
+    // ~672px), the scaled content needs its own centered, exactly-sized
+    // wrapper — otherwise it just left-aligns in a sea of empty space
+    // instead of looking like a normal centered section.
+    <div ref={containerRef} className="w-full overflow-hidden">
+      <div className="mx-auto" style={{ width: designWidth * scale, height: height * scale }}>
+        <div style={{ width: designWidth, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          <CanvasRenderer
+            blocks={visibleBlocks}
+            canvasWidth={designWidth}
+            canvasHeight={height}
+            editable={false}
+            bookingFormProps={bookingFormProps}
+          />
+        </div>
       </div>
     </div>
   );

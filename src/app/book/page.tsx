@@ -109,19 +109,17 @@ export default async function PublicBookingPage({
       <ReferralCapture />
       {isEmbed && <EmbedAutoResize />}
       {useSections ? (
-        <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 shadow-sm" style={{ backgroundColor: "var(--pt-surface)" }}>
-          <SectionList
-            sections={builderSections}
-            categories={mappedCategories}
-            bookingFormProps={{
-              categories: mappedCategories,
-              agreementTitle: agreement.title,
-              agreementContent: agreement.content,
-              initialCategoryId,
-              isEmbed,
-            }}
-          />
-        </div>
+        <SectionList
+          sections={builderSections}
+          categories={mappedCategories}
+          bookingFormProps={{
+            categories: mappedCategories,
+            agreementTitle: agreement.title,
+            agreementContent: agreement.content,
+            initialCategoryId,
+            isEmbed,
+          }}
+        />
       ) : (
         <div className="mx-auto max-w-xl">
           {!isEmbed && (

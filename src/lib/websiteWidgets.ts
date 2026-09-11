@@ -10,7 +10,11 @@ type WidgetCategory = { id: string; name: string };
 
 function embedHtml(widgetId: string, src: string) {
   const frameId = `rt-widget-${widgetId}`;
-  return `<iframe id="${frameId}" src="${src}" style="width:100%;max-width:480px;border:none;min-height:900px;" title="Book Online"></iframe>
+  // No max-width — a Website Builder page can use full-bleed hero
+  // backgrounds now, which a capped iframe would just clip. A host page
+  // that wants a narrower embed can already wrap this in its own
+  // width-limited container; the iframe itself shouldn't impose one.
+  return `<iframe id="${frameId}" src="${src}" style="width:100%;border:none;min-height:900px;" title="Book Online"></iframe>
 <script>
   window.addEventListener("message", function (event) {
     if (event.data && event.data.type === "mobi-embed-resize") {

@@ -16,6 +16,7 @@
 
 import type { Block } from "@/lib/websiteBuilder";
 import { makeDefaultTheme, type PageTheme } from "@/lib/websiteBuilderTheme";
+import { defaultBackground, type SectionBackground } from "@/lib/websiteBuilderMedia";
 
 export type SectionPropFieldType = "text" | "longtext" | "image" | "link";
 
@@ -29,10 +30,19 @@ export type SectionPropField = {
 // The five "normal" (schema-driven, no free positioning) section types.
 export type NormalSectionType = "hero" | "ctaBanner" | "inventoryGrid" | "pricingTable" | "bookingWidget";
 
+export type SectionWidthMode = "full" | "contained";
+
 export type NormalSectionInstance = {
   id: string;
   type: NormalSectionType;
   props: Record<string, string>;
+  // Only meaningful when the section type's SectionDefinition has
+  // supportsBackground: true (hero/ctaBanner today). Optional/possibly
+  // absent on older saved sections — always read through
+  // getSectionWidthMode/getSectionBackground below rather than directly,
+  // so a pre-this-feature section still renders exactly as it did.
+  widthMode?: SectionWidthMode;
+  background?: SectionBackground;
 };
 
 // A bounded free-position canvas, contained as one section in the page
@@ -62,6 +72,10 @@ export type SectionDefinition = {
   description: string;
   fields: SectionPropField[];
   defaultProps: Record<string, string>;
+  // Hero/CtaBanner only today — gates whether the Settings panel offers
+  // full-bleed width + a background (color/image/video) at all. Live-data
+  // sections (Inventory Grid, Pricing Table, Booking Widget) don't get one.
+  supportsBackground?: boolean;
 };
 
 export const SECTION_REGISTRY: SectionDefinition[] = [
@@ -84,6 +98,7 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
       buttonLabel: "Call Us",
       buttonHref: "tel:",
     },
+    supportsBackground: true,
   },
   {
     type: "ctaBanner",
@@ -100,6 +115,7 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
       buttonLabel: "Call Us",
       buttonHref: "tel:",
     },
+    supportsBackground: true,
   },
   {
     type: "inventoryGrid",
@@ -154,7 +170,25 @@ function newSectionId() {
 }
 
 export function createDefaultSection(type: NormalSectionType): NormalSectionInstance {
-  return { id: newSectionId(), type, props: { ...getSectionDefinition(type).defaultProps } };
+  const def = getSectionDefinition(type);
+  return {
+    id: newSectionId(),
+    type,
+    props: { ...def.defaultProps },
+    ...(def.supportsBackground ? { widthMode: "full" as const, background: defaultBackground() } : {}),
+  };
+}
+
+// A section saved before this feature shipped has no widthMode/background
+// at all — read through these instead of the raw fields so it keeps
+// rendering exactly as it did (today's bounded look), not suddenly
+// full-bleed just because the field is now technically optional.
+export function getSectionWidthMode(section: NormalSectionInstance): SectionWidthMode {
+  return section.widthMode ?? "contained";
+}
+
+export function getSectionBackground(section: NormalSectionInstance): SectionBackground {
+  return section.background ?? defaultBackground();
 }
 
 // Structural helpers shared by both the toolbar's "add" buttons (append,

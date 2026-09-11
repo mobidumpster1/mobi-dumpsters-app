@@ -7,16 +7,63 @@
 // codebase, see project memory). Since this file is rendered directly by
 // a Server Component (book/page.tsx) either way, the whole module needs
 // to be a client component, same reasoning as CanvasRenderer.tsx.
-import type { SectionInstance } from "@/lib/websiteSections";
+import { getSectionBackground, getSectionWidthMode, type SectionInstance, type SectionWidthMode } from "@/lib/websiteSections";
+import type { SectionBackground } from "@/lib/websiteBuilderMedia";
 import { BookingForm, type BookingFormProps } from "@/app/book/BookingForm";
 import { priceLabel, includedTerms, type CategoryOption } from "@/app/book/categoryPricing";
 import { FreeCanvasBand } from "./FreeCanvasBand";
 import { EditableText } from "./EditableText";
 import { EditableImage } from "./EditableImage";
+import { SectionBackgroundMedia } from "./SectionBackgroundMedia";
 
+// Now that sections no longer share one page-level card (each is
+// independently full-bleed-or-not), every plain section needs its own
+// surface background so the page doesn't look transparent/broken where a
+// section has no media of its own.
 function SectionWrapper({ children }: { children: React.ReactNode }) {
-  return <section className="px-4 py-10 sm:px-8">{children}</section>;
+  return (
+    <section className="px-4 py-10 sm:px-8" style={{ backgroundColor: "var(--pt-surface)" }}>
+      {children}
+    </section>
+  );
 }
+
+// Hero/CtaBanner's wrapper — background spans the full section (edge to
+// edge in "full" width mode, width:100% not 100vw so it can never cause a
+// horizontal scrollbar), content stays inside a max-w-[1200px] container
+// so text never runs to the screen edge on a wide monitor. "Contained"
+// mode caps the whole section at that same width instead, closer to
+// today's look. min-height reserves space before image/video loads (the
+// concrete CLS fix) — only applied when there's actual media to wait for.
+function BackgroundSectionWrapper({
+  widthMode,
+  background,
+  priority,
+  children,
+}: {
+  widthMode: SectionWidthMode;
+  background: SectionBackground;
+  priority?: boolean;
+  children: React.ReactNode;
+}) {
+  const hasMedia = background.type !== "color";
+  return (
+    <section
+      className={`relative flex flex-col items-center justify-center overflow-hidden px-4 py-10 text-center sm:px-8 ${
+        widthMode === "full" ? "w-full" : "mx-auto w-full max-w-[1200px] rounded-2xl"
+      }`}
+      style={{
+        minHeight: hasMedia ? "clamp(420px, 70svh, 760px)" : undefined,
+        backgroundColor: hasMedia ? undefined : "var(--pt-surface)",
+      }}
+    >
+      <SectionBackgroundMedia background={background} priority={priority} />
+      <div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-col items-center gap-4">{children}</div>
+    </section>
+  );
+}
+
+const TEXT_SHADOW = "0 2px 10px rgba(0,0,0,0.55)";
 
 // Hero/CtaBanner double as both the editor's live preview and the published
 // page's renderer (same component, gated by `editable`) — this is what
@@ -24,18 +71,26 @@ function SectionWrapper({ children }: { children: React.ReactNode }) {
 // version of a section. `onFieldChange` is only ever called when editable.
 function Hero({
   props,
+  widthMode,
+  background,
+  priority,
   editable,
   onFieldChange,
 }: {
   props: Record<string, string>;
+  widthMode: SectionWidthMode;
+  background: SectionBackground;
+  priority?: boolean;
   editable: boolean;
   onFieldChange: (key: string, value: string) => void;
 }) {
   const showButton = editable || (props.buttonLabel && props.buttonHref);
+  const hasMedia = background.type !== "color";
+  const textShadow = hasMedia && "textShadow" in background && background.textShadow ? TEXT_SHADOW : undefined;
   return (
-    <SectionWrapper>
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        {(props.imageUrl || editable) && (
+    <BackgroundSectionWrapper widthMode={widthMode} background={background} priority={priority}>
+      <div className="flex w-full max-w-xl flex-col items-center gap-4">
+        {(props.imageUrl || editable) && !hasMedia && (
           <EditableImage
             url={props.imageUrl || null}
             alt=""
@@ -52,7 +107,7 @@ function Hero({
           placeholder="Add a headline"
           onCommit={(v) => onFieldChange("headline", v)}
           className="w-full text-3xl font-bold"
-          style={{ color: "var(--pt-text)", fontFamily: "var(--pt-font-display)" }}
+          style={{ color: "var(--pt-text)", fontFamily: "var(--pt-font-display)", textShadow }}
         />
         <EditableText
           as="p"
@@ -62,7 +117,7 @@ function Hero({
           placeholder="Add a subheadline"
           onCommit={(v) => onFieldChange("subheadline", v)}
           className="w-full"
-          style={{ color: "var(--pt-text-muted)" }}
+          style={{ color: "var(--pt-text-muted)", textShadow }}
         />
         {showButton &&
           (editable ? (
@@ -80,23 +135,34 @@ function Hero({
             </a>
           ))}
       </div>
-    </SectionWrapper>
+    </BackgroundSectionWrapper>
   );
 }
 
 function CtaBanner({
   props,
+  widthMode,
+  background,
+  priority,
   editable,
   onFieldChange,
 }: {
   props: Record<string, string>;
+  widthMode: SectionWidthMode;
+  background: SectionBackground;
+  priority?: boolean;
   editable: boolean;
   onFieldChange: (key: string, value: string) => void;
 }) {
   const showButton = editable || (props.buttonLabel && props.buttonHref);
+  const hasMedia = background.type !== "color";
+  const textShadow = hasMedia && "textShadow" in background && background.textShadow ? TEXT_SHADOW : undefined;
   return (
-    <SectionWrapper>
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 rounded-2xl p-8 text-center" style={{ backgroundColor: "var(--pt-brand-subtle)" }}>
+    <BackgroundSectionWrapper widthMode={widthMode} background={background} priority={priority}>
+      <div
+        className="flex w-full max-w-xl flex-col items-center gap-4 rounded-2xl p-8"
+        style={{ backgroundColor: hasMedia ? "transparent" : "var(--pt-brand-subtle)" }}
+      >
         <EditableText
           as="h2"
           value={props.headline ?? ""}
@@ -104,7 +170,7 @@ function CtaBanner({
           placeholder="Add a headline"
           onCommit={(v) => onFieldChange("headline", v)}
           className="w-full text-xl font-bold"
-          style={{ color: "var(--pt-text)", fontFamily: "var(--pt-font-display)" }}
+          style={{ color: "var(--pt-text)", fontFamily: "var(--pt-font-display)", textShadow }}
         />
         {showButton &&
           (editable ? (
@@ -122,7 +188,7 @@ function CtaBanner({
             </a>
           ))}
       </div>
-    </SectionWrapper>
+    </BackgroundSectionWrapper>
   );
 }
 
@@ -203,13 +269,34 @@ export function SectionList({
 }) {
   return (
     <div className="flex flex-col" style={{ fontFamily: "var(--pt-font-body)" }}>
-      {sections.map((section) => {
+      {sections.map((section, index) => {
         const fieldChange = (key: string, value: string) => onFieldChange?.(section.id, key, value);
+        const priority = index === 0;
         switch (section.type) {
           case "hero":
-            return <Hero key={section.id} props={section.props} editable={editable} onFieldChange={fieldChange} />;
+            return (
+              <Hero
+                key={section.id}
+                props={section.props}
+                widthMode={getSectionWidthMode(section)}
+                background={getSectionBackground(section)}
+                priority={priority}
+                editable={editable}
+                onFieldChange={fieldChange}
+              />
+            );
           case "ctaBanner":
-            return <CtaBanner key={section.id} props={section.props} editable={editable} onFieldChange={fieldChange} />;
+            return (
+              <CtaBanner
+                key={section.id}
+                props={section.props}
+                widthMode={getSectionWidthMode(section)}
+                background={getSectionBackground(section)}
+                priority={priority}
+                editable={editable}
+                onFieldChange={fieldChange}
+              />
+            );
           case "inventoryGrid":
             return <InventoryGrid key={section.id} categories={categories} />;
           case "pricingTable":

@@ -7,6 +7,7 @@ import { FreeCanvasSectionEditor } from "./FreeCanvasSectionEditor";
 import { EditableSectionShell } from "./EditableSectionShell";
 import { InsertSectionGap } from "./InsertSectionGap";
 import { BrandPanel } from "./BrandPanel";
+import { BackgroundPanel } from "./BackgroundPanel";
 import { useCommandHistory, type Command } from "./useCommandHistory";
 import { useBurstCommand } from "./useBurstCommand";
 import { useSectionDragReorder } from "./useSectionDragReorder";
@@ -22,12 +23,16 @@ import {
   reorderSections,
   parsePageData,
   serializePageData,
+  getSectionWidthMode,
+  getSectionBackground,
   type SectionInstance,
   type FreeCanvasSectionInstance,
   type NormalSectionInstance,
   type NormalSectionType,
+  type SectionWidthMode,
   type PageData,
 } from "@/lib/websiteSections";
+import type { SectionBackground } from "@/lib/websiteBuilderMedia";
 import { themeToCssVars, type PageTheme } from "@/lib/websiteBuilderTheme";
 import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 import { saveSections, togglePublished, restoreVersion } from "@/app/(internal)/website-builder/sectionActions";
@@ -188,6 +193,46 @@ export function SectionEditor({
           ...s,
           sections: s.sections.map((sec) => (sec.id === b.sectionId && !isFreeCanvasSection(sec) ? { ...sec, props: { ...sec.props, [b.key]: b.value } } : sec)),
         }),
+      });
+    });
+  }
+
+  // Full-width toggle is a single deliberate click — one undo step.
+  function handleWidthModeChange(sectionId: string, next: SectionWidthMode) {
+    const section = sections.find((s) => s.id === sectionId);
+    if (!section || isFreeCanvasSection(section)) return;
+    const before = getSectionWidthMode(section);
+    history.run({
+      apply: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === sectionId && !isFreeCanvasSection(sec) ? { ...sec, widthMode: next } : sec)) }),
+      invert: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === sectionId && !isFreeCanvasSection(sec) ? { ...sec, widthMode: before } : sec)) }),
+    });
+  }
+
+  // Background type/upload changes apply immediately (one command each —
+  // picking a type, finishing an upload); the overlay color/opacity slider
+  // inside BackgroundPanel is the one bursty part, coalesced the same way
+  // as the Brand panel's color pickers.
+  const backgroundBurst = useBurstCommand<{ sectionId: string; background: SectionBackground }>();
+  function handleBackgroundChange(sectionId: string, next: SectionBackground, coalesce = false) {
+    const section = sections.find((s) => s.id === sectionId);
+    if (!section || isFreeCanvasSection(section)) return;
+    const before = { sectionId, background: getSectionBackground(section) };
+    const after = { sectionId, background: next };
+    if (!coalesce) {
+      history.run({
+        apply: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === sectionId && !isFreeCanvasSection(sec) ? { ...sec, background: next } : sec)) }),
+        invert: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === sectionId && !isFreeCanvasSection(sec) ? { ...sec, background: before.background } : sec)) }),
+      });
+      return;
+    }
+    history.setLive((s) => ({
+      ...s,
+      sections: s.sections.map((sec) => (sec.id === sectionId && !isFreeCanvasSection(sec) ? { ...sec, background: next } : sec)),
+    }));
+    backgroundBurst.report(before, after, (b, a) => {
+      history.pushCommand({
+        apply: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === a.sectionId && !isFreeCanvasSection(sec) ? { ...sec, background: a.background } : sec)) }),
+        invert: (s) => ({ ...s, sections: s.sections.map((sec) => (sec.id === b.sectionId && !isFreeCanvasSection(sec) ? { ...sec, background: b.background } : sec)) }),
       });
     });
   }
@@ -379,79 +424,95 @@ export function SectionEditor({
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 shadow-sm" style={{ backgroundColor: "var(--pt-surface)" }}>
-          <div className="flex flex-col p-3">
-            <InsertSectionGap onInsert={(type) => addSectionAt(0, type)} dropActive={drag.draggingId !== null && drag.dropIndex === 0} />
-            {sections.length === 0 && (
-              <p className="py-8 text-center text-sm text-zinc-400">
-                Add a section from the toolbar above to get started — they&apos;ll stack top to bottom, in order.
-              </p>
-            )}
-            {sections.map((section, index) => {
-              const isCanvas = isFreeCanvasSection(section);
-              const def = isCanvas ? FREE_CANVAS_META : getSectionDefinition(section.type as NormalSectionType);
-              const linkFields = isCanvas ? [] : getSectionDefinition(section.type as NormalSectionType).fields.filter((f) => f.type === "link");
-              return (
-                <div key={section.id}>
-                  <EditableSectionShell
-                    icon={def.icon}
-                    label={def.label}
-                    onMoveUp={() => handleReorder(index, index - 1)}
-                    onMoveDown={() => handleReorder(index, index + 1)}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < sections.length - 1}
-                    onDuplicate={() => handleDuplicate(index)}
-                    onDelete={() => handleDelete(index)}
-                    onOpenSettings={linkFields.length > 0 ? () => setSettingsOpenId(section.id) : undefined}
-                    hasSettings={linkFields.length > 0}
-                    isDragging={drag.draggingId === section.id}
-                    registerRef={(el) => drag.setItemRef(section.id, el)}
-                    onPointerDown={(e) => drag.onPointerDown(e, section.id)}
-                  >
-                    {isCanvas ? (
-                      <div className="p-3">
-                        <FreeCanvasSectionEditor
-                          section={section}
-                          onChange={(props) => handleFreeCanvasChange(section.id, props)}
-                          canUseHtml={canUseHtml}
-                          onApplyTheme={handleApplyTheme}
-                        />
-                      </div>
-                    ) : (
-                      <SectionList
-                        sections={[section]}
-                        categories={categories}
-                        bookingFormProps={bookingFormProps}
-                        editable
-                        onFieldChange={handleFieldChange}
-                      />
-                    )}
-                  </EditableSectionShell>
-
-                  {settingsOpenId === section.id && linkFields.length > 0 && (
-                    <div className="mx-3 mt-1 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-xs font-semibold text-zinc-500">Settings</p>
-                        <button type="button" onClick={() => setSettingsOpenId(null)} className="text-xs text-zinc-400 hover:underline">
-                          Done
-                        </button>
-                      </div>
-                      <SectionPropForm
-                        fields={linkFields}
-                        values={(section as NormalSectionInstance).props}
-                        onChange={(key, value) => handleSettingsFieldChange(section.id, key, value)}
+        <div className="flex flex-col">
+          <InsertSectionGap onInsert={(type) => addSectionAt(0, type)} dropActive={drag.draggingId !== null && drag.dropIndex === 0} />
+          {sections.length === 0 && (
+            <p className="py-8 text-center text-sm text-zinc-400">
+              Add a section from the toolbar above to get started — they&apos;ll stack top to bottom, in order.
+            </p>
+          )}
+          {sections.map((section, index) => {
+            const isCanvas = isFreeCanvasSection(section);
+            const def = isCanvas ? FREE_CANVAS_META : getSectionDefinition(section.type as NormalSectionType);
+            const linkFields = isCanvas ? [] : getSectionDefinition(section.type as NormalSectionType).fields.filter((f) => f.type === "link");
+            const supportsBackground = !isCanvas && !!getSectionDefinition(section.type as NormalSectionType).supportsBackground;
+            const hasSettings = linkFields.length > 0 || supportsBackground;
+            return (
+              <div key={section.id}>
+                <EditableSectionShell
+                  icon={def.icon}
+                  label={def.label}
+                  onMoveUp={() => handleReorder(index, index - 1)}
+                  onMoveDown={() => handleReorder(index, index + 1)}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < sections.length - 1}
+                  onDuplicate={() => handleDuplicate(index)}
+                  onDelete={() => handleDelete(index)}
+                  onOpenSettings={hasSettings ? () => setSettingsOpenId(section.id) : undefined}
+                  hasSettings={hasSettings}
+                  isDragging={drag.draggingId === section.id}
+                  registerRef={(el) => drag.setItemRef(section.id, el)}
+                  onPointerDown={(e) => drag.onPointerDown(e, section.id)}
+                >
+                  {isCanvas ? (
+                    <div className="p-3">
+                      <FreeCanvasSectionEditor
+                        section={section}
+                        onChange={(props) => handleFreeCanvasChange(section.id, props)}
+                        canUseHtml={canUseHtml}
+                        onApplyTheme={handleApplyTheme}
                       />
                     </div>
+                  ) : (
+                    <SectionList
+                      sections={[section]}
+                      categories={categories}
+                      bookingFormProps={bookingFormProps}
+                      editable
+                      onFieldChange={handleFieldChange}
+                    />
                   )}
+                </EditableSectionShell>
 
-                  <InsertSectionGap
-                    onInsert={(type) => addSectionAt(index + 1, type)}
-                    dropActive={drag.draggingId !== null && drag.dropIndex === index + 1}
-                  />
-                </div>
-              );
-            })}
-          </div>
+                {settingsOpenId === section.id && hasSettings && (
+                  <div className="mx-3 mt-1 flex flex-col gap-3">
+                    {linkFields.length > 0 && (
+                      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-xs font-semibold text-zinc-500">Settings</p>
+                          {!supportsBackground && (
+                            <button type="button" onClick={() => setSettingsOpenId(null)} className="text-xs text-zinc-400 hover:underline">
+                              Done
+                            </button>
+                          )}
+                        </div>
+                        <SectionPropForm
+                          fields={linkFields}
+                          values={(section as NormalSectionInstance).props}
+                          onChange={(key, value) => handleSettingsFieldChange(section.id, key, value)}
+                        />
+                      </div>
+                    )}
+                    {supportsBackground && (
+                      <BackgroundPanel
+                        background={getSectionBackground(section as NormalSectionInstance)}
+                        widthMode={getSectionWidthMode(section as NormalSectionInstance)}
+                        onChangeBackground={(next, coalesce) => handleBackgroundChange(section.id, next, coalesce)}
+                        onChangeWidthMode={(next) => handleWidthModeChange(section.id, next)}
+                        headlineColor={theme.textColor}
+                        onClose={() => setSettingsOpenId(null)}
+                      />
+                    )}
+                  </div>
+                )}
+
+                <InsertSectionGap
+                  onInsert={(type) => addSectionAt(index + 1, type)}
+                  dropActive={drag.draggingId !== null && drag.dropIndex === index + 1}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
