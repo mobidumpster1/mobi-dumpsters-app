@@ -6,15 +6,40 @@ import { hasPermission, requireUser } from "@/lib/session";
 import { logRecurringBillAsExpense } from "./recurringActions";
 import { deleteExpense } from "./actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { ReportsFilterBar } from "@/components/ReportsFilterBar";
+import { DonutChart, type DonutSlice } from "@/components/DonutChart";
+import { parseDateRangeParams, inRange } from "@/lib/dateRange";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExpensesPage() {
+// Same palette Reports' Expenses tab uses — kept in sync by eye since it's
+// just a fixed color cycle, not worth a shared module for one array.
+const EXPENSE_COLORS = [
+  "#16a34a",
+  "#f59e0b",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ef4444",
+  "#14b8a6",
+  "#ec4899",
+  "#6b7280",
+  "#eab308",
+  "#0ea5e9",
+];
+
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   const user = await requireUser();
   if (!hasPermission(user, "canManageExpenses")) redirect("/");
   const canDelete = hasPermission(user, "canDeleteRecords");
 
-  const [expenses, recurringBills] = await Promise.all([
+  const { from, to } = await searchParams;
+  const range = parseDateRangeParams({ from, to });
+
+  const [expensesRaw, recurringBills] = await Promise.all([
     db.expense.findMany({
       where: { organizationId: user.effectiveOrganizationId },
       orderBy: { date: "desc" },
@@ -26,11 +51,43 @@ export default async function ExpensesPage() {
     }),
   ]);
 
+  // The period picker scopes everything on this page — summary cards, the
+  // breakdown below, and the list itself — so "This Month" always means
+  // the same thing everywhere on it, the way Reports' filter does.
+  const expenses = range ? expensesRaw.filter((e) => inRange(e.date, range)) : expensesRaw;
+
   const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
   const paidAmount = expenses
     .filter((e) => e.status === "paid")
     .reduce((sum, e) => sum + e.amount, 0);
   const unpaidAmount = totalAmount - paidAmount;
+
+  // Category/vendor breakdown — the same computation Reports' Expenses tab
+  // does, brought here so seeing "why is this total what it is" doesn't
+  // require leaving the page you actually manage expenses on.
+  const byCategory = new Map<string, number>();
+  for (const expense of expenses) {
+    byCategory.set(expense.category, (byCategory.get(expense.category) ?? 0) + expense.amount);
+  }
+  const categorySlices: DonutSlice[] = Array.from(byCategory.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value], i) => ({ label, value, color: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }));
+  const categoryRows = categorySlices.map((s) => ({
+    ...s,
+    percent: totalAmount > 0 ? (s.value / totalAmount) * 100 : 0,
+  }));
+
+  const byVendor = new Map<string, { amount: number; count: number }>();
+  for (const expense of expenses) {
+    const entry = byVendor.get(expense.vendor) ?? { amount: 0, count: 0 };
+    entry.amount += expense.amount;
+    entry.count += 1;
+    byVendor.set(expense.vendor, entry);
+  }
+  const vendorRows = Array.from(byVendor.entries())
+    .sort((a, b) => b[1].amount - a[1].amount)
+    .slice(0, 8)
+    .map(([vendor, row]) => ({ vendor, ...row, percent: totalAmount > 0 ? (row.amount / totalAmount) * 100 : 0 }));
 
   return (
     <div>
@@ -58,6 +115,10 @@ export default async function ExpensesPage() {
         </div>
       </div>
 
+      <div className="mt-6">
+        <ReportsFilterBar from={from} to={to} basePath="/expenses" />
+      </div>
+
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
         <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
           <div className="text-sm text-zinc-500">Total</div>
@@ -77,6 +138,81 @@ export default async function ExpensesPage() {
             ${unpaidAmount.toFixed(2)}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border-2 border-zinc-900 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-black text-ink">Where it's going</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              By category and vendor, for {range ? "the selected period" : "all time"} — the same breakdown as{" "}
+              <Link href="/reports?tab=expenses" className="font-semibold text-brand hover:underline">
+                Reports
+              </Link>
+              , without leaving this page.
+            </p>
+          </div>
+        </div>
+        {expenses.length === 0 ? (
+          <p className="mt-4 text-center text-zinc-400">No expenses in this period yet.</p>
+        ) : (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <DonutChart slices={categorySlices} />
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-zinc-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-zinc-50 text-zinc-500">
+                  <tr>
+                    <th className="px-4 py-2.5 font-semibold">Category</th>
+                    <th className="px-4 py-2.5 font-semibold">Amount</th>
+                    <th className="px-4 py-2.5 font-semibold">%</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {categoryRows.map((row) => (
+                    <tr key={row.label}>
+                      <td className="px-4 py-2.5 text-zinc-900">{row.label}</td>
+                      <td className="px-4 py-2.5 text-zinc-600">${row.value.toFixed(2)}</td>
+                      <td className="px-4 py-2.5 text-zinc-600">{row.percent.toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {vendorRows.length > 0 && (
+          <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-zinc-500">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold">Top Vendors</th>
+                  <th className="px-4 py-2.5 font-semibold"># Expenses</th>
+                  <th className="px-4 py-2.5 font-semibold">Amount</th>
+                  <th className="px-4 py-2.5 font-semibold">%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {vendorRows.map((row) => (
+                  <tr key={row.vendor}>
+                    <td className="px-4 py-2.5 text-zinc-900">{row.vendor}</td>
+                    <td className="px-4 py-2.5 text-zinc-600">{row.count}</td>
+                    <td className="px-4 py-2.5 text-zinc-600">${row.amount.toFixed(2)}</td>
+                    <td className="px-4 py-2.5 text-zinc-600">{row.percent.toFixed(0)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-zinc-400">
+          Want revenue, profit, and everything else alongside this? See the full{" "}
+          <Link href="/reports" className="font-semibold text-brand hover:underline">
+            Reports
+          </Link>{" "}
+          page.
+        </p>
       </div>
 
       {recurringBills.length > 0 && (

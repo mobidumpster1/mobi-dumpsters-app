@@ -5,8 +5,10 @@ import { reportPresets } from "@/lib/dateRange";
 // Presets are plain links (query-string navigation, no client JS needed);
 // the custom range is a plain GET form for the same reason — the whole
 // bar works even with JS disabled, and print:hidden keeps it off a
-// printed report.
-export function ReportsFilterBar({ from, to }: { from?: string; to?: string }) {
+// printed report. `basePath` lets any page with the same from/to
+// searchParams convention reuse this (e.g. Expenses' own breakdown),
+// not just /reports.
+export function ReportsFilterBar({ from, to, basePath = "/reports" }: { from?: string; to?: string; basePath?: string }) {
   const presets = reportPresets(new Date());
   const activePreset = presets.find((p) => p.from === from && p.to === to);
   const hasCustomRange = Boolean(from && to);
@@ -20,16 +22,16 @@ export function ReportsFilterBar({ from, to }: { from?: string; to?: string }) {
     <div className="print:hidden flex flex-col gap-3 rounded-lg border-2 border-zinc-900 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Period</span>
-        <Link href="/reports" className={pillClass(!hasCustomRange)}>
+        <Link href={basePath} className={pillClass(!hasCustomRange)}>
           All Time
         </Link>
         {presets.map((p) => (
-          <Link key={p.label} href={`/reports?from=${p.from}&to=${p.to}`} className={pillClass(activePreset === p)}>
+          <Link key={p.label} href={`${basePath}?from=${p.from}&to=${p.to}`} className={pillClass(activePreset === p)}>
             {p.label}
           </Link>
         ))}
       </div>
-      <form method="GET" action="/reports" className="flex flex-wrap items-end gap-2">
+      <form method="GET" action={basePath} className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="from" className="text-xs font-medium text-zinc-500">
             From

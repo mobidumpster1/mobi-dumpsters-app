@@ -129,13 +129,13 @@ function ChangeCard({ label, current, prior }: { label: string; current: number;
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; tab?: string }>;
 }) {
   const user = await requireUser();
   if (!hasPermission(user, "canViewReports")) redirect("/");
   if (!hasPlan(user, "team")) redirect("/");
 
-  const { from, to } = await searchParams;
+  const { from, to, tab } = await searchParams;
   const range = parseDateRangeParams({ from, to });
   const priorRange = range ? priorPeriod(range) : null;
 
@@ -536,11 +536,17 @@ export default async function ReportsPage({
   const expensesTab = (
     <>
       <section>
-        <h2 className="text-xl font-black text-ink">
-          Expense Breakdown
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-black text-ink">
+            Expense Breakdown
+          </h2>
+          <Link href="/expenses" className="text-sm font-semibold text-brand hover:underline">
+            Manage individual expenses →
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-zinc-500">
-          Total expenses by category and by vendor.
+          Total expenses by category and by vendor. This same breakdown, scoped to a period, is
+          also on the Expenses page itself.
         </p>
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
@@ -1704,7 +1710,11 @@ export default async function ReportsPage({
     { id: "ap-aging", label: "AP Aging", content: apAgingTab },
     ...(hasPlan(user, "pro") ? [{ id: "labor", label: "Labor", content: laborTab }] : []),
   ];
-  const tabsElement = <Tabs tabs={tabs} initialTab="revenue" />;
+  // Lets another page deep-link straight to one tab (e.g. Expenses' own
+  // "see the full breakdown" link → /reports?tab=expenses) instead of
+  // always landing on Revenue.
+  const initialTab = tab && tabs.some((t) => t.id === tab) ? tab : "revenue";
+  const tabsElement = <Tabs tabs={tabs} initialTab={initialTab} />;
 
   return (
     <div className="flex flex-col gap-8">
