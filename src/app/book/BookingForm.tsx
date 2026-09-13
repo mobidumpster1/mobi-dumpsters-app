@@ -3,6 +3,7 @@
 import { useCallback, useState, useTransition } from "react";
 import { checkAvailability, getUnavailableStartDates, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
+import { formatDate } from "@/lib/date";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import {
@@ -208,6 +209,14 @@ export function BookingForm({
       : true;
   const terms = selectedCategory ? includedTerms(selectedCategory) : [];
 
+  // Drives the checkout step's order-summary total — same priority as
+  // `bookable` above (materials, then tiers, then a flat base rate).
+  const summaryTotal = hasMaterials
+    ? (materialQuote?.total ?? null)
+    : hasTiers
+      ? (selectedTier?.price ?? null)
+      : (selectedCategory?.basePrice ?? null);
+
   return (
     <form action={submitBookingRequest} className="flex flex-col gap-4">
       <input type="hidden" name="categoryId" value={categoryId} required />
@@ -255,19 +264,25 @@ export function BookingForm({
                 key={c.id}
                 type="button"
                 onClick={() => onCategoryChange(c.id)}
-                className="flex flex-col overflow-hidden rounded-2xl border-2 border-zinc-200 text-left transition-colors hover:border-brand/50"
+                className="flex flex-col overflow-hidden rounded-2xl border-2 border-zinc-200 text-left transition-all hover:border-brand/50 hover:shadow-md"
               >
                 {c.imageUrl ? (
+                  // Kept object-contain (never crops) rather than a filled
+                  // object-cover crop — once real dumpster photos with
+                  // dimension callouts/labels are in use, cropping could cut
+                  // off the exact info a customer needs to see.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={c.imageUrl}
                     alt={c.name}
-                    className="h-28 w-full bg-zinc-50 object-contain"
+                    className="h-44 w-full bg-zinc-50 object-contain sm:h-52"
                   />
                 ) : (
-                  <div className="h-28 w-full bg-zinc-100" />
+                  <div className="flex h-44 w-full items-center justify-center bg-zinc-100 text-xs text-zinc-400 sm:h-52">
+                    No photo yet
+                  </div>
                 )}
-                <div className="p-2.5">
+                <div className="p-3">
                   <p className="text-sm font-semibold text-ink">{c.name}</p>
                   {price && (
                     <p className="text-xs text-zinc-500">{price}</p>
@@ -460,16 +475,80 @@ export function BookingForm({
             ‹ Back to details
           </button>
 
-          <div className="flex items-center gap-3 rounded-xl bg-zinc-50 p-3">
-            {selectedCategory.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={selectedCategory.imageUrl}
-                alt={selectedCategory.name}
-                className="h-12 w-12 flex-shrink-0 rounded-lg bg-white object-contain"
-              />
-            )}
-            <p className="text-sm font-semibold text-ink">{selectedCategory.name}</p>
+          {/* Order summary — what's picked and a running total, kept live as
+              duration/material/date change below (all the same state this
+              reads from). Previously this step showed no price at all once
+              past Review, so there was nothing to check against while
+              filling in contact details. */}
+          <div className="rounded-xl border-2 border-brand/20 bg-brand/5 p-4">
+            <div className="flex items-center gap-3">
+              {selectedCategory.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedCategory.imageUrl}
+                  alt={selectedCategory.name}
+                  className="h-14 w-14 flex-shrink-0 rounded-lg bg-white object-contain"
+                />
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink">{selectedCategory.name}</p>
+                <p className="text-xs text-zinc-500">{deliveryCaption(selectedCategory)}</p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-1.5 border-t border-brand/20 pt-3 text-sm">
+              {hasTiers && selectedTier && (
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-600">{selectedTier.label} rental</span>
+                  <span className="font-medium text-ink">
+                    {selectedTier.price != null ? `$${selectedTier.price.toFixed(2)}` : "Call for pricing"}
+                  </span>
+                </div>
+              )}
+              {hasMaterials && selectedMaterial && (
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-600">
+                    {materialQuantityNum || 0} {selectedMaterial.unit} of {selectedMaterial.name}
+                  </span>
+                  <span className="font-medium text-ink">
+                    {materialQuote ? `$${materialQuote.materialTotal.toFixed(2)}` : "—"}
+                  </span>
+                </div>
+              )}
+              {!hasTiers && !hasMaterials && (
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-600">Base rate</span>
+                  <span className="font-medium text-ink">
+                    {selectedCategory.basePrice != null ? `$${selectedCategory.basePrice.toFixed(2)}` : "We'll confirm your price"}
+                  </span>
+                </div>
+              )}
+              {hasMaterials && materialQuote && materialQuote.deliveryFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-600">Delivery</span>
+                  <span className="font-medium text-ink">${materialQuote.deliveryFee.toFixed(2)}</span>
+                </div>
+              )}
+              {startDate && (
+                <div className="flex items-center justify-between text-xs text-zinc-500">
+                  <span>Delivery date</span>
+                  <span>
+                    {formatDate(new Date(`${startDate}T00:00:00.000Z`))}
+                    {rangeEnd ? ` – ${formatDate(new Date(`${rangeEnd}T00:00:00.000Z`))}` : ""}
+                  </span>
+                </div>
+              )}
+              <div className="mt-1 flex items-center justify-between border-t border-brand/20 pt-2 text-base font-bold text-ink">
+                <span>Estimated Total</span>
+                <span>
+                  {summaryTotal != null ? `$${summaryTotal.toFixed(2)}` : "TBD"}
+                </span>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">
+              {materialQuote?.note ??
+                "Doesn't include delivery mileage past 30 miles or a weight overage, if any — we'll confirm before your date."}
+            </p>
           </div>
 
           {hasTiers && (
