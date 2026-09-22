@@ -27,6 +27,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  // Stripe retries a delivery on any non-2xx response, and re-applying a
+  // payment event (granting a plan twice, double-revoking on a refund) is
+  // a real, costly bug — checked before doing any work so a replay is a
+  // pure no-op. Recorded *after* successful processing below (not here),
+  // so a crash partway through still lets Stripe's retry actually run
+  // again instead of being silently swallowed by a premature mark.
+  const alreadyProcessed = await db.processedPlatformWebhookEvent.findUnique({
+    where: { id: event.id },
+  });
+  if (alreadyProcessed) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.mode !== "subscription") {
@@ -43,7 +56,7 @@ export async function POST(request: Request) {
       await db.platformSubscription.upsert({
         where: { organizationId },
         create: { organizationId, stripeCustomerId, stripeSubscriptionId, status: "active" },
-        update: { stripeCustomerId, stripeSubscriptionId, status: "active" },
+        update: { stripeCustomerId, stripeSubscriptionId, status: "active", paymentFailedAt: null },
       });
       await db.organization.update({ where: { id: organizationId }, data: { plan } });
     }
@@ -70,7 +83,37 @@ export async function POST(request: Request) {
       });
       await db.organization.update({ where: { id: organizationId }, data: { plan: "solo" } });
     }
+  } else if (event.type === "invoice.payment_failed") {
+    // Anchors Phase 5's grace-period clock — see the paymentFailedAt
+    // field comment on PlatformSubscription. Stripe's own dunning
+    // retries continue in parallel; this just records when the clock
+    // should start counting from.
+    const invoice = event.data.object as Stripe.Invoice;
+    const organizationId = invoice.parent?.subscription_details?.metadata?.organizationId;
+    if (organizationId) {
+      await db.platformSubscription.updateMany({
+        where: { organizationId },
+        data: { paymentFailedAt: new Date() },
+      });
+    }
+  } else if (event.type === "invoice.payment_succeeded") {
+    // Payment recovered — clears whatever grace-period clock
+    // invoice.payment_failed may have started.
+    const invoice = event.data.object as Stripe.Invoice;
+    const organizationId = invoice.parent?.subscription_details?.metadata?.organizationId;
+    if (organizationId) {
+      await db.platformSubscription.updateMany({
+        where: { organizationId },
+        data: { paymentFailedAt: null },
+      });
+    }
+  } else if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+    // Recognized so Stripe never sees these as unhandled and keeps
+    // retrying, but there's nothing to act on yet — entitlement
+    // revocation happens against AddonPurchase (Phase 3), which doesn't
+    // exist until then. Wired in there, not here.
   }
 
+  await db.processedPlatformWebhookEvent.create({ data: { id: event.id, type: event.type } });
   return NextResponse.json({ ok: true });
 }
