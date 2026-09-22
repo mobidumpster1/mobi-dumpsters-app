@@ -1,5 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 
 // Video background source uploads (website-builder/video/...) get a much
 // tighter cap than the blanket image/general limit below — they're raw
@@ -8,6 +10,13 @@ import { NextResponse } from "next/server";
 // size. Everything else keeps today's generous 500MB allowance.
 const RAW_VIDEO_PATHNAME_PREFIX = "website-builder/video/";
 const RAW_VIDEO_MAX_BYTES = 150 * 1024 * 1024;
+
+// The one legitimate unauthenticated caller: the public on-site/online
+// agreement-signing page (src/app/booking/[id]/complete), which has no
+// staff session to check and uses the booking id itself as its bearer
+// token (same pattern as that page's own data lookup). Every other
+// upload surface in the app is staff-only.
+const PUBLIC_SIGNATURE_PATHNAME = /^agreements\/([^/]+)\//;
 
 // Issues short-lived client tokens so the browser can upload large files
 // (photos and especially videos) straight to Vercel Blob, bypassing the
@@ -22,6 +31,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
+        const user = await getCurrentUser();
+        if (!user) {
+          const bookingId = pathname.match(PUBLIC_SIGNATURE_PATHNAME)?.[1];
+          const booking = bookingId
+            ? await db.booking.findUnique({ where: { id: bookingId }, select: { id: true } })
+            : null;
+          if (!booking) {
+            throw new Error("Not authorized to upload here.");
+          }
+        }
+
         if (pathname.startsWith(RAW_VIDEO_PATHNAME_PREFIX)) {
           return {
             allowedContentTypes: ["video/*"],

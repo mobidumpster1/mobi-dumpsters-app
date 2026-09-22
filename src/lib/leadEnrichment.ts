@@ -1,3 +1,6 @@
+import dns from "node:dns";
+import net from "node:net";
+
 export type EnrichmentResult = {
   email: string | null;
   facebookUrl: string | null;
@@ -13,6 +16,48 @@ const EMPTY_RESULT: EnrichmentResult = {
 };
 
 const FETCH_TIMEOUT_MS = 5000;
+const MAX_REDIRECTS = 5;
+
+// Blocks fetches to loopback, link-local (including the 169.254.169.254
+// cloud metadata address), and private/internal ranges — a lead's
+// "website" field is untrusted user-adjacent input (scraped off Google
+// Places or typed by staff), so without this a crafted URL could make the
+// server fetch its own internal network instead of a real business site.
+function isPrivateOrReservedIp(ip: string): boolean {
+  const family = net.isIP(ip);
+  if (family === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    if (a === 127) return true; // loopback
+    if (a === 10) return true; // private
+    if (a === 169 && b === 254) return true; // link-local / cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 168) return true; // private
+    if (a === 0) return true; // "this network"
+    return false;
+  }
+  if (family === 6) {
+    const normalized = ip.toLowerCase();
+    if (normalized === "::1") return true; // loopback
+    if (normalized.startsWith("fe80:")) return true; // link-local
+    if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true; // unique-local
+    if (normalized.startsWith("::ffff:")) {
+      // IPv4-mapped IPv6 — re-check the embedded v4 address.
+      return isPrivateOrReservedIp(normalized.replace("::ffff:", ""));
+    }
+    return false;
+  }
+  return true; // not a parseable IP at all — treat as unsafe rather than guess
+}
+
+async function isSafeToFetch(url: URL): Promise<boolean> {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  try {
+    const addresses = await dns.promises.lookup(url.hostname, { all: true });
+    return addresses.length > 0 && addresses.every((a) => !isPrivateOrReservedIp(a.address));
+  } catch {
+    return false; // DNS failure — nothing to fetch, don't guess
+  }
+}
 
 // Best-effort contact-info scraper: fetches a lead's own website and looks
 // for a mailto: link and social profile links in the page's HTML. This is
@@ -28,23 +73,39 @@ export async function enrichFromWebsite(website: string): Promise<EnrichmentResu
   } catch {
     return EMPTY_RESULT;
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return EMPTY_RESULT;
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let response: Response;
-    try {
-      response = await fetch(url.toString(), {
-        signal: controller.signal,
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; LeadEnrichmentBot/1.0)" },
-        redirect: "follow",
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    // Followed manually (not fetch's redirect:"follow") so every hop —
+    // not just the first URL — is re-validated against internal/private
+    // IP ranges before being requested.
+    let response: Response | null = null;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (!(await isSafeToFetch(url))) return EMPTY_RESULT;
 
-    if (!response.ok) return EMPTY_RESULT;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        response = await fetch(url.toString(), {
+          signal: controller.signal,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; LeadEnrichmentBot/1.0)" },
+          redirect: "manual",
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (response.status < 300 || response.status >= 400) break;
+      const location = response.headers.get("location");
+      if (!location) return EMPTY_RESULT;
+      try {
+        url = new URL(location, url);
+      } catch {
+        return EMPTY_RESULT;
+      }
+      response = null;
+    }
+    if (!response || !response.ok) return EMPTY_RESULT;
+
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) return EMPTY_RESULT;
 
