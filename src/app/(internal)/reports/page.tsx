@@ -139,11 +139,11 @@ export default async function ReportsPage({
   const range = parseDateRangeParams({ from, to });
   const priorRange = range ? priorPeriod(range) : null;
 
-  const [invoicesRaw, expensesRaw, recurringBills, jobCostingSettings, bookingItems, timeEntriesRaw, quotesRaw, maintenanceLogEntriesRaw, customersRaw] =
+  const [invoicesRaw, expensesRaw, recurringBills, jobCostingSettings, bookingItems, timeEntriesRaw, quotesRaw, maintenanceLogEntriesRaw, customersRaw, maintenanceWindows] =
     await Promise.all([
       db.invoice.findMany({
         where: { organizationId: user.effectiveOrganizationId },
-        include: { booking: { include: { customer: true } }, customer: true },
+        include: { booking: { include: { customer: true } }, customer: true, lineItems: true },
       }),
       db.expense.findMany({
         where: { organizationId: user.effectiveOrganizationId },
@@ -176,6 +176,10 @@ export default async function ReportsPage({
         where: { organizationId: user.effectiveOrganizationId },
         select: { id: true, name: true, companyName: true, createdAt: true },
       }),
+      db.maintenanceWindow.findMany({
+        where: { organizationId: user.effectiveOrganizationId },
+        select: { equipmentItemId: true, startDate: true, endDate: true },
+      }),
     ]);
 
   // When a custom date range is active, every table/breakdown below is
@@ -192,9 +196,45 @@ export default async function ReportsPage({
     : maintenanceLogEntriesRaw;
   const bookingItemsInRange = range ? bookingItems.filter((bi) => inRange(bi.startDate, range)) : bookingItems;
 
-  const totalRevenue = invoices.reduce((sum, i) => sum + i.amount, 0);
+  // A refundable security deposit is folded into the same invoice as the
+  // rental charge (see createDraftInvoiceForBooking) but isn't revenue —
+  // it's held, then given back. Every "revenue" figure below sums this
+  // instead of the raw invoice.amount, which used to count the deposit as
+  // if it were rental income (T072) — outstandingReceivables, Cash Flow's
+  // cashIn, and AR Aging deliberately still use the full invoice.amount,
+  // since a deposit genuinely is money owed/collected, just not earned.
+  function rentalAmount(invoice: { amount: number; lineItems: { type: string; amount: number }[] }): number {
+    const depositTotal = invoice.lineItems
+      .filter((line) => line.type === "deposit")
+      .reduce((sum, line) => sum + line.amount, 0);
+    return invoice.amount - depositTotal;
+  }
+
+  const totalRevenue = invoices.reduce((sum, i) => sum + rentalAmount(i), 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const profit = totalRevenue - totalExpenses;
+
+  // T080: with no range picked, this page used to compare every invoice
+  // ever created against every expense ever imported with no warning —
+  // for an org whose expense history (e.g. a QuickBooks import) reaches
+  // much further back than its invoice/booking history, that silently
+  // produces a wildly misleading margin. Flagged whenever the two
+  // datasets' earliest dates are more than ~90 days apart and no range
+  // is currently applied (a picked range makes both sides consistent by
+  // construction, so this never fires there).
+  const earliestInvoiceDate = invoicesRaw.reduce(
+    (min, i) => (min === null || i.issueDate < min ? i.issueDate : min),
+    null as Date | null
+  );
+  const earliestExpenseDate = expensesRaw.reduce(
+    (min, e) => (min === null || e.date < min ? e.date : min),
+    null as Date | null
+  );
+  const coverageMismatchDays =
+    earliestInvoiceDate && earliestExpenseDate
+      ? Math.abs(earliestInvoiceDate.getTime() - earliestExpenseDate.getTime()) / 86_400_000
+      : 0;
+  const showCoverageMismatchWarning = !range && coverageMismatchDays > 90;
 
   const outstandingReceivables = invoices
     .filter((i) => i.status !== "paid")
@@ -213,7 +253,7 @@ export default async function ReportsPage({
   // picked, computed straight off the unfiltered fetch so it isn't
   // affected by the current range's own filtering above.
   const priorPeriodRevenue = priorRange
-    ? invoicesRaw.filter((i) => inRange(i.issueDate, priorRange)).reduce((sum, i) => sum + i.amount, 0)
+    ? invoicesRaw.filter((i) => inRange(i.issueDate, priorRange)).reduce((sum, i) => sum + rentalAmount(i), 0)
     : null;
   const priorPeriodExpenses = priorRange
     ? expensesRaw.filter((e) => inRange(e.date, priorRange)).reduce((sum, e) => sum + e.amount, 0)
@@ -225,7 +265,7 @@ export default async function ReportsPage({
   for (const invoice of invoices) {
     const key = monthKey(invoice.issueDate);
     const entry = monthly.get(key) ?? { revenue: 0, expenses: 0 };
-    entry.revenue += invoice.amount;
+    entry.revenue += rentalAmount(invoice);
     monthly.set(key, entry);
   }
   for (const expense of expenses) {
@@ -262,7 +302,7 @@ export default async function ReportsPage({
     const customer = invoice.booking?.customer ?? invoice.customer;
     if (!customer) continue;
     const entry = byCustomer.get(customer.id) ?? { name: customer.name, revenue: 0, invoiceCount: 0 };
-    entry.revenue += invoice.amount;
+    entry.revenue += rentalAmount(invoice);
     entry.invoiceCount += 1;
     byCustomer.set(customer.id, entry);
   }
@@ -320,7 +360,7 @@ export default async function ReportsPage({
     const customer = invoice.booking?.customer ?? invoice.customer;
     const source = customer?.leadSource ?? "not_specified";
     const entry = byChannel.get(source) ?? { revenue: 0, bookings: 0 };
-    entry.revenue += invoice.amount;
+    entry.revenue += rentalAmount(invoice);
     entry.bookings += 1;
     byChannel.set(source, entry);
   }
@@ -332,12 +372,12 @@ export default async function ReportsPage({
   const sumSince = (start: Date) =>
     invoicesRaw
       .filter((i) => i.issueDate >= start)
-      .reduce((sum, i) => sum + i.amount, 0);
+      .reduce((sum, i) => sum + rentalAmount(i), 0);
   const revenueToday = sumSince(startOfDayUTC(now));
   const revenueThisWeek = sumSince(startOfWeekUTC(now));
   const revenueThisMonth = sumSince(startOfMonthUTC(now));
   const revenueThisYear = sumSince(startOfYearUTC(now));
-  const revenueAllTime = invoicesRaw.reduce((sum, i) => sum + i.amount, 0);
+  const revenueAllTime = invoicesRaw.reduce((sum, i) => sum + rentalAmount(i), 0);
 
   const byCategory = new Map<string, number>();
   for (const expense of expenses) {
@@ -771,7 +811,7 @@ export default async function ReportsPage({
     if (!invoice.bookingId) continue;
     const customerName = invoice.booking?.customer?.name ?? "—";
     const entry = byBooking.get(invoice.bookingId) ?? { customerName, revenue: 0, cost: 0 };
-    entry.revenue += invoice.amount;
+    entry.revenue += rentalAmount(invoice);
     byBooking.set(invoice.bookingId, entry);
   }
   for (const expense of expenses) {
@@ -868,7 +908,7 @@ export default async function ReportsPage({
   const utilizationPeriodEnd = range ? range.end : new Date();
   const utilizationPeriodStart = range ? range.start : new Date(utilizationPeriodEnd.getTime() - 30 * 86_400_000);
   const equipmentLabelById = new Map(bookingItems.map((bi) => [bi.equipmentItemId, bi.equipmentItem.label]));
-  const utilizationRows = computeUtilization(bookingItems, utilizationPeriodStart, utilizationPeriodEnd)
+  const utilizationRows = computeUtilization(bookingItems, maintenanceWindows, utilizationPeriodStart, utilizationPeriodEnd)
     .map((row) => ({ ...row, label: equipmentLabelById.get(row.equipmentItemId) ?? "—" }))
     .slice(0, 20);
   const utilizationBars = utilizationRows.map((row) => ({
@@ -958,12 +998,19 @@ export default async function ReportsPage({
             </h2>
             <ExportCsvButton
               filename="equipment-utilization"
-              headers={["Equipment", "Days on Rent", "Utilization %"]}
-              rows={utilizationRows.map((row) => [row.label, row.daysOnRent.toFixed(1), row.utilizationPercent.toFixed(0)])}
+              headers={["Equipment", "Days Reserved", "Days on Rent", "Days on Maintenance", "Utilization %"]}
+              rows={utilizationRows.map((row) => [
+                row.label,
+                row.daysReserved.toFixed(1),
+                row.daysOnRent.toFixed(1),
+                row.daysOnMaintenance.toFixed(1),
+                row.utilizationPercent.toFixed(0),
+              ])}
             />
           </div>
           <p className="mt-1 text-sm text-zinc-500">
-            % of the period each piece of equipment was on a job. Ranked busiest first.
+            % of the period each piece of equipment was unavailable for another job — reserved (booked but not yet
+            delivered), on rent, or on maintenance. Ranked busiest first.
           </p>
           <div className="mt-3 rounded-lg border-2 border-zinc-900 bg-white p-5">
             <BarChart bars={utilizationBars} formatValue={(v) => `${v}%`} color="#16a34a" />
@@ -973,7 +1020,9 @@ export default async function ReportsPage({
               <thead className="bg-zinc-50 text-zinc-500">
                 <tr>
                   <th className="px-5 py-3.5 font-semibold">Equipment</th>
-                  <th className="px-5 py-3.5 font-semibold">Days on Rent</th>
+                  <th className="px-5 py-3.5 font-semibold">Reserved</th>
+                  <th className="px-5 py-3.5 font-semibold">On Rent</th>
+                  <th className="px-5 py-3.5 font-semibold">Maintenance</th>
                   <th className="px-5 py-3.5 font-semibold">Utilization</th>
                 </tr>
               </thead>
@@ -981,7 +1030,9 @@ export default async function ReportsPage({
                 {utilizationRows.map((row) => (
                   <tr key={row.equipmentItemId}>
                     <td className="px-5 py-4 text-zinc-900">{row.label}</td>
+                    <td className="px-5 py-4 text-zinc-600">{row.daysReserved.toFixed(1)}</td>
                     <td className="px-5 py-4 text-zinc-600">{row.daysOnRent.toFixed(1)}</td>
+                    <td className="px-5 py-4 text-zinc-600">{row.daysOnMaintenance.toFixed(1)}</td>
                     <td className="px-5 py-4 text-zinc-600">{row.utilizationPercent.toFixed(0)}%</td>
                   </tr>
                 ))}
@@ -1731,6 +1782,16 @@ export default async function ReportsPage({
       </div>
 
       <ReportsFilterBar from={from} to={to} />
+
+      {showCoverageMismatchWarning && earliestInvoiceDate && earliestExpenseDate && (
+        <p className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">
+          <strong>Heads up:</strong> your expense records go back to {dateLabel(earliestExpenseDate)},
+          but your invoice/booking records only start {dateLabel(earliestInvoiceDate)}. This All Time
+          view compares both in full, so the margin below understates how the business is actually
+          doing right now — pick a period covering just the time both sides actually track (e.g.
+          This Year) for a fair comparison.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <SummaryCard label={range ? "Revenue (Period)" : "Total Revenue"} value={totalRevenue} />
