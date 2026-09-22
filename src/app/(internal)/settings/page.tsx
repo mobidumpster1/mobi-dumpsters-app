@@ -925,7 +925,15 @@ export default async function SettingsPage({
             Connected (
             {connection.environment === "production" ? "live" : "sandbox / test"}{" "}
             account).
+            {connection.lastSyncedAt
+              ? ` Last synced ${connection.lastSyncedAt.toLocaleString()}.`
+              : " Waiting on the first sync."}
           </p>
+          {connection.lastSyncError && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 break-all">
+              Last sync failed: {connection.lastSyncError}
+            </p>
+          )}
 
           <form action={saveAccountMappings} className="flex flex-col gap-4">
             <Field

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { db } from "@/lib/db";
 import { getAnyStripeConnection, constructWebhookEvent, savePaymentMethodFromSetupIntent } from "@/lib/stripe";
 import { markInvoicePaidViaStripe, markInstallmentPaidViaStripe } from "@/lib/invoicing";
 
@@ -30,6 +31,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  // Stripe retries a delivery on any non-2xx response, and duplicate/
+  // out-of-order delivery was previously only as safe as each downstream
+  // handler's own idempotency — real for invoice/installment status
+  // (markInvoicePaidViaStripe/markInstallmentPaidViaStripe already no-op
+  // once paid), but not for the QuickBooks push those functions also
+  // trigger, which could fire again on every redelivery. Recorded *after*
+  // successful processing (not here), same reasoning as the
+  // platform-billing webhook: a crash partway through should still let a
+  // real retry run again rather than being silently swallowed.
+  const alreadyProcessed = await db.processedRentalWebhookEvent.findUnique({
+    where: { id: event.id },
+  });
+  if (alreadyProcessed) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const installmentId = paymentIntent.metadata?.installmentId;
@@ -44,5 +61,6 @@ export async function POST(request: Request) {
     await savePaymentMethodFromSetupIntent(connection.organizationId, setupIntent.id);
   }
 
+  await db.processedRentalWebhookEvent.create({ data: { id: event.id, type: event.type } });
   return NextResponse.json({ ok: true });
 }

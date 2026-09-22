@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { str } from "@/lib/formData";
 import { markInstallmentPaidViaStripe } from "@/lib/invoicing";
-import { chargeCardOnFile, createCheckoutSession, toCents } from "@/lib/stripe";
+import { chargeCardOnFile, createCheckoutSession, refundPayment, toCents } from "@/lib/stripe";
 import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { branding } from "@/lib/branding";
 import { requirePermission } from "@/lib/session";
@@ -105,6 +106,55 @@ export async function markInstallmentUnpaid(installmentId: string) {
   });
 
   await syncInvoiceStatusFromInstallments(installment.invoiceId);
+  revalidatePath(`/invoices/${installment.invoiceId}`);
+}
+
+// Refunds all or part of ONE paid installment's own Stripe charge (T070)
+// — distinct from refundInvoicePayment, which only ever knows about
+// Invoice.stripePaymentIntentId and can't reach an installment's separate
+// charge at all. Same partial-refund-ceiling pattern as
+// refundInvoicePayment: computes what's actually left to refund before
+// calling Stripe, never trusts the caller's number alone. A full refund
+// moves the installment to its own "refunded" status (not back to
+// "pending", which would incorrectly suggest it was never paid) so the
+// parent invoice's derived status correctly stops counting it as paid.
+export async function refundInstallment(installmentId: string, formData: FormData) {
+  const user = await requirePermission("canManageInvoices");
+
+  const installment = await db.invoiceInstallment.findFirstOrThrow({
+    where: { id: installmentId, invoice: { organizationId: user.effectiveOrganizationId } },
+  });
+  if (!installment.stripePaymentIntentId) {
+    throw new Error("This installment wasn't paid through Stripe — refund it outside the app.");
+  }
+
+  const alreadyRefunded = installment.refundedAmount ?? 0;
+  const remaining = installment.amount - alreadyRefunded;
+  const amountStr = str(formData, "amountDollars");
+  const amount = amountStr ? Math.min(Math.max(0, Number(amountStr) || 0), remaining) : remaining;
+  if (amount <= 0) {
+    throw new Error("Nothing left to refund on this installment.");
+  }
+
+  const result = await refundPayment(
+    user.effectiveOrganizationId,
+    installment.stripePaymentIntentId,
+    toCents(amount)
+  );
+
+  const newRefundedAmount = alreadyRefunded + result.amountCents / 100;
+  const fullyRefunded = newRefundedAmount >= installment.amount - 0.01;
+  await db.invoiceInstallment.update({
+    where: { id: installmentId },
+    data: {
+      refundedAmount: newRefundedAmount,
+      refundedAt: new Date(),
+      status: fullyRefunded ? "refunded" : installment.status,
+    },
+  });
+
+  await syncInvoiceStatusFromInstallments(installment.invoiceId);
+  await logAction("invoice.installment_refunded", "InvoiceInstallment", installmentId);
   revalidatePath(`/invoices/${installment.invoiceId}`);
 }
 

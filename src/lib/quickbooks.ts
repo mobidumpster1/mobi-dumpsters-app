@@ -23,6 +23,8 @@ type QuickBooksConnection = {
   defaultExpenseAccountId: string | null;
   defaultExpenseAccountName: string | null;
   defaultItemId: string | null;
+  lastSyncedAt: Date | null;
+  lastSyncError: string | null;
 };
 
 export function isQuickBooksConfigured() {
@@ -339,6 +341,34 @@ async function createQboInvoice(
   return invoiceResponse.Invoice.Id as string;
 }
 
+// A sync failure here is never fatal to the app's own record (the local
+// payment/expense already happened, and every caller of these two push
+// functions deliberately catches and swallows so a QuickBooks hiccup
+// can't undo it) — but until this existed, that failure was only ever
+// logged to the server console, invisible anywhere in the app (T093).
+// Records success/failure on the connection row itself, same
+// lastSyncedAt/lastSyncError pattern GoogleAdsConnection already used,
+// then re-throws so every existing caller's own try/catch still behaves
+// exactly as before.
+export async function recordSyncOutcome<T>(connectionId: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    const result = await fn();
+    await db.quickBooksConnection.update({
+      where: { id: connectionId },
+      data: { lastSyncedAt: new Date(), lastSyncError: null },
+    });
+    return result;
+  } catch (error) {
+    await db.quickBooksConnection
+      .update({
+        where: { id: connectionId },
+        data: { lastSyncError: error instanceof Error ? error.message : String(error) },
+      })
+      .catch(() => {});
+    throw error;
+  }
+}
+
 // Pushes a paid local invoice to QuickBooks as an Invoice + a linked Payment
 // marking it paid in full. Returns the QBO IDs, or null if QuickBooks isn't
 // connected (a booking/invoice should still work fine without this). Reuses
@@ -361,37 +391,40 @@ export async function pushInvoicePayment(input: {
 }): Promise<{ invoiceId: string; paymentId: string } | null> {
   const connection = await getValidConnection(input.organizationId);
   if (!connection) return null;
-  if (!connection.defaultDepositAccountId) {
-    throw new Error(
-      "Pick a default deposit account in Settings before pushing payments to QuickBooks."
-    );
-  }
 
-  const qboCustomerId = await findOrCreateQboCustomer(connection, input.customer);
-  const qboInvoiceId =
-    input.existingQboInvoiceId ??
-    (await (async () => {
-      const itemId = await ensureDefaultItem(connection);
-      return createQboInvoice(connection, qboCustomerId, itemId, input);
-    })());
+  return recordSyncOutcome(connection.id, async () => {
+    if (!connection.defaultDepositAccountId) {
+      throw new Error(
+        "Pick a default deposit account in Settings before pushing payments to QuickBooks."
+      );
+    }
 
-  const paymentResponse = await qboFetch(connection, "/payment", {
-    method: "POST",
-    body: JSON.stringify({
-      CustomerRef: { value: qboCustomerId },
-      TotalAmt: input.amount,
-      DepositToAccountRef: { value: connection.defaultDepositAccountId },
-      Line: [
-        {
-          Amount: input.amount,
-          LinkedTxn: [{ TxnId: qboInvoiceId, TxnType: "Invoice" }],
-        },
-      ],
-    }),
+    const qboCustomerId = await findOrCreateQboCustomer(connection, input.customer);
+    const qboInvoiceId =
+      input.existingQboInvoiceId ??
+      (await (async () => {
+        const itemId = await ensureDefaultItem(connection);
+        return createQboInvoice(connection, qboCustomerId, itemId, input);
+      })());
+
+    const paymentResponse = await qboFetch(connection, "/payment", {
+      method: "POST",
+      body: JSON.stringify({
+        CustomerRef: { value: qboCustomerId },
+        TotalAmt: input.amount,
+        DepositToAccountRef: { value: connection.defaultDepositAccountId },
+        Line: [
+          {
+            Amount: input.amount,
+            LinkedTxn: [{ TxnId: qboInvoiceId, TxnType: "Invoice" }],
+          },
+        ],
+      }),
+    });
+    const qboPaymentId = paymentResponse.Payment.Id as string;
+
+    return { invoiceId: qboInvoiceId, paymentId: qboPaymentId };
   });
-  const qboPaymentId = paymentResponse.Payment.Id as string;
-
-  return { invoiceId: qboInvoiceId, paymentId: qboPaymentId };
 }
 
 // Pushes a paid expense to QuickBooks as a Purchase (money already spent).
@@ -405,33 +438,36 @@ export async function pushExpensePurchase(input: {
 }): Promise<string | null> {
   const connection = await getValidConnection(input.organizationId);
   if (!connection) return null;
-  if (!connection.defaultDepositAccountId || !connection.defaultExpenseAccountId) {
-    throw new Error(
-      "Pick default deposit and expense accounts in Settings before pushing expenses to QuickBooks."
-    );
-  }
 
-  const response = await qboFetch(connection, "/purchase", {
-    method: "POST",
-    body: JSON.stringify({
-      TxnDate: input.date.toISOString().slice(0, 10),
-      AccountRef: { value: connection.defaultDepositAccountId },
-      PaymentType: "Cash",
-      EntityRef: undefined,
-      Line: [
-        {
-          Amount: input.amount,
-          DetailType: "AccountBasedExpenseLineDetail",
-          Description: `${input.vendor} — ${input.category}`,
-          AccountBasedExpenseLineDetail: {
-            AccountRef: { value: connection.defaultExpenseAccountId },
+  return recordSyncOutcome(connection.id, async () => {
+    if (!connection.defaultDepositAccountId || !connection.defaultExpenseAccountId) {
+      throw new Error(
+        "Pick default deposit and expense accounts in Settings before pushing expenses to QuickBooks."
+      );
+    }
+
+    const response = await qboFetch(connection, "/purchase", {
+      method: "POST",
+      body: JSON.stringify({
+        TxnDate: input.date.toISOString().slice(0, 10),
+        AccountRef: { value: connection.defaultDepositAccountId },
+        PaymentType: "Cash",
+        EntityRef: undefined,
+        Line: [
+          {
+            Amount: input.amount,
+            DetailType: "AccountBasedExpenseLineDetail",
+            Description: `${input.vendor} — ${input.category}`,
+            AccountBasedExpenseLineDetail: {
+              AccountRef: { value: connection.defaultExpenseAccountId },
+            },
           },
-        },
-      ],
-    }),
-  });
+        ],
+      }),
+    });
 
-  return response.Purchase.Id as string;
+    return response.Purchase.Id as string;
+  });
 }
 
 // Attaches a receipt file (already stored in this app's own Vercel Blob

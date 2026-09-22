@@ -746,6 +746,7 @@ export default async function CustomerDetailPage({
             customerId={customer.id}
             cardBrand={customer.stripeCardBrand}
             cardLast4={customer.stripeCardLast4}
+            confirmedAt={customer.cardOnFileConfirmedAt}
           />
         </div>
       </div>

@@ -13,7 +13,11 @@ import {
   markInstallmentPaid,
   markInstallmentUnpaid,
 } from "../installmentActions";
-import { ChargeInstallmentButton, SendInstallmentCheckoutLinkButton } from "../InstallmentPaymentActions";
+import {
+  ChargeInstallmentButton,
+  SendInstallmentCheckoutLinkButton,
+  InstallmentRefundButton,
+} from "../InstallmentPaymentActions";
 import { getStripeConnection } from "@/lib/stripe";
 import { Field, inputClass } from "@/components/Field";
 import { PrintButton } from "@/components/PrintButton";
@@ -301,6 +305,10 @@ export default async function InvoiceDetailPage({
                       <span className="rounded-full bg-green-600 px-3 py-1 text-xs font-black text-white">
                         Paid{installment.paymentMethod ? ` — ${installment.paymentMethod}` : ""}
                       </span>
+                    ) : installment.status === "refunded" ? (
+                      <span className="rounded-full bg-zinc-500 px-3 py-1 text-xs font-black text-white">
+                        Refunded
+                      </span>
                     ) : (
                       <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-black text-white">
                         Pending
@@ -309,14 +317,31 @@ export default async function InvoiceDetailPage({
                   </div>
 
                   {installment.status === "paid" ? (
-                    <form action={markInstallmentUnpaid.bind(null, installment.id)} className="mt-3">
-                      <button
-                        type="submit"
-                        className="text-sm font-semibold text-zinc-600 hover:underline"
-                      >
-                        Mark Unpaid
-                      </button>
-                    </form>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {installment.stripePaymentIntentId ? (
+                        (() => {
+                          const remaining = installment.amount - (installment.refundedAmount ?? 0);
+                          return remaining > 0.01 ? (
+                            <InstallmentRefundButton installmentId={installment.id} remaining={remaining} />
+                          ) : null;
+                        })()
+                      ) : (
+                        <form action={markInstallmentUnpaid.bind(null, installment.id)}>
+                          <button
+                            type="submit"
+                            className="text-sm font-semibold text-zinc-600 hover:underline"
+                          >
+                            Mark Unpaid
+                          </button>
+                        </form>
+                      )}
+                      {installment.stripePaymentIntentId && (
+                        <p className="text-xs text-zinc-400">
+                          Paid through Stripe — use Refund above, not Mark Unpaid, to actually return
+                          the money.
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <div className="mt-3 flex flex-col gap-3">
                       {customer && stripeConnection && (

@@ -104,6 +104,27 @@ export async function logRecurringBillAsExpense(billId: string) {
   });
 
   const today = new Date();
+
+  // T085: nothing previously stopped logging the same bill twice for the
+  // same period (and separately, a QuickBooks-imported expense for the
+  // same real-world bill could already exist with no way to tell). This
+  // catches the "logged twice from this button" case specifically, which
+  // is what the recurringBillId link now makes possible to check —
+  // "monthly" bills can't be re-logged within the same calendar month,
+  // "yearly" ones within the same calendar year.
+  const periodStart =
+    bill.frequency === "monthly"
+      ? new Date(today.getFullYear(), today.getMonth(), 1)
+      : new Date(today.getFullYear(), 0, 1);
+  const alreadyLogged = await db.expense.findFirst({
+    where: { organizationId: user.effectiveOrganizationId, recurringBillId: bill.id, date: { gte: periodStart } },
+  });
+  if (alreadyLogged) {
+    throw new Error(
+      `${bill.name} was already logged as an expense on ${alreadyLogged.date.toLocaleDateString()} for this ${bill.frequency === "monthly" ? "month" : "year"}.`
+    );
+  }
+
   let dueDate: Date | null = null;
   if (bill.frequency === "monthly" && bill.dueDay) {
     dueDate = new Date(today.getFullYear(), today.getMonth(), bill.dueDay);
@@ -114,6 +135,7 @@ export async function logRecurringBillAsExpense(billId: string) {
   const expense = await db.expense.create({
     data: {
       organizationId: user.effectiveOrganizationId,
+      recurringBillId: bill.id,
       vendor: bill.name,
       category: bill.category,
       amount: bill.amount ?? 0,

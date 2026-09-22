@@ -12,10 +12,12 @@ export function CardOnFileSection({
   customerId,
   cardBrand,
   cardLast4,
+  confirmedAt,
 }: {
   customerId: string;
   cardBrand: string | null;
   cardLast4: string | null;
+  confirmedAt: Date | null;
 }) {
   const [setup, setSetup] = useState<{ clientSecret: string; publishableKey: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,11 @@ export function CardOnFileSection({
       {cardBrand && cardLast4 ? (
         <p className="text-sm text-zinc-700">
           <span className="font-medium capitalize">{cardBrand}</span> ····{cardLast4}
+          {confirmedAt && (
+            <span className="ml-1 text-xs text-zinc-400">
+              — authorized {confirmedAt.toLocaleDateString()}
+            </span>
+          )}
         </p>
       ) : (
         <p className="text-sm text-zinc-400">No card on file.</p>

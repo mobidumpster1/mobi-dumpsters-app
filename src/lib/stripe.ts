@@ -107,6 +107,12 @@ export async function savePaymentMethodFromSetupIntent(
       stripePaymentMethodId: paymentMethodId,
       stripeCardBrand: paymentMethod.card?.brand ?? null,
       stripeCardLast4: paymentMethod.card?.last4 ?? null,
+      // Independent evidence of this customer's own off-session
+      // authorization (T078) — kept even though Stripe retains the
+      // SetupIntent itself, since this app shouldn't have to go dig
+      // through Stripe's dashboard if a later charge is disputed.
+      stripeSetupIntentId: setupIntent.id,
+      cardOnFileConfirmedAt: new Date(),
     },
   });
 }
@@ -140,17 +146,35 @@ export async function chargeCardOnFile(
   }
   const stripe = client(connection);
 
+  // A network retry (client timeout, a double-click before the button
+  // disables, a serverless invocation retried by the platform) used to be
+  // able to create two separate PaymentIntents for the same charge.
+  // Stable per (installment or invoice, amount) rather than per-call, so
+  // a genuine retry of the same attempt reuses it and Stripe dedupes —
+  // this is safe because once either is actually paid, nothing in the app
+  // charges it again for the same amount. Falls back to a fresh key (i.e.
+  // no idempotency protection, today's prior behavior) only for the
+  // unused case of a caller passing no metadata at all.
+  const idempotencyKey = metadata?.installmentId
+    ? `installment-${metadata.installmentId}-${amountCents}`
+    : metadata?.invoiceId
+      ? `invoice-${metadata.invoiceId}-${amountCents}`
+      : undefined;
+
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      customer: customer.stripeCustomerId,
-      payment_method: customer.stripePaymentMethodId,
-      off_session: true,
-      confirm: true,
-      description,
-      metadata,
-    });
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: "usd",
+        customer: customer.stripeCustomerId,
+        payment_method: customer.stripePaymentMethodId,
+        off_session: true,
+        confirm: true,
+        description,
+        metadata,
+      },
+      idempotencyKey ? { idempotencyKey } : undefined
+    );
     return { paymentIntentId: paymentIntent.id };
   } catch (error) {
     if (error instanceof Stripe.errors.StripeCardError) {
