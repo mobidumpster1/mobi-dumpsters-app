@@ -10,6 +10,11 @@ import { sendCustomerSms, sendLeadSms } from "@/lib/twilio";
 import { requirePermission, requirePlanFor, hasPlan } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
 
+// How long a sent quote's public link stays live before it's treated as
+// expired — checked lazily wherever the link is loaded/acted on (see
+// src/app/quote/[token]) rather than by a cron.
+const QUOTE_EXPIRY_DAYS = 30;
+
 type LineItemInput = {
   description: string;
   amount: string;
@@ -113,7 +118,15 @@ export async function sendQuote(quoteId: string) {
     }
   }
 
-  await db.quote.update({ where: { id: quoteId }, data: { status: "sent", sentAt: new Date() } });
+  const now = new Date();
+  await db.quote.update({
+    where: { id: quoteId },
+    data: {
+      status: "sent",
+      sentAt: now,
+      expiresAt: new Date(now.getTime() + QUOTE_EXPIRY_DAYS * 86_400_000),
+    },
+  });
 
   // Reflects in the pipeline — but only moves a lead forward, never back
   // over a stage staff already set by hand (e.g. "interested").

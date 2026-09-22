@@ -29,11 +29,15 @@ export async function updateSignedAgreement(agreementId: string, formData: FormD
 
   const customerId = str(formData, "customerId");
 
+  // agreementTitle/agreementText are deliberately NOT editable here (T061)
+  // — they're the actual legal terms a customer signed, captured verbatim
+  // at signing time specifically so a later wording change never rewrites
+  // history (see the model's own comment). Only signer metadata can be
+  // corrected after the fact; if the terms themselves were genuinely
+  // wrong, the fix is a new signature, not silently editing this one.
   await db.signedAgreement.update({
     where: { id: agreementId },
     data: {
-      agreementTitle: str(formData, "agreementTitle") || "Service & Rental Agreement",
-      agreementText: str(formData, "agreementText") || "",
       signerName,
       signerEmail: str(formData, "signerEmail"),
       signerPhone: str(formData, "signerPhone"),

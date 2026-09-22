@@ -18,6 +18,7 @@ export default async function PublicDemolitionAgreementPage({
 
   const branding = await getOrgBranding(agreement.organizationId);
   const signed = agreement.status === "signed";
+  const expired = !signed && Boolean(agreement.expiresAt && agreement.expiresAt < new Date());
 
   return (
     <div className="theme-light min-h-screen bg-brand-light px-4 py-10">
@@ -55,6 +56,10 @@ export default async function PublicDemolitionAgreementPage({
               This agreement was signed by {agreement.customerName} on{" "}
               {agreement.signedAt?.toLocaleDateString()}. {branding.businessName} has a
               copy on file.
+            </p>
+          ) : expired ? (
+            <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              This link has expired. Contact {branding.businessName} for a new one.
             </p>
           ) : (
             <DemolitionAgreementSign publicToken={agreement.publicToken} />

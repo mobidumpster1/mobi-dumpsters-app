@@ -10,6 +10,12 @@ async function requireOwnedAgreement(id: string, organizationId: string) {
   return db.demolitionAgreement.findFirstOrThrow({ where: { id, organizationId } });
 }
 
+// How long an unsigned agreement's public link stays live — checked
+// lazily wherever the link is loaded/acted on (see
+// src/app/demolition-agreement/[token]). Irrelevant once signed, since a
+// signed agreement is already locked.
+const AGREEMENT_EXPIRY_DAYS = 30;
+
 export async function createDemolitionAgreement(formData: FormData) {
   const user = await requireUser();
 
@@ -36,6 +42,7 @@ export async function createDemolitionAgreement(formData: FormData) {
       depositDue: depositDueStr ? Number(depositDueStr) : null,
       balanceDue: balanceDueStr ? Number(balanceDueStr) : null,
       staffSignerName: user.name,
+      expiresAt: new Date(Date.now() + AGREEMENT_EXPIRY_DAYS * 86_400_000),
     },
   });
 

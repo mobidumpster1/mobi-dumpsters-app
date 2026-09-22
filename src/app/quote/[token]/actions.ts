@@ -14,6 +14,10 @@ export async function acceptQuote(publicToken: string, selectedOptionalLineItemI
     include: { lead: true, customer: true, lineItems: true },
   });
   if (!quote) throw new Error("This quote link isn't valid.");
+  if (quote.status === "sent" && quote.expiresAt && quote.expiresAt < new Date()) {
+    await db.quote.update({ where: { id: quote.id }, data: { status: "expired" } });
+    throw new Error("This quote link has expired — contact us for a new one.");
+  }
   if (quote.status !== "sent") {
     throw new Error("This quote has already been responded to.");
   }
@@ -107,6 +111,10 @@ export async function acceptQuote(publicToken: string, selectedOptionalLineItemI
 export async function declineQuote(publicToken: string) {
   const quote = await db.quote.findUnique({ where: { publicToken }, include: { lead: true } });
   if (!quote) throw new Error("This quote link isn't valid.");
+  if (quote.status === "sent" && quote.expiresAt && quote.expiresAt < new Date()) {
+    await db.quote.update({ where: { id: quote.id }, data: { status: "expired" } });
+    throw new Error("This quote link has expired — contact us for a new one.");
+  }
   if (quote.status !== "sent") {
     throw new Error("This quote has already been responded to.");
   }

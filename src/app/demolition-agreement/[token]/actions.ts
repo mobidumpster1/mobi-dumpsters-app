@@ -16,6 +16,9 @@ export async function submitDemolitionSignature(publicToken: string, formData: F
   if (agreement.status === "signed") {
     throw new Error("This agreement has already been signed.");
   }
+  if (agreement.expiresAt && agreement.expiresAt < new Date()) {
+    throw new Error("This agreement link has expired — contact us for a new one.");
+  }
 
   const customerName = str(formData, "customerName");
   const customerPhone = str(formData, "customerPhone");

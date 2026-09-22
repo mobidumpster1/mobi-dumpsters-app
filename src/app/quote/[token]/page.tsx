@@ -14,11 +14,19 @@ export default async function PublicQuotePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const quote = await db.quote.findUnique({
+  let quote = await db.quote.findUnique({
     where: { publicToken: token },
     include: { lead: true, customer: true, lineItems: { orderBy: { createdAt: "asc" } } },
   });
   if (!quote) notFound();
+
+  if (quote.status === "sent" && quote.expiresAt && quote.expiresAt < new Date()) {
+    quote = await db.quote.update({
+      where: { id: quote.id },
+      data: { status: "expired" },
+      include: { lead: true, customer: true, lineItems: { orderBy: { createdAt: "asc" } } },
+    });
+  }
 
   const forWhom = quote.customer ?? quote.lead;
   const branding = await getOrgBranding(quote.organizationId);

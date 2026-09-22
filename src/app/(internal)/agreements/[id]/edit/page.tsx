@@ -112,25 +112,24 @@ export default async function EditSignedAgreementPage({
           </select>
         </Field>
 
-        <Field label="Agreement Title" htmlFor="agreementTitle">
-          <input
-            id="agreementTitle"
-            name="agreementTitle"
-            defaultValue={signed.agreementTitle}
-            required
-            className={inputClass}
-          />
+        <Field label="Agreement Title" htmlFor="agreementTitleDisplay">
+          <p id="agreementTitleDisplay" className={`${inputClass} bg-zinc-50 text-zinc-600`}>
+            {signed.agreementTitle}
+          </p>
         </Field>
 
-        <Field label="Agreement Text (as signed)" htmlFor="agreementText">
-          <textarea
-            id="agreementText"
-            name="agreementText"
-            rows={12}
-            defaultValue={signed.agreementText}
-            required
-            className={inputClass}
-          />
+        <Field label="Agreement Text (as signed)" htmlFor="agreementTextDisplay">
+          <p className="mb-2 text-xs text-zinc-500">
+            Locked — this is the exact text the customer agreed to, kept unchangeable so a later
+            wording update never rewrites what was actually signed. If it's genuinely wrong, get a
+            new signature instead of editing this one.
+          </p>
+          <div
+            id="agreementTextDisplay"
+            className={`${inputClass} h-64 overflow-y-auto whitespace-pre-wrap bg-zinc-50 text-zinc-600`}
+          >
+            {signed.agreementText}
+          </div>
         </Field>
 
         <div className="flex gap-3">

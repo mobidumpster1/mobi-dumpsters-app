@@ -150,6 +150,15 @@ export async function deleteExpense(expenseId: string) {
   });
   if (!expense) throw new Error("Expense not found");
 
+  // Same rule as deleteInvoice: a paid expense has real payment history
+  // (and may already be pushed to QuickBooks) and shouldn't be
+  // permanently erasable, only an unpaid draft.
+  if (expense.status !== "unpaid") {
+    throw new Error(
+      "This expense has been marked paid and can't be deleted. Mark it unpaid first if it was marked paid in error."
+    );
+  }
+
   for (const receipt of expense.receipts) {
     await deleteUploadedFile(receipt.filePath);
   }

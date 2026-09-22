@@ -126,11 +126,29 @@ export async function markUnpaid(invoiceId: string) {
 export async function deleteInvoice(invoiceId: string) {
   const user = await requirePermission("canDeleteRecords");
 
-  await db.invoice.findFirstOrThrow({
+  const invoice = await db.invoice.findFirstOrThrow({
     where: { id: invoiceId, organizationId: user.effectiveOrganizationId },
+    include: { installments: true },
   });
 
+  // Same rule deleteBooking already applies one level up: real payment
+  // history is never permanently erasable, only an unpaid draft with
+  // nothing collected against it yet. Mirrors markPaid/markInvoicePaidViaStripe's
+  // own definition of "has this been paid" rather than introducing a
+  // separate void/archive status.
+  const hasPaymentHistory =
+    invoice.status !== "unpaid" ||
+    Boolean(invoice.stripePaymentIntentId) ||
+    Boolean(invoice.paymentMethod) ||
+    invoice.installments.some((i) => i.status === "paid");
+  if (hasPaymentHistory) {
+    throw new Error(
+      "This invoice has payment history and can't be deleted. Mark it unpaid first if it was marked paid in error, or contact support if it genuinely needs to be removed."
+    );
+  }
+
   await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
+  await db.invoiceInstallment.deleteMany({ where: { invoiceId } });
   await db.invoice.delete({ where: { id: invoiceId } });
   await logAction("invoice.deleted", "Invoice", invoiceId);
   revalidatePath("/invoices");
