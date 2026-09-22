@@ -150,6 +150,11 @@ export default async function BookingDetailPage({
             ]}
             heightClassName="h-64"
             zoom={15}
+            placementPin={
+              booking.placementLatitude !== null && booking.placementLongitude !== null
+                ? { lat: booking.placementLatitude, lng: booking.placementLongitude }
+                : undefined
+            }
           />
         </div>
       )}

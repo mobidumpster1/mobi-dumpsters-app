@@ -65,6 +65,9 @@ export async function rescheduleBookingItem(
       equipmentItemId: item.equipmentItemId,
       actualReturnDate: null,
       startDate: { lt: bufferedNewReturn },
+      // Same fix as src/lib/availability.ts's findAvailableItems — a
+      // cancelled booking's item must not register as a reschedule conflict.
+      booking: { status: { not: "cancelled" } },
     },
   });
   const conflict = candidates.find(

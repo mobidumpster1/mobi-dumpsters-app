@@ -19,9 +19,12 @@ import { logAction } from "@/lib/auditLog";
 import { matchesPermitArea } from "@/lib/permits";
 import { getAgreementSettings } from "@/lib/agreement";
 import { quickAddCustomer } from "@/app/(internal)/customers/actions";
-import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
+import { validatePromoCode } from "@/lib/promoCodes";
 import { refundPayment, toCents } from "@/lib/stripe";
 import { parseFieldDefinitions, buildAttributesFromForm } from "@/lib/categoryFields";
+import { verifySpecificItemsAvailable } from "@/lib/availability";
+import { findAssignmentConflict } from "@/lib/assignmentConflicts";
+import { Prisma } from "@/generated/prisma";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -53,6 +56,13 @@ export async function createBooking(formData: FormData) {
   const deliveryAddress = str(formData, "deliveryAddress");
   if (!customerId) throw new Error("Customer is required");
   if (!deliveryAddress) throw new Error("Delivery address is required");
+  // Re-captured as plain `string` right after the guards above — `let
+  // customerId`/`const deliveryAddress` stay typed `string | null` inside
+  // the nested async closure below (TypeScript doesn't carry narrowing
+  // from an outer guard into a closure), same fix as submitBookingRequest
+  // needed for the same reason.
+  const resolvedCustomerId: string = customerId;
+  const resolvedDeliveryAddress: string = deliveryAddress;
 
   const itemsJson = formData.get("bookingItemsJson");
   const items: BookingItemInput[] =
@@ -115,39 +125,83 @@ export async function createBooking(formData: FormData) {
   ]);
   const bookingAttributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.bookingFieldDefinitions));
 
-  const booking = await db.booking.create({
-    data: {
-      organizationId: user.effectiveOrganizationId,
-      customerId,
-      deliveryAddress,
-      latitude: geocoded?.latitude,
-      longitude: geocoded?.longitude,
-      notes: str(formData, "notes"),
-      status: "confirmed",
-      permitRequired: matchesPermitArea(deliveryAddress, permitAreas),
-      promoCodeId: appliedPromoCodeId,
-      discountAmount,
-      discountNote,
-      attributes: JSON.stringify(bookingAttributes),
-      items: {
-        create: validItems.map((item, i) => ({
-          equipmentItemId: item.equipmentItemId,
-          startDate: new Date(item.startDate),
-          expectedReturnDate: new Date(item.expectedReturnDate),
-          price: finalPrices[i],
-        })),
-      },
-    },
-    include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
-  });
+  // The public booking flow re-checks availability and creates the
+  // booking inside one Serializable transaction so Postgres itself
+  // catches two requests racing for the same unit (see T019) — this
+  // staff-facing form picks specific equipmentItemIds directly rather
+  // than searching a category, so it needs its own re-check
+  // (verifySpecificItemsAvailable) instead of findAvailableItems, but
+  // the same transaction pattern applies. The promo-redemption cap is
+  // folded in here too, for the same reason as the public flow's fix
+  // (T058): a plain check-then-increment outside a transaction can let
+  // two concurrent bookings both squeeze under a redemption cap.
+  async function reserveAndCreateBooking() {
+    return db.$transaction(
+      async (tx) => {
+        await verifySpecificItemsAvailable(
+          user.effectiveOrganizationId,
+          validItems.map((item) => ({
+            equipmentItemId: item.equipmentItemId,
+            startDate: new Date(item.startDate),
+            endDate: new Date(item.expectedReturnDate),
+          })),
+          tx
+        );
 
-  if (appliedPromoCodeId) {
-    await recordPromoCodeRedemption(appliedPromoCodeId);
+        if (appliedPromoCodeId) {
+          const promo = await tx.promoCode.findUniqueOrThrow({ where: { id: appliedPromoCodeId } });
+          if (promo.maxRedemptions !== null && promo.redemptionCount >= promo.maxRedemptions) {
+            throw new Error("That promo code was just fully redeemed — remove it and try again.");
+          }
+          await tx.promoCode.update({
+            where: { id: appliedPromoCodeId },
+            data: { redemptionCount: { increment: 1 } },
+          });
+        }
+
+        return tx.booking.create({
+          data: {
+            organizationId: user.effectiveOrganizationId,
+            customerId: resolvedCustomerId,
+            deliveryAddress: resolvedDeliveryAddress,
+            latitude: geocoded?.latitude,
+            longitude: geocoded?.longitude,
+            notes: str(formData, "notes"),
+            status: "confirmed",
+            permitRequired: matchesPermitArea(resolvedDeliveryAddress, permitAreas),
+            promoCodeId: appliedPromoCodeId,
+            discountAmount,
+            discountNote,
+            attributes: JSON.stringify(bookingAttributes),
+            items: {
+              create: validItems.map((item, i) => ({
+                equipmentItemId: item.equipmentItemId,
+                startDate: new Date(item.startDate),
+                expectedReturnDate: new Date(item.expectedReturnDate),
+                price: finalPrices[i],
+              })),
+            },
+          },
+          include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  }
+
+  let booking;
+  try {
+    booking = await reserveAndCreateBooking();
+  } catch (error) {
+    const isConflict =
+      error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+    if (!isConflict) throw error;
+    booking = await reserveAndCreateBooking();
   }
 
   await db.equipmentItem.updateMany({
     where: {
-      id: { in: validItems.map((i) => i.equipmentItemId) },
+      id: { in: booking.items.map((item) => item.equipmentItemId) },
       organizationId: user.effectiveOrganizationId,
     },
     data: {
@@ -411,6 +465,15 @@ export async function notifyOnTheWay(bookingId: string) {
 export async function setBookingVehicle(bookingId: string, formData: FormData) {
   const user = await requireUser();
   const vehicleId = str(formData, "vehicleId");
+  if (vehicleId) {
+    const conflict = await findAssignmentConflict(
+      user.effectiveOrganizationId,
+      bookingId,
+      "vehicleId",
+      vehicleId
+    );
+    if (conflict) throw new Error(`This vehicle is already assigned elsewhere — ${conflict}`);
+  }
   await db.booking.updateMany({
     where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     data: { vehicleId: vehicleId || null },
@@ -475,6 +538,15 @@ export async function releaseDeposit(bookingId: string, formData: FormData) {
 export async function setBookingDriver(bookingId: string, formData: FormData) {
   const user = await requireUser();
   const driverId = str(formData, "driverId");
+  if (driverId) {
+    const conflict = await findAssignmentConflict(
+      user.effectiveOrganizationId,
+      bookingId,
+      "driverId",
+      driverId
+    );
+    if (conflict) throw new Error(`This driver is already assigned elsewhere — ${conflict}`);
+  }
   await db.booking.updateMany({
     where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     data: { driverId: driverId || null },
@@ -485,9 +557,13 @@ export async function setBookingDriver(bookingId: string, formData: FormData) {
 
 export async function markDelivered(bookingItemId: string) {
   const user = await requireUser();
-  await db.bookingItem.findFirstOrThrow({
+  const existing = await db.bookingItem.findFirstOrThrow({
     where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
   });
+  // Already delivered — a double-click or a retried form submit shouldn't
+  // re-send the customer notification email or churn a spurious extra
+  // location-event pair (close-then-reopen at the same address).
+  if (existing.deliveredAt) return;
   const bookingItem = await db.bookingItem.update({
     where: { id: bookingItemId },
     data: { deliveredAt: new Date() },
@@ -550,9 +626,12 @@ export async function markDelivered(bookingItemId: string) {
 
 export async function markReturned(bookingItemId: string, formData: FormData) {
   const user = await requireUser();
-  await db.bookingItem.findFirstOrThrow({
+  const existing = await db.bookingItem.findFirstOrThrow({
     where: { id: bookingItemId, booking: { organizationId: user.effectiveOrganizationId } },
   });
+  // Same reasoning as markDelivered — a double-click/retry shouldn't
+  // re-send the pickup email, re-log mileage, or churn location history.
+  if (existing.actualReturnDate) return;
 
   const actualTonnageStr = str(formData, "actualTonnage");
   const actualMileageStr = str(formData, "actualMileage");

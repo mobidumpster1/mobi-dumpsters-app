@@ -2,7 +2,7 @@
 
 import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
 import { useRouter } from "next/navigation";
-import { DARK_MAP_STYLE, numberedPinIcon } from "@/lib/mapStyle";
+import { DARK_MAP_STYLE, DEFAULT_MAP_CENTER, dumpsterPinIcon, numberedPinIcon } from "@/lib/mapStyle";
 
 export type LocationMapPin = {
   id: string;
@@ -12,17 +12,19 @@ export type LocationMapPin = {
   href: string;
 };
 
-// Byron, GA — used as a fallback center when there are no pins to show.
-const DEFAULT_CENTER = { lat: 32.6459, lng: -83.7466 };
-
 export function LocationMap({
   pins,
   heightClassName = "h-80",
   zoom,
+  placementPin,
 }: {
   pins: LocationMapPin[];
   heightClassName?: string;
   zoom?: number;
+  // The customer's exact drop-off spot from the checkout placement map, if
+  // they set one — shown as an extra, non-clickable dumpster pin alongside
+  // the address pin(s) above.
+  placementPin?: { lat: number; lng: number };
 }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
@@ -38,7 +40,7 @@ export function LocationMap({
     );
   }
 
-  const center = pins.length > 0 ? { lat: pins[0].lat, lng: pins[0].lng } : DEFAULT_CENTER;
+  const center = pins.length > 0 ? { lat: pins[0].lat, lng: pins[0].lng } : DEFAULT_MAP_CENTER;
   const defaultZoom = zoom ?? (pins.length > 0 ? 11 : 10);
 
   return (
@@ -66,6 +68,13 @@ export function LocationMap({
               onClick={() => router.push(pin.href)}
             />
           ))}
+          {placementPin && (
+            <Marker
+              position={placementPin}
+              title="Customer-marked placement spot"
+              icon={dumpsterPinIcon("#c2410c", "#7c2d12")}
+            />
+          )}
         </Map>
       </APIProvider>
     </div>

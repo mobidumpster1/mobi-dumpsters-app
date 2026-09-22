@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma";
 import { str } from "@/lib/formData";
 import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
@@ -20,10 +21,18 @@ import { createDraftInvoiceForBooking } from "@/lib/invoicing";
 import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween, drivingMilesBetween } from "@/lib/distance";
-import { validatePromoCode, recordPromoCodeRedemption } from "@/lib/promoCodes";
+import { validatePromoCode } from "@/lib/promoCodes";
 import { computeSeasonalAdjustment } from "@/lib/pricingRules";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { listBlackoutDates, isDateBlackedOut, meetsMinimumNotice } from "@/lib/blackoutDates";
+
+// Thin wrapper so the checkout placement map can preview where an in-progress
+// address geocodes to, using the exact same lookup (and GA/US restriction)
+// submitBookingRequest itself uses — never exposes GOOGLE_MAPS_API_KEY to
+// the client.
+export async function geocodePreview(address: string) {
+  return geocodeAddress(address);
+}
 
 export async function checkAvailability(
   categoryId: string,
@@ -98,11 +107,14 @@ export async function getUnavailableStartDates(
       status: { notIn: ["retired", "needs_repair"] },
     },
     include: {
+      // Same fix as findAvailableItems in src/lib/availability.ts — a
+      // cancelled booking's BookingItem must not keep blocking its dates.
       bookingItems: {
         where: {
           actualReturnDate: null,
           startDate: { lt: queryEnd },
           expectedReturnDate: { gt: monthStartDate },
+          booking: { status: { not: "cancelled" } },
         },
       },
     },
@@ -155,6 +167,10 @@ export async function submitBookingRequest(formData: FormData) {
   const phone = str(formData, "phone");
   const email = str(formData, "email");
   const address = str(formData, "address");
+  const placementLatitudeStr = str(formData, "placementLatitude");
+  const placementLongitudeStr = str(formData, "placementLongitude");
+  const placementLatitude = placementLatitudeStr && Number.isFinite(Number(placementLatitudeStr)) ? Number(placementLatitudeStr) : null;
+  const placementLongitude = placementLongitudeStr && Number.isFinite(Number(placementLongitudeStr)) ? Number(placementLongitudeStr) : null;
   const agreed = formData.get("agreed") === "on";
   const isEmbed = formData.get("embed") === "1";
 
@@ -218,10 +234,19 @@ export async function submitBookingRequest(formData: FormData) {
   // service jobs (no tier, e.g. junk removal/demolition) don't have a
   // separate pickup — Chase is on-site the whole time — so both ends land
   // on the same day.
-  const startDate = new Date(`${startDateStr}T${deliveryTime}`);
+  // Explicit "Z" so the digits the customer picked are stored as-is,
+  // matching addDays's own T00:00:00.000Z convention above (and
+  // dumpSchedule.ts's documented one: this app treats stored UTC digits
+  // as the business's own local wall-clock time throughout, since there's
+  // no real per-org timezone field). Without it, this was the one place
+  // in the app where a date got parsed against whatever timezone the
+  // server process happens to be running in instead — on Vercel that's
+  // UTC, silently shifting every stored delivery/pickup time by several
+  // hours from what was actually selected.
+  const startDate = new Date(`${startDateStr}T${deliveryTime}Z`);
   const endDate = tier
-    ? new Date(`${addDays(startDateStr, tier.days)}T${pickupTime}`)
-    : new Date(`${startDateStr}T${deliveryTime}`);
+    ? new Date(`${addDays(startDateStr, tier.days)}T${pickupTime}Z`)
+    : new Date(`${startDateStr}T${deliveryTime}Z`);
 
   const [bookingAvailabilitySettings, blackoutRanges] = await Promise.all([
     getBookingAvailabilitySettings(organizationId),
@@ -334,33 +359,100 @@ export async function submitBookingRequest(formData: FormData) {
   } else {
     await fillBlankCustomerFields(customer, { phone, email, address });
   }
+  // Captured once, definitely non-null, so the closure below doesn't lose
+  // the narrowing TypeScript already proved above (a `let` reassigned in
+  // an if/else isn't narrowed inside a nested function that merely
+  // *could* run after further reassignment, even though this one won't;
+  // same for `address`, a plain `const` — the required-field guard above
+  // narrows it at the top level, but that narrowing isn't carried into a
+  // nested async closure either).
+  const customerId = customer.id;
+  const deliveryAddress: string = address;
 
-  const booking = await db.booking.create({
-    data: {
-      organizationId,
-      customerId: customer.id,
-      deliveryAddress: address,
-      latitude: geocoded?.latitude,
-      longitude: geocoded?.longitude,
-      status: "pending",
-      notes: str(formData, "notes"),
-      promoCodeId: appliedPromoCodeId,
-      discountAmount,
-      discountNote,
-      items: {
-        create: items.map((item) => ({
-          equipmentItemId: item.id,
+  // The plain findAvailableItems check above (used to pick `items`) reads
+  // and the booking write below happen far enough apart — pricing, promo
+  // validation, customer lookup/create — that two requests for the last
+  // unit of a category can both pass that read and then both write,
+  // double-booking one physical unit. Re-checking and creating inside one
+  // Serializable transaction closes that: Postgres itself detects when a
+  // concurrent transaction's write would invalidate this one's read of
+  // availability, and aborts one side with a P2034 conflict rather than
+  // letting both through. A single retry is the standard recommended
+  // response to P2034 (transient by nature — the retry's fresh read
+  // reflects the other transaction's now-committed reservation).
+  async function reserveAndCreateBooking() {
+    return db.$transaction(
+      async (tx) => {
+        const stillAvailable = await findAvailableItems(
+          effectiveCategoryId(category),
           startDate,
-          expectedReturnDate: endDate,
-          price: pricePerItem,
-          notes: [materialItemNote, seasonalItemNote].filter(Boolean).join(" — ") || null,
-        })),
-      },
-    },
-  });
+          endDate,
+          tx
+        );
+        if (stillAvailable.length < needed) {
+          throw new Error(
+            "Sorry, nothing is available for those dates anymore. Please try different dates."
+          );
+        }
+        const reservedItems = stillAvailable.slice(0, needed);
 
-  if (appliedPromoCodeId) {
-    await recordPromoCodeRedemption(appliedPromoCodeId);
+        // Same race as equipment availability, same fix: validatePromoCode's
+        // earlier check and the redemption increment used to happen far
+        // apart (separated by all of this pricing/customer/availability
+        // work), so two checkouts racing for the last use of a max-1 code
+        // could both pass the check and both increment — confirmed live,
+        // over-redeeming a max-1 code to 2. Re-checking the cap here, in
+        // the same Serializable transaction as the booking write, closes
+        // it the same way T019's fix did.
+        if (appliedPromoCodeId) {
+          const promo = await tx.promoCode.findUniqueOrThrow({ where: { id: appliedPromoCodeId } });
+          if (promo.maxRedemptions !== null && promo.redemptionCount >= promo.maxRedemptions) {
+            throw new Error("Sorry, that promo code was just fully redeemed. Please remove it and try again.");
+          }
+          await tx.promoCode.update({
+            where: { id: appliedPromoCodeId },
+            data: { redemptionCount: { increment: 1 } },
+          });
+        }
+
+        return tx.booking.create({
+          include: { items: true },
+          data: {
+            organizationId,
+            customerId,
+            deliveryAddress,
+            latitude: geocoded?.latitude,
+            longitude: geocoded?.longitude,
+            placementLatitude,
+            placementLongitude,
+            status: "pending",
+            notes: str(formData, "notes"),
+            promoCodeId: appliedPromoCodeId,
+            discountAmount,
+            discountNote,
+            items: {
+              create: reservedItems.map((item) => ({
+                equipmentItemId: item.id,
+                startDate,
+                expectedReturnDate: endDate,
+                price: pricePerItem,
+                notes: [materialItemNote, seasonalItemNote].filter(Boolean).join(" — ") || null,
+              })),
+            },
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  }
+
+  let booking;
+  try {
+    booking = await reserveAndCreateBooking();
+  } catch (error) {
+    const isConflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+    if (!isConflict) throw error;
+    booking = await reserveAndCreateBooking();
   }
 
   // Computed with the same pricing rules staff would get from the
@@ -401,9 +493,12 @@ export async function submitBookingRequest(formData: FormData) {
   });
 
   // Hold these units so they don't look "Available" for other jobs while
-  // the request is awaiting confirmation.
+  // the request is awaiting confirmation. Reads the actual reserved items
+  // off the created booking, not the pre-transaction `items` list above —
+  // the transaction's own re-check is the source of truth for which units
+  // were really reserved (see reserveAndCreateBooking).
   await db.equipmentItem.updateMany({
-    where: { id: { in: items.map((item) => item.id) }, organizationId },
+    where: { id: { in: booking.items.map((item) => item.equipmentItemId) }, organizationId },
     data: {
       status: "reserved",
       currentCustomerId: customer.id,
@@ -473,8 +568,13 @@ export async function payBookingInvoiceNow(invoiceId: string) {
   let redirectTo: string;
 
   try {
-    const invoice = await db.invoice.findUniqueOrThrow({
-      where: { id: invoiceId },
+    // Scoped to the requesting hostname's organization — invoiceId is a
+    // bare, client-supplied value with no session behind it, so an
+    // unscoped lookup would let this be called against any tenant's
+    // invoice given only its ID.
+    const organizationId = await getPublicOrganizationId();
+    const invoice = await db.invoice.findFirstOrThrow({
+      where: { id: invoiceId, organizationId },
       include: {
         booking: { include: { customer: true } },
         customer: true,
@@ -520,6 +620,12 @@ export async function payBookingInvoiceNow(invoiceId: string) {
 // webhook alone. organizationId is derived from the invoice rather than
 // trusted from the client, same reasoning as payBookingInvoiceNow above.
 export async function confirmCardSetup(invoiceId: string, setupIntentId: string) {
-  const invoice = await db.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+  // Same scoping reasoning as payBookingInvoiceNow above. A mismatch here
+  // (wrong org for this hostname) is treated as a silent no-op rather than
+  // thrown to the client — the setup_intent.succeeded webhook is already
+  // the documented backstop for saving the card, so nothing is lost.
+  const organizationId = await getPublicOrganizationId();
+  const invoice = await db.invoice.findFirst({ where: { id: invoiceId, organizationId } });
+  if (!invoice) return;
   await savePaymentMethodFromSetupIntent(invoice.organizationId, setupIntentId);
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
-import { checkAvailability, getUnavailableStartDates, submitBookingRequest } from "./actions";
+import { useCallback, useRef, useState, useTransition } from "react";
+import { checkAvailability, geocodePreview, getUnavailableStartDates, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
 import { formatDate } from "@/lib/date";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
+import { PlacementMap } from "@/components/PlacementMap";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import {
   priceLabel,
@@ -130,6 +131,42 @@ export function BookingForm({
           ? `${prev}\n${line}`
           : line
     );
+  }
+
+  // Address is controlled (unlike most other fields) so typing it can drive
+  // a debounced geocode preview, which centers the placement map and seeds
+  // its default pin — same geocodeAddress() helper submitBookingRequest
+  // itself uses, so the preview matches what actually gets stored.
+  const [address, setAddress] = useState("");
+  const [geocodeCenter, setGeocodeCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [placementPoint, setPlacementPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // Once the customer drags/taps the placement map themselves, further
+  // address edits stop re-centering their pin — a ref (not state) so the
+  // debounced geocode callback always reads the latest value even if it
+  // fires after a later render.
+  const placementTouchedRef = useRef(false);
+  const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onAddressChange(next: string) {
+    setAddress(next);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    addressDebounceRef.current = setTimeout(async () => {
+      // Once the pin has been manually placed, later address edits shouldn't
+      // recenter the map out from under it — that made an already-placed
+      // pin scroll off-screen and look like it had vanished.
+      if (placementTouchedRef.current) return;
+      const result = await geocodePreview(next);
+      if (result && !placementTouchedRef.current) {
+        const point = { lat: result.latitude, lng: result.longitude };
+        setGeocodeCenter(point);
+        setPlacementPoint(point);
+      }
+    }, 800);
+  }
+
+  function onPlacementChange(point: { lat: number; lng: number }) {
+    placementTouchedRef.current = true;
+    setPlacementPoint(point);
   }
 
   const durationDays = hasTiers ? (selectedTier?.days ?? 1) : 1;
@@ -703,8 +740,29 @@ export function BookingForm({
             />
           </Field>
           <Field label="Delivery Address" htmlFor="address">
-            <input id="address" name="address" required className={inputClass} />
+            <input
+              id="address"
+              name="address"
+              required
+              className={inputClass}
+              value={address}
+              onChange={(e) => onAddressChange(e.target.value)}
+            />
           </Field>
+
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-zinc-700">
+              Where should we place it?
+            </p>
+            <PlacementMap
+              value={placementPoint}
+              onChange={onPlacementChange}
+              center={geocodeCenter ?? undefined}
+            />
+            <input type="hidden" name="placementLatitude" value={placementPoint?.lat ?? ""} />
+            <input type="hidden" name="placementLongitude" value={placementPoint?.lng ?? ""} />
+          </div>
+
           <Field label="Anything else we should know? (optional)" htmlFor="notes">
             <textarea
               id="notes"

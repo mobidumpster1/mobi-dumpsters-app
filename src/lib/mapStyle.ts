@@ -2,6 +2,10 @@
 // affects roadmap tiles — satellite/hybrid imagery is unstyled photos and
 // ignores this regardless.
 
+// Byron, GA — fallback map center when there's nothing else to center on.
+// Shared by LocationMap and PlacementMap so they don't each hardcode it.
+export const DEFAULT_MAP_CENTER = { lat: 32.6459, lng: -83.7466 };
+
 export const DARK_MAP_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#0a0f14" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#0a0f14" }] },
@@ -29,6 +33,23 @@ export function numberedPinIcon(number: number, background: string, borderColor:
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
     <path d="M13 0C5.8 0 0 5.8 0 13c0 9.75 13 21 13 21s13-11.25 13-21C26 5.8 20.2 0 13 0z" fill="${background}" stroke="${borderColor}" stroke-width="1.5"/>
     <text x="13" y="18" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff">${number}</text>
+  </svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+  };
+}
+
+// Same teardrop pin shape/size as numberedPinIcon (so it sits consistently
+// among other map pins) with a low, rectangular roll-off container glyph
+// instead of a number — used to mark a customer's exact drop-off spot.
+export function dumpsterPinIcon(background: string, borderColor: string): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
+    <path d="M13 0C5.8 0 0 5.8 0 13c0 9.75 13 21 13 21s13-11.25 13-21C26 5.8 20.2 0 13 0z" fill="${background}" stroke="${borderColor}" stroke-width="1.5"/>
+    <rect x="5" y="19" width="3" height="1.6" fill="#ffffff"/>
+    <rect x="18" y="19" width="3" height="1.6" fill="#ffffff"/>
+    <rect x="5.5" y="12.5" width="15" height="7" fill="#ffffff" stroke="${background}" stroke-width="0.6"/>
+    <rect x="4.5" y="11" width="17" height="1.8" fill="#ffffff"/>
+    <path d="M9.5 12.8v6.4M13 12.8v6.4M16.5 12.8v6.4" stroke="${background}" stroke-width="0.8"/>
   </svg>`;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,

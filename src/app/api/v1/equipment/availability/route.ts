@@ -53,7 +53,15 @@ export async function GET(request: Request) {
       status: { notIn: UNBOOKABLE_STATUSES },
     },
     include: {
-      bookingItems: { where: { actualReturnDate: null, startDate: { lt: bufferedEndDate } } },
+      // Same fix as src/lib/availability.ts's findAvailableItems — a
+      // cancelled booking's BookingItem must not keep blocking its dates.
+      bookingItems: {
+        where: {
+          actualReturnDate: null,
+          startDate: { lt: bufferedEndDate },
+          booking: { status: { not: "cancelled" } },
+        },
+      },
       maintenanceWindows: { where: { startDate: { lt: endDate }, endDate: { gt: startDate } } },
     },
   });
