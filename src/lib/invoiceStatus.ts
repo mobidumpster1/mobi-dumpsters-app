@@ -1,8 +1,29 @@
+import { Prisma } from "@/generated/prisma";
+
 export function computeDisplayStatus(status: string, dueDate: Date | null): string {
   if (status === "unpaid" && dueDate && dueDate.getTime() < Date.now()) {
     return "overdue";
   }
   return status;
+}
+
+// The SQL-side equivalent of computeDisplayStatus, for filtering/counting
+// server-side (T180) instead of fetching every invoice and filtering in
+// memory. Must stay in lockstep with computeDisplayStatus above.
+export function invoiceStatusFilter(displayStatus: string): Prisma.InvoiceWhereInput {
+  const now = new Date();
+  switch (displayStatus) {
+    case "overdue":
+      return { status: "unpaid", dueDate: { lt: now } };
+    case "unpaid":
+      return { status: "unpaid", OR: [{ dueDate: null }, { dueDate: { gte: now } }] };
+    case "partial":
+      return { status: "partial" };
+    case "paid":
+      return { status: "paid" };
+    default:
+      return {};
+  }
 }
 
 export const INVOICE_STATUS_STYLES: Record<string, string> = {

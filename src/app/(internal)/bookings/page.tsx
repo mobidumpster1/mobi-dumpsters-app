@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { computeBookingStatus } from "@/lib/bookingStatus";
+import { computeBookingStatus, bookingStatusFilter } from "@/lib/bookingStatus";
 import { AddressLink } from "@/components/AddressLink";
 import { SearchBox } from "@/components/SearchBox";
+import { Pagination } from "@/components/Pagination";
 import { requireUser, hasPermission } from "@/lib/session";
+import { Prisma } from "@/generated/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,8 @@ const STATUS_FILTERS = [
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ] as const;
+
+const PAGE_SIZE = 50;
 
 function displayStatus(booking: {
   status: string;
@@ -28,10 +32,11 @@ function displayStatus(booking: {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { status, q } = await searchParams;
+  const { status, q, page: pageParam } = await searchParams;
+  const page = Math.max(1, Math.trunc(Number(pageParam)) || 1);
 
   function statusHref(nextStatus?: string) {
     const params = new URLSearchParams();
@@ -41,28 +46,65 @@ export default async function BookingsPage({
     return `/bookings${qs ? `?${qs}` : ""}`;
   }
 
-  const allBookings = await db.booking.findMany({
-    where: { organizationId: user.effectiveOrganizationId },
-    orderBy: { createdAt: "desc" },
-    include: { customer: true, items: { include: { equipmentItem: true } } },
-  });
-
-  const withStatus = allBookings.map((booking) => ({ ...booking, displayStatus: displayStatus(booking) }));
-
-  const countByStatus = new Map<string, number>();
-  for (const booking of withStatus) {
-    countByStatus.set(booking.displayStatus.value, (countByStatus.get(booking.displayStatus.value) ?? 0) + 1);
+  function pageHref(nextPage: number) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const qs = params.toString();
+    return `/bookings${qs ? `?${qs}` : ""}`;
   }
 
-  const search = q?.trim().toLowerCase();
-  const bookings = withStatus.filter((booking) => {
-    if (status && booking.displayStatus.value !== status) return false;
-    if (search) {
-      const haystack = `${booking.customer.name} ${booking.deliveryAddress}`.toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
-    return true;
-  });
+  const orgWhere: Prisma.BookingWhereInput = { organizationId: user.effectiveOrganizationId };
+  const search = q?.trim();
+  const searchWhere: Prisma.BookingWhereInput = search
+    ? {
+        OR: [
+          { customer: { name: { contains: search, mode: "insensitive" } } },
+          { deliveryAddress: { contains: search, mode: "insensitive" } },
+        ],
+      }
+    : {};
+  const where: Prisma.BookingWhereInput = {
+    AND: [orgWhere, status ? bookingStatusFilter(status) : {}, searchWhere],
+  };
+
+  const [
+    bookingsRaw,
+    matchingCount,
+    allCount,
+    pendingCount,
+    scheduledCount,
+    inProgressCount,
+    completedCount,
+    cancelledCount,
+  ] = await Promise.all([
+    db.booking.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { customer: true, items: { include: { equipmentItem: true } } },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.booking.count({ where }),
+    db.booking.count({ where: orgWhere }),
+    db.booking.count({ where: { ...orgWhere, ...bookingStatusFilter("pending") } }),
+    db.booking.count({ where: { AND: [orgWhere, bookingStatusFilter("scheduled")] } }),
+    db.booking.count({ where: { AND: [orgWhere, bookingStatusFilter("in_progress")] } }),
+    db.booking.count({ where: { AND: [orgWhere, bookingStatusFilter("completed")] } }),
+    db.booking.count({ where: { ...orgWhere, ...bookingStatusFilter("cancelled") } }),
+  ]);
+
+  const countByStatus = new Map<string, number>([
+    ["pending", pendingCount],
+    ["scheduled", scheduledCount],
+    ["in_progress", inProgressCount],
+    ["completed", completedCount],
+    ["cancelled", cancelledCount],
+  ]);
+
+  const bookings = bookingsRaw.map((booking) => ({ ...booking, displayStatus: displayStatus(booking) }));
+  const totalPages = Math.max(1, Math.ceil(matchingCount / PAGE_SIZE));
 
   return (
     <div>
@@ -93,7 +135,7 @@ export default async function BookingsPage({
             !status ? "bg-brand text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
           }`}
         >
-          All ({withStatus.length})
+          All ({allCount})
         </Link>
         {STATUS_FILTERS.map(({ value, label }) => (
           <Link
@@ -148,7 +190,7 @@ export default async function BookingsPage({
         ))}
         {bookings.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            {allBookings.length === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
+            {allCount === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
           </p>
         )}
       </div>
@@ -199,13 +241,15 @@ export default async function BookingsPage({
             {bookings.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
-                  {allBookings.length === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
+                  {allCount === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} buildHref={pageHref} />
     </div>
   );
 }

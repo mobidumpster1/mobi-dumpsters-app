@@ -17,6 +17,10 @@ export function SearchBox({ placeholder }: { placeholder: string }) {
       } else {
         params.delete("q");
       }
+      // A new search should always start back on page 1 — otherwise a
+      // search typed while sitting on, say, page 3 of the unfiltered list
+      // can land on a page number past the end of the filtered results.
+      params.delete("page");
       router.replace(params.toString() ? `${pathname}?${params}` : pathname);
     }, 250);
     return () => clearTimeout(handle);

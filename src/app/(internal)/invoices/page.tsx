@@ -1,21 +1,25 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
-import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
+import { computeDisplayStatus, invoiceStatusFilter, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
 import { SearchBox } from "@/components/SearchBox";
+import { Pagination } from "@/components/Pagination";
 import { requireUser, hasPermission } from "@/lib/session";
+import { Prisma } from "@/generated/prisma";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_FILTERS = ["unpaid", "partial", "overdue", "paid"] as const;
+const PAGE_SIZE = 50;
 
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { status, q } = await searchParams;
+  const { status, q, page: pageParam } = await searchParams;
+  const page = Math.max(1, Math.trunc(Number(pageParam)) || 1);
 
   function statusHref(nextStatus?: string) {
     const params = new URLSearchParams();
@@ -25,32 +29,61 @@ export default async function InvoicesPage({
     return `/invoices${qs ? `?${qs}` : ""}`;
   }
 
-  const allInvoices = await db.invoice.findMany({
-    where: { organizationId: user.effectiveOrganizationId },
-    orderBy: { issueDate: "desc" },
-    include: { booking: { include: { customer: true } }, customer: true },
-  });
+  function pageHref(nextPage: number) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const qs = params.toString();
+    return `/invoices${qs ? `?${qs}` : ""}`;
+  }
 
-  const withStatus = allInvoices.map((invoice) => ({
+  const orgWhere: Prisma.InvoiceWhereInput = { organizationId: user.effectiveOrganizationId };
+  const search = q?.trim();
+  const searchWhere: Prisma.InvoiceWhereInput = search
+    ? {
+        OR: [
+          { invoiceNumber: { contains: search, mode: "insensitive" } },
+          { customer: { name: { contains: search, mode: "insensitive" } } },
+          { booking: { customer: { name: { contains: search, mode: "insensitive" } } } },
+        ],
+      }
+    : {};
+  const where: Prisma.InvoiceWhereInput = {
+    AND: [orgWhere, status ? invoiceStatusFilter(status) : {}, searchWhere],
+  };
+
+  const [invoicesRaw, matchingCount, allCount, unpaidCount, partialCount, overdueCount, paidCount] =
+    await Promise.all([
+      db.invoice.findMany({
+        where,
+        orderBy: { issueDate: "desc" },
+        include: { booking: { include: { customer: true } }, customer: true },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      db.invoice.count({ where }),
+      db.invoice.count({ where: orgWhere }),
+      db.invoice.count({ where: { ...orgWhere, ...invoiceStatusFilter("unpaid") } }),
+      db.invoice.count({ where: { ...orgWhere, ...invoiceStatusFilter("partial") } }),
+      db.invoice.count({ where: { ...orgWhere, ...invoiceStatusFilter("overdue") } }),
+      db.invoice.count({ where: { ...orgWhere, ...invoiceStatusFilter("paid") } }),
+    ]);
+
+  const countByStatus = new Map<string, number>([
+    ["unpaid", unpaidCount],
+    ["partial", partialCount],
+    ["overdue", overdueCount],
+    ["paid", paidCount],
+  ]);
+
+  const invoices = invoicesRaw.map((invoice) => ({
     ...invoice,
     displayStatus: computeDisplayStatus(invoice.status, invoice.dueDate),
     customerName: (invoice.booking?.customer ?? invoice.customer)?.name ?? "—",
   }));
 
-  const countByStatus = new Map<string, number>();
-  for (const invoice of withStatus) {
-    countByStatus.set(invoice.displayStatus, (countByStatus.get(invoice.displayStatus) ?? 0) + 1);
-  }
-
-  const search = q?.trim().toLowerCase();
-  const invoices = withStatus.filter((invoice) => {
-    if (status && invoice.displayStatus !== status) return false;
-    if (search) {
-      const haystack = `${invoice.invoiceNumber} ${invoice.customerName}`.toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
-    return true;
-  });
+  const totalPages = Math.max(1, Math.ceil(matchingCount / PAGE_SIZE));
 
   return (
     <div>
@@ -81,7 +114,7 @@ export default async function InvoicesPage({
             !status ? "bg-brand text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
           }`}
         >
-          All ({withStatus.length})
+          All ({allCount})
         </Link>
         {STATUS_FILTERS.map((value) => (
           <Link
@@ -140,7 +173,7 @@ export default async function InvoicesPage({
         ))}
         {invoices.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
-            {allInvoices.length === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
+            {allCount === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
           </p>
         )}
       </div>
@@ -189,13 +222,15 @@ export default async function InvoicesPage({
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
-                  {allInvoices.length === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
+                  {allCount === 0 ? "No invoices yet — create one from a booking's detail page." : "No invoices match your search/filter."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={totalPages} buildHref={pageHref} />
     </div>
   );
 }
