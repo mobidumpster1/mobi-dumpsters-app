@@ -18,7 +18,12 @@ export default async function LoginPage({
         </h1>
         <p className="mt-1 text-center text-zinc-500">Staff sign in</p>
 
-        {error && (
+        {error === "locked" && (
+          <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            Too many failed attempts — this account is temporarily locked. Try again in a few minutes.
+          </p>
+        )}
+        {error && error !== "locked" && (
           <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
             Incorrect email or password. Try again.
           </p>

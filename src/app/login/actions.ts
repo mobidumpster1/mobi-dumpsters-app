@@ -1,9 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
+import { sendNotificationEmail } from "@/lib/email";
 import {
   createSessionToken,
   createPendingTwoFactorToken,
@@ -12,17 +13,67 @@ import {
   PENDING_TWO_FACTOR_COOKIE,
 } from "@/lib/auth";
 
+// After this many consecutive failed attempts, the account is locked for
+// LOCKOUT_MINUTES regardless of whether a later attempt has the right
+// password — plain brute-force protection, since nothing else in the app
+// rate-limits repeated login POSTs.
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
 export async function login(formData: FormData) {
   const email = str(formData, "email");
   const password = str(formData, "password");
   const from = str(formData, "from");
+  const fromParam = from ? `&from=${encodeURIComponent(from)}` : "";
 
   const user = email
     ? await db.user.findUnique({ where: { email: email.toLowerCase() } })
     : null;
 
+  if (user?.lockedUntil && user.lockedUntil > new Date()) {
+    redirect(`/login?error=locked${fromParam}`);
+  }
+
   if (!user || !user.active || !password || !verifyPassword(password, user.passwordHash)) {
-    redirect(`/login?error=1${from ? `&from=${encodeURIComponent(from)}` : ""}`);
+    if (user) {
+      const attempts = user.failedLoginAttempts + 1;
+      const justLocked = attempts === MAX_FAILED_ATTEMPTS;
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          lockedUntil: justLocked ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000) : null,
+        },
+      });
+      // Fires once per lockout episode — every attempt after this one is
+      // rejected by the lockedUntil check above before it ever reaches
+      // here again, so this can't spam on repeated hammering.
+      if (justLocked) {
+        const headerList = await headers();
+        const ip =
+          headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          headerList.get("x-real-ip") ??
+          "unknown";
+        await sendNotificationEmail(
+          `Account locked: ${MAX_FAILED_ATTEMPTS} failed login attempts`,
+          [
+            `${user.email} (${user.name}) was locked out after ${MAX_FAILED_ATTEMPTS} consecutive failed login attempts.`,
+            `Locked until: ${new Date(Date.now() + LOCKOUT_MINUTES * 60_000).toLocaleString()}`,
+            `Request IP: ${ip}`,
+            "",
+            "If this wasn't the account owner, consider resetting the password once it unlocks.",
+          ].join("\n")
+        );
+      }
+    }
+    redirect(`/login?error=1${fromParam}`);
+  }
+
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await db.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
   }
 
   const cookieStore = await cookies();
