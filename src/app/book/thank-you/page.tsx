@@ -18,9 +18,13 @@ export default async function ThankYouPage({
   const branding = await getOrgBranding(organizationId);
 
   const [invoice, connection] = await Promise.all([
+    // Scoped to this request's own organization — invoiceId comes straight
+    // off the public query string, so an unscoped lookup would let anyone
+    // holding (or guessing) any tenant's invoice ID read that tenant's
+    // customer name/email/phone and invoice amount here.
     invoiceId
-      ? db.invoice.findUnique({
-          where: { id: invoiceId },
+      ? db.invoice.findFirst({
+          where: { id: invoiceId, organizationId },
           include: { booking: { include: { customer: true } }, customer: true },
         })
       : null,
