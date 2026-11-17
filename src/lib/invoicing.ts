@@ -70,10 +70,16 @@ export function computeInvoiceLineItems(
     });
 
     if (category.includedDays !== null && category.overageDayRate !== null) {
-      const endDate = item.actualReturnDate ?? item.expectedReturnDate;
-      const actualDays = Math.ceil(
-        (endDate.getTime() - item.startDate.getTime()) / MS_PER_DAY
-      );
+      // Extra days are billed only when the *agreed* return date runs past
+      // the included days — i.e. the customer extended and staff moved the
+      // return date — never because the pickup actually happened later
+      // (when it's late on our side, the customer shouldn't pay for it, and
+      // actualReturnDate is just when the truck got there). And counted in
+      // whole calendar days: a 7-day rental delivered at 8am and picked up at
+      // 3pm is still 7 days, where rounding the raw hours up billed an 8th.
+      const actualDays =
+        Math.floor(item.expectedReturnDate.getTime() / MS_PER_DAY) -
+        Math.floor(item.startDate.getTime() / MS_PER_DAY);
       const extraDays = Math.max(0, actualDays - category.includedDays);
       if (extraDays > 0) {
         lines.push({
