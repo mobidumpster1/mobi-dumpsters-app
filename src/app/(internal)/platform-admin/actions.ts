@@ -53,16 +53,15 @@ export async function stopImpersonation() {
   redirect("/");
 }
 
-// Owner-only, mirrors the pattern in settings/staffActions.ts — grants or
-// revokes cross-organization support access for a specific user. Never
-// self-service: a platform admin can't grant themselves this (they'd
-// already need it to reach this action), and it's deliberately separate
-// from the five regular per-organization permission flags.
+// Grants or revokes cross-organization support access for a specific user.
+// Only an existing platform admin can do this — being "owner" of some
+// organization isn't enough, since /signup lets anyone create their own
+// organization and become its owner, which would otherwise let any
+// self-signed-up account promote itself and then impersonate every other
+// tenant. The very first platform admin has to be set directly in the
+// database; this action can't bootstrap one.
 export async function setPlatformAdmin(userId: string, isPlatformAdmin: boolean) {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "owner") {
-    throw new Error("Only the owner can grant platform admin access.");
-  }
+  await requirePlatformAdmin();
 
   await db.user.update({ where: { id: userId }, data: { isPlatformAdmin } });
   await logAction(

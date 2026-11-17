@@ -65,7 +65,7 @@ const PERMISSION_KEYS = [
 // hourly rate at once — unchecked boxes simply aren't present in
 // FormData, so each key defaults to false.
 export async function updateStaffPermissions(userId: string, formData: FormData) {
-  await requireOwner();
+  const owner = await requireOwner();
 
   const data: Record<string, boolean | number | null> = Object.fromEntries(
     PERMISSION_KEYS.map((key) => [key, formData.get(key) === "on"])
@@ -74,14 +74,25 @@ export async function updateStaffPermissions(userId: string, formData: FormData)
   const hourlyRateStr = str(formData, "hourlyRate");
   data.hourlyRate = hourlyRateStr ? Number(hourlyRateStr) : null;
 
-  await db.user.update({ where: { id: userId }, data });
+  // Scoped to the owner's own organization — requireOwner only proves the
+  // caller owns *some* organization, so an unscoped update by id would let
+  // one tenant's owner change another tenant's staff given just a user id.
+  const result = await db.user.updateMany({
+    where: { id: userId, organizationId: owner.effectiveOrganizationId },
+    data,
+  });
+  if (result.count === 0) throw new Error("Staff member not found.");
   await logAction("user.permissions_updated", "User", userId);
   revalidatePath("/settings");
 }
 
 export async function setStaffActive(userId: string, active: boolean) {
-  await requireOwner();
-  await db.user.update({ where: { id: userId }, data: { active } });
+  const owner = await requireOwner();
+  const result = await db.user.updateMany({
+    where: { id: userId, organizationId: owner.effectiveOrganizationId },
+    data: { active },
+  });
+  if (result.count === 0) throw new Error("Staff member not found.");
   await logAction(active ? "user.activated" : "user.deactivated", "User", userId);
   revalidatePath("/settings");
 }

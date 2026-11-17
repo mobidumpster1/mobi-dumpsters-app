@@ -778,6 +778,7 @@ export default async function SettingsPage({
                 )}
               </div>
               <div className="flex items-center gap-3">
+                {currentUser.isPlatformAdmin && (
                 <form
                   action={setPlatformAdmin.bind(null, staffUser.id, !staffUser.isPlatformAdmin)}
                 >
@@ -797,6 +798,7 @@ export default async function SettingsPage({
                     </ConfirmButton>
                   )}
                 </form>
+                )}
                 {staffUser.role !== "owner" && (
                   <form action={setStaffActive.bind(null, staffUser.id, !staffUser.active)}>
                     {staffUser.active ? (

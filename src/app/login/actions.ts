@@ -12,13 +12,18 @@ import {
   SESSION_COOKIE,
   PENDING_TWO_FACTOR_COOKIE,
 } from "@/lib/auth";
+import {
+  MAX_FAILED_ATTEMPTS,
+  LOCKOUT_MINUTES,
+  isLockedOut,
+  nextFailureState,
+  safeRedirectPath,
+} from "@/lib/loginThrottle";
 
-// After this many consecutive failed attempts, the account is locked for
-// LOCKOUT_MINUTES regardless of whether a later attempt has the right
-// password — plain brute-force protection, since nothing else in the app
-// rate-limits repeated login POSTs.
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+// After MAX_FAILED_ATTEMPTS consecutive failed attempts, the account is
+// locked for LOCKOUT_MINUTES regardless of whether a later attempt has the
+// right password — plain brute-force protection, since nothing else in the
+// app rate-limits repeated login POSTs. See src/lib/loginThrottle.ts.
 
 export async function login(formData: FormData) {
   const email = str(formData, "email");
@@ -30,21 +35,14 @@ export async function login(formData: FormData) {
     ? await db.user.findUnique({ where: { email: email.toLowerCase() } })
     : null;
 
-  if (user?.lockedUntil && user.lockedUntil > new Date()) {
+  if (user && isLockedOut(user, new Date())) {
     redirect(`/login?error=locked${fromParam}`);
   }
 
   if (!user || !user.active || !password || !verifyPassword(password, user.passwordHash)) {
     if (user) {
-      const attempts = user.failedLoginAttempts + 1;
-      const justLocked = attempts === MAX_FAILED_ATTEMPTS;
-      await db.user.update({
-        where: { id: user.id },
-        data: {
-          failedLoginAttempts: attempts,
-          lockedUntil: justLocked ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000) : null,
-        },
-      });
+      const { justLocked, ...nextState } = nextFailureState(user, new Date());
+      await db.user.update({ where: { id: user.id }, data: nextState });
       // Fires once per lockout episode — every attempt after this one is
       // rejected by the lockedUntil check above before it ever reaches
       // here again, so this can't spam on repeated hammering.
@@ -69,7 +67,11 @@ export async function login(formData: FormData) {
     redirect(`/login?error=1${fromParam}`);
   }
 
-  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+  // With 2FA on, a right password alone doesn't clear the counter — the
+  // failed-code attempts in verify-2fa share it, and clearing it here would
+  // let someone who knows the password reset their guess budget just by
+  // logging in again. It's cleared once the code step succeeds instead.
+  if (!user.twoFactorEnabled && (user.failedLoginAttempts > 0 || user.lockedUntil)) {
     await db.user.update({
       where: { id: user.id },
       data: { failedLoginAttempts: 0, lockedUntil: null },
@@ -101,7 +103,7 @@ export async function login(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect(from && from.startsWith("/") ? from : "/");
+  redirect(safeRedirectPath(from));
 }
 
 export async function logout() {

@@ -33,7 +33,10 @@ export function hashToken(token: string): string {
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sign(payload: string): string {
-  const secret = process.env.SESSION_SECRET ?? "";
+  const secret = process.env.SESSION_SECRET;
+  // An empty fallback secret would make every session token forgeable by
+  // anyone, so a missing one must fail loudly rather than sign with "".
+  if (!secret) throw new Error("SESSION_SECRET is not configured.");
   return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }
 

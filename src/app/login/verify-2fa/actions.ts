@@ -12,6 +12,7 @@ import {
   PENDING_TWO_FACTOR_COOKIE,
 } from "@/lib/auth";
 import { verifyTotpCode } from "@/lib/totp";
+import { isLockedOut, nextFailureState, safeRedirectPath } from "@/lib/loginThrottle";
 
 type BackupCode = { hash: string; usedAt: string | null };
 
@@ -32,6 +33,15 @@ export async function verifyTwoFactorLogin(formData: FormData) {
   }
 
   const fromSuffix = from ? `&from=${encodeURIComponent(from)}` : "";
+
+  // Shares the password step's failed-attempt counter and lockout — without
+  // a limit here, anyone who knows the password could brute-force the
+  // 6-digit code (or a backup code) at full speed.
+  if (isLockedOut(user, new Date())) {
+    cookieStore.delete(PENDING_TWO_FACTOR_COOKIE);
+    redirect(`/login?error=locked`);
+  }
+
   if (!code) {
     redirect(`/login/verify-2fa?error=1${fromSuffix}`);
   }
@@ -56,7 +66,16 @@ export async function verifyTwoFactorLogin(formData: FormData) {
   }
 
   if (!verified) {
+    const { justLocked: _justLocked, ...nextState } = nextFailureState(user, new Date());
+    await db.user.update({ where: { id: user.id }, data: nextState });
     redirect(`/login/verify-2fa?error=1${fromSuffix}`);
+  }
+
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await db.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
   }
 
   cookieStore.delete(PENDING_TWO_FACTOR_COOKIE);
@@ -68,5 +87,5 @@ export async function verifyTwoFactorLogin(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect(from && from.startsWith("/") ? from : "/");
+  redirect(safeRedirectPath(from));
 }

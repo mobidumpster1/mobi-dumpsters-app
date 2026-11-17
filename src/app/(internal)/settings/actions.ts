@@ -194,6 +194,19 @@ export async function updatePublicDomain(formData: FormData) {
   const publicDomain = raw ? normalizeDomain(raw) : null;
 
   if (publicDomain) {
+    // There's no proof-of-ownership check on a hostname, and incoming
+    // public traffic is routed to an organization purely by its Host header
+    // (getPublicOrganizationId) — so letting any tenant claim any hostname
+    // would let one tenant capture another's booking traffic (e.g. by
+    // claiming the shared *.vercel.app address or an unregistered alias).
+    // Until real domain verification exists, setting one is a platform-admin
+    // (support-assisted) action; clearing your own is always allowed.
+    if (!user.isPlatformAdmin) {
+      throw new Error("Custom domains are set up by support — contact us to connect yours.");
+    }
+    if (/(^|\.)vercel\.app$/.test(publicDomain) || /^localhost(:\d+)?$/.test(publicDomain)) {
+      throw new Error("That hostname is shared and can't be used as a custom domain.");
+    }
     const existing = await db.organization.findUnique({ where: { publicDomain } });
     if (existing && existing.id !== user.effectiveOrganizationId) {
       throw new Error("That domain is already in use by another organization.");
