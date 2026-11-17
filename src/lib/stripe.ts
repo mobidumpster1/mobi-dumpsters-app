@@ -155,10 +155,15 @@ export async function chargeCardOnFile(
   // charges it again for the same amount. Falls back to a fresh key (i.e.
   // no idempotency protection, today's prior behavior) only for the
   // unused case of a caller passing no metadata at all.
+  // idempotencySalt lets a caller change the key when the same amount can
+  // legitimately be charged again — e.g. after a refund, which would
+  // otherwise replay the original (now-refunded) PaymentIntent for 24 hours
+  // and mark the invoice paid with nothing collected.
+  const salt = metadata?.idempotencySalt ? `-${metadata.idempotencySalt}` : "";
   const idempotencyKey = metadata?.installmentId
-    ? `installment-${metadata.installmentId}-${amountCents}`
+    ? `installment-${metadata.installmentId}-${amountCents}${salt}`
     : metadata?.invoiceId
-      ? `invoice-${metadata.invoiceId}-${amountCents}`
+      ? `invoice-${metadata.invoiceId}-${amountCents}${salt}`
       : undefined;
 
   try {
@@ -201,10 +206,23 @@ export async function refundPayment(
   const stripe = client(connection);
 
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      amount: amountCents,
-    });
+    // A double-click or retry used to send two refunds: both callers read the
+    // old refunded total from the database, called Stripe, then wrote — and
+    // Stripe happily allows several refunds while the sum stays under the
+    // charge. Keyed by what Stripe has *already* refunded on this charge, so
+    // a repeat of the same request sees the same total and gets the same
+    // key (Stripe returns the original refund), while a later, genuinely new
+    // refund sees a larger total and gets a fresh key.
+    const existing = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+    const alreadyRefundedCents = existing.data
+      .filter((r) => r.status !== "failed" && r.status !== "canceled")
+      .reduce((sum, r) => sum + r.amount, 0);
+    const idempotencyKey = `refund-${paymentIntentId}-${amountCents ?? "full"}-${alreadyRefundedCents}`;
+
+    const refund = await stripe.refunds.create(
+      { payment_intent: paymentIntentId, amount: amountCents },
+      { idempotencyKey }
+    );
     return { refundId: refund.id, amountCents: refund.amount };
   } catch (error) {
     if (error instanceof Stripe.errors.StripeError) {

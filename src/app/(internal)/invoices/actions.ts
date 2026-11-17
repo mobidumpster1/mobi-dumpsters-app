@@ -175,13 +175,20 @@ export async function chargeInvoiceViaStripe(invoiceId: string) {
   if (!customer) {
     throw new Error("This invoice has no customer to charge.");
   }
+  // Charging has no other "already paid" check — an invoice marked paid by
+  // hand or via a payment link would otherwise get a real second charge once
+  // Stripe's 24-hour idempotency window had passed (the app then no-ops
+  // because it's already paid, leaving an unrecorded charge).
+  if (invoice.status === "paid") {
+    throw new Error("This invoice is already paid.");
+  }
 
   const { paymentIntentId } = await chargeCardOnFile(
     user.effectiveOrganizationId,
     { stripeCustomerId: customer.stripeCustomerId, stripePaymentMethodId: customer.stripePaymentMethodId },
     toCents(invoice.amount),
     `Invoice ${invoice.invoiceNumber}`,
-    { invoiceId: invoice.id }
+    { invoiceId: invoice.id, idempotencySalt: `r${toCents(invoice.refundedAmount ?? 0)}` }
   );
 
   await markInvoicePaidViaStripe(invoice.id, user.effectiveOrganizationId, paymentIntentId);

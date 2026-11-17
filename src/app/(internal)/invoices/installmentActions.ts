@@ -193,13 +193,22 @@ export async function chargeInstallmentViaStripe(installmentId: string) {
   if (!customer) {
     throw new Error("This invoice has no customer to charge.");
   }
+  // Same reasoning as chargeInvoiceViaStripe: never charge something already
+  // paid. A fully refunded ("refunded") installment may be charged again.
+  if (installment.status === "paid" || installment.invoice.status === "paid") {
+    throw new Error("This installment is already paid.");
+  }
 
   const { paymentIntentId } = await chargeCardOnFile(
     user.effectiveOrganizationId,
     { stripeCustomerId: customer.stripeCustomerId, stripePaymentMethodId: customer.stripePaymentMethodId },
     toCents(installment.amount),
     `Invoice ${installment.invoice.invoiceNumber} — ${installment.label}`,
-    { invoiceId: installment.invoiceId, installmentId: installment.id }
+    {
+      invoiceId: installment.invoiceId,
+      installmentId: installment.id,
+      idempotencySalt: `r${toCents(installment.refundedAmount ?? 0)}`,
+    }
   );
 
   await markInstallmentPaidViaStripe(installment.id, user.effectiveOrganizationId, paymentIntentId);
