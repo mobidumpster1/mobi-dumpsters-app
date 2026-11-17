@@ -113,6 +113,24 @@ export function BookingForm({
   }>({ checked: false, isAvailable: false });
   const [isPending, startTransition] = useTransition();
 
+  // Submitted by hand (not via <form action>) so a rejected request can show
+  // its message right here and leave everything the customer typed in place
+  // — React resets a form's uncontrolled fields after an action completes,
+  // and a thrown error used to replace the whole page with a generic crash
+  // screen. Also keeps the button disabled while the request is in flight,
+  // so a double-click can't send it twice.
+  const [isSubmitting, startSubmit] = useTransition();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setSubmitError(null);
+    startSubmit(async () => {
+      const result = await submitBookingRequest(formData);
+      if (result?.error) setSubmitError(result.error);
+    });
+  }
+
   // Controlled (unlike most other fields here) so a cross-sell suggestion
   // tapped on the review step can flag interest into it — staff see the
   // note and can follow up with a combined quote, since the public flow
@@ -255,7 +273,7 @@ export function BookingForm({
       : (selectedCategory?.basePrice ?? null);
 
   return (
-    <form action={submitBookingRequest} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="categoryId" value={categoryId} required />
       {isEmbed && <input type="hidden" name="embed" value="1" />}
 
@@ -814,12 +832,17 @@ export function BookingForm({
             </label>
           </div>
 
+          {submitError && (
+            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {submitError}
+            </p>
+          )}
           <button
             type="submit"
-            disabled={!bookable || (availability.checked && !availability.isAvailable)}
+            disabled={isSubmitting || !bookable || (availability.checked && !availability.isAvailable)}
             className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Request Booking
+            {isSubmitting ? "Sending…" : "Request Booking"}
           </button>
           <p className="text-xs text-zinc-400">
             This sends a request — we&apos;ll contact you shortly to confirm

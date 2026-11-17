@@ -155,7 +155,45 @@ function addDays(dateStr: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export async function submitBookingRequest(formData: FormData) {
+// A problem the customer can understand and fix (bad date, sold out, bad
+// promo code...). submitBookingRequest turns these into an on-page message;
+// anything else becomes a generic one, so raw database/internal errors are
+// never shown to a customer.
+class BookingError extends Error {}
+
+// Runs one post-booking step without letting a failure escape (see the
+// comment at the call sites in processBookingRequest).
+async function afterCommit<T>(step: string, fn: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error(`Booking was saved, but "${step}" failed:`, error);
+    return undefined;
+  }
+}
+
+// Returns an error for the form to display instead of throwing — a thrown
+// error from a server action becomes Next's generic "Application error"
+// page (the real message is masked in production), which dumped customers
+// out of the form, inside the owner's own website's iframe, with everything
+// they'd typed gone. redirect() has to stay out here, outside the try: it
+// works by throwing internally.
+export async function submitBookingRequest(formData: FormData): Promise<{ error: string } | undefined> {
+  let redirectTo: string;
+  try {
+    redirectTo = await processBookingRequest(formData);
+  } catch (error) {
+    if (error instanceof BookingError) return { error: error.message };
+    console.error("Booking request failed unexpectedly:", error);
+    return {
+      error:
+        "Something went wrong on our end, so your request wasn't submitted. Please try again, or call us to book.",
+    };
+  }
+  redirect(redirectTo);
+}
+
+async function processBookingRequest(formData: FormData): Promise<string> {
   const categoryId = str(formData, "categoryId");
   const tierId = str(formData, "tierId");
   const materialOptionId = str(formData, "materialOptionId");
@@ -174,13 +212,13 @@ export async function submitBookingRequest(formData: FormData) {
   const agreed = formData.get("agreed") === "on";
   const isEmbed = formData.get("embed") === "1";
 
-  if (!categoryId) throw new Error("Please choose what you'd like to rent");
-  if (!startDateStr) throw new Error("Please choose a date");
-  if (!name) throw new Error("Name is required");
-  if (!phone) throw new Error("Phone is required");
-  if (!email) throw new Error("Email is required");
-  if (!address) throw new Error("Delivery address is required");
-  if (!agreed) throw new Error("You must agree to the service agreement to book");
+  if (!categoryId) throw new BookingError("Please choose what you'd like to rent");
+  if (!startDateStr) throw new BookingError("Please choose a date");
+  if (!name) throw new BookingError("Name is required");
+  if (!phone) throw new BookingError("Phone is required");
+  if (!email) throw new BookingError("Email is required");
+  if (!address) throw new BookingError("Delivery address is required");
+  if (!agreed) throw new BookingError("You must agree to the service agreement to book");
 
   const organizationId = await getPublicOrganizationId();
   const category = await db.equipmentCategory.findFirstOrThrow({
@@ -191,9 +229,9 @@ export async function submitBookingRequest(formData: FormData) {
   const tier = tierId
     ? category.pricingTiers.find((t) => t.id === tierId)
     : undefined;
-  if (tierId && !tier) throw new Error("Please choose a valid rental duration");
+  if (tierId && !tier) throw new BookingError("Please choose a valid rental duration");
   if (tier && tier.price === null) {
-    throw new Error("That duration requires a call for pricing — please call us instead.");
+    throw new BookingError("That duration requires a call for pricing — please call us instead.");
   }
 
   // Geocoded here (rather than down by the booking's own lat/lng) so a
@@ -222,8 +260,8 @@ export async function submitBookingRequest(formData: FormData) {
       ? category.materialOptions.find((m) => m.id === materialOptionId)
       : undefined;
   if (category.materialOptions.length > 0) {
-    if (!material) throw new Error("Please choose a material");
-    if (!(materialQuantity > 0)) throw new Error("Please enter a quantity");
+    if (!material) throw new BookingError("Please choose a material");
+    if (!(materialQuantity > 0)) throw new BookingError("Please enter a quantity");
   }
   const materialQuote = material
     ? quoteMaterialDelivery(material.pricePerUnit, materialQuantity, material.unit, oneWayMiles)
@@ -253,13 +291,13 @@ export async function submitBookingRequest(formData: FormData) {
     listBlackoutDates(organizationId),
   ]);
   if (bookingAvailabilitySettings.awayModeEnabled) {
-    throw new Error(bookingAvailabilitySettings.awayModeMessage);
+    throw new BookingError(bookingAvailabilitySettings.awayModeMessage);
   }
   if (isDateBlackedOut(startDate, blackoutRanges)) {
-    throw new Error("Sorry, we're not delivering on that date. Please try a different date.");
+    throw new BookingError("Sorry, we're not delivering on that date. Please try a different date.");
   }
   if (!meetsMinimumNotice(startDate, bookingAvailabilitySettings.minimumNoticeHours)) {
-    throw new Error(
+    throw new BookingError(
       `Sorry, deliveries need at least ${bookingAvailabilitySettings.minimumNoticeHours} hours' notice. Please choose a later date or call us.`
     );
   }
@@ -271,7 +309,7 @@ export async function submitBookingRequest(formData: FormData) {
     endDate
   );
   if (available.length < needed) {
-    throw new Error(
+    throw new BookingError(
       "Sorry, nothing is available for those dates anymore. Please try different dates."
     );
   }
@@ -302,7 +340,7 @@ export async function submitBookingRequest(formData: FormData) {
     const check = await validatePromoCode(organizationId, promoCodeInput, listPrice, [
       effectiveCategoryId(category),
     ]);
-    if (!check.ok) throw new Error(check.error);
+    if (!check.ok) throw new BookingError(check.error);
     totalPrice = listPrice - check.amountOff;
     appliedPromoCodeId = check.promoCode.id;
     discountAmount = check.amountOff;
@@ -390,7 +428,7 @@ export async function submitBookingRequest(formData: FormData) {
           tx
         );
         if (stillAvailable.length < needed) {
-          throw new Error(
+          throw new BookingError(
             "Sorry, nothing is available for those dates anymore. Please try different dates."
           );
         }
@@ -407,7 +445,7 @@ export async function submitBookingRequest(formData: FormData) {
         if (appliedPromoCodeId) {
           const promo = await tx.promoCode.findUniqueOrThrow({ where: { id: appliedPromoCodeId } });
           if (promo.maxRedemptions !== null && promo.redemptionCount >= promo.maxRedemptions) {
-            throw new Error("Sorry, that promo code was just fully redeemed. Please remove it and try again.");
+            throw new BookingError("Sorry, that promo code was just fully redeemed. Please remove it and try again.");
           }
           await tx.promoCode.update({
             where: { id: appliedPromoCodeId },
@@ -460,15 +498,25 @@ export async function submitBookingRequest(formData: FormData) {
   // customer choosing to pay online right away (see payBookingInvoiceNow
   // below) has a real amount to pay against immediately, without waiting
   // on Chase to review the request first.
-  const invoice = await createDraftInvoiceForBooking(booking.id);
+  //
+  // Everything from here on runs after the booking is already saved and the
+  // unit reserved, so none of it may throw out to the customer — that would
+  // show an error page for a request that actually went through, and a retry
+  // would then hit "sold out" on their own unit or create a duplicate. Each
+  // step is isolated (afterCommit) so one failing never blocks the rest or
+  // the thank-you page; the pending booking is still on the owner's
+  // dashboard either way.
+  const invoice = await afterCommit("create invoice", () => createDraftInvoiceForBooking(booking.id));
 
   const photoFiles = formData
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
   for (const file of photoFiles) {
-    const filePath = await savePhotoFile(booking.id, file);
-    await db.photo.create({
-      data: { bookingId: booking.id, filePath, type: "other" },
+    await afterCommit("save photo", async () => {
+      const filePath = await savePhotoFile(booking.id, file);
+      await db.photo.create({
+        data: { bookingId: booking.id, filePath, type: "other" },
+      });
     });
   }
 
@@ -478,35 +526,39 @@ export async function submitBookingRequest(formData: FormData) {
     headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     headerList.get("x-real-ip") ??
     null;
-  const signedAgreement = await db.signedAgreement.create({
-    data: {
-      agreementTitle: agreement.title,
-      agreementText: agreement.content,
-      signerName: name,
-      signerEmail: email,
-      signerPhone: phone,
-      signerAddress: address,
-      ipAddress,
-      customerId: customer.id,
-      bookingId: booking.id,
-    },
-  });
+  const signedAgreement = await afterCommit("record signed agreement", () =>
+    db.signedAgreement.create({
+      data: {
+        agreementTitle: agreement.title,
+        agreementText: agreement.content,
+        signerName: name,
+        signerEmail: email,
+        signerPhone: phone,
+        signerAddress: address,
+        ipAddress,
+        customerId: customer.id,
+        bookingId: booking.id,
+      },
+    })
+  );
 
   // Hold these units so they don't look "Available" for other jobs while
   // the request is awaiting confirmation. Reads the actual reserved items
   // off the created booking, not the pre-transaction `items` list above —
   // the transaction's own re-check is the source of truth for which units
   // were really reserved (see reserveAndCreateBooking).
-  await db.equipmentItem.updateMany({
-    where: { id: { in: booking.items.map((item) => item.equipmentItemId) }, organizationId },
-    data: {
-      status: "reserved",
-      currentCustomerId: customer.id,
-      currentLocation: address,
-    },
-  });
+  await afterCommit("mark equipment reserved", () =>
+    db.equipmentItem.updateMany({
+      where: { id: { in: booking.items.map((item) => item.equipmentItemId) }, organizationId },
+      data: {
+        status: "reserved",
+        currentCustomerId: customer.id,
+        currentLocation: address,
+      },
+    })
+  );
 
-  await sendNotificationEmail(
+  await afterCommit("notify owner", () => sendNotificationEmail(
     `New booking request from ${name}`,
     [
       tier
@@ -521,10 +573,10 @@ export async function submitBookingRequest(formData: FormData) {
       "",
       "Open the app's Bookings page to review and confirm.",
     ].join("\n")
-  );
+  ));
 
   const host = headerList.get("host");
-  const agreementUrl = host ? `https://${host}/agreement/view/${signedAgreement.id}` : null;
+  const agreementUrl = host && signedAgreement ? `https://${host}/agreement/view/${signedAgreement.id}` : null;
   try {
     const orgBranding = await getOrgBranding(organizationId);
     const { subject, body } = await renderEmailTemplate(
@@ -548,9 +600,11 @@ export async function submitBookingRequest(formData: FormData) {
     console.error("Failed to send booking confirmation email:", error);
   }
 
-  redirect(
-    `/book/thank-you?ref=${booking.id.slice(-8)}&agreement=${signedAgreement.id}&invoice=${invoice.id}${isEmbed ? "&embed=1" : ""}`
-  );
+  const params = new URLSearchParams({ ref: booking.id.slice(-8) });
+  if (signedAgreement) params.set("agreement", signedAgreement.id);
+  if (invoice) params.set("invoice", invoice.id);
+  if (isEmbed) params.set("embed", "1");
+  return `/book/thank-you?${params.toString()}`;
 }
 
 // Public, unauthenticated — a customer clicking "Pay Now" on the thank-you
@@ -583,7 +637,7 @@ export async function payBookingInvoiceNow(invoiceId: string) {
 
     const customer = invoice.booking?.customer ?? invoice.customer;
     if (!customer?.email) {
-      throw new Error("No email on file for this booking.");
+      throw new BookingError("No email on file for this booking.");
     }
 
     const result = await createCheckoutSession(
@@ -602,7 +656,7 @@ export async function payBookingInvoiceNow(invoiceId: string) {
     );
 
     if (!result) {
-      throw new Error("Stripe isn't connected for this business.");
+      throw new BookingError("Stripe isn't connected for this business.");
     }
 
     redirectTo = result.url;
