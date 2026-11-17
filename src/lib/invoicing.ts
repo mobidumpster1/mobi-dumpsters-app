@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma";
 import { pushInvoicePayment } from "@/lib/quickbooks";
 import { getTaxSettings } from "@/lib/taxSettings";
 
@@ -149,6 +150,91 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
   });
   if (existing) return existing;
 
+  const { lines, depositAmount } = await buildInvoiceLines(booking);
+  const amount = lines.reduce((sum, line) => sum + line.amount, 0);
+  const invoiceNumber = await nextInvoiceNumber(booking.organizationId);
+
+  const invoice = await db.invoice.create({
+    data: {
+      organizationId: booking.organizationId,
+      bookingId,
+      invoiceNumber,
+      amount,
+      status: "unpaid",
+      lineItems: { create: lines },
+    },
+  });
+
+  if (depositAmount > 0) {
+    await db.booking.update({ where: { id: bookingId }, data: { depositAmount } });
+  }
+
+  return invoice;
+}
+
+// Line types buildInvoiceLines generates on its own. Anything else on an
+// invoice (a damage charge, a hand-added line) was put there by a person and
+// must survive a refresh.
+const AUTO_LINE_TYPES = ["base", "overage_days", "overage_tonnage", "overage_mileage", "tax", "deposit"];
+
+// Brings an existing invoice back in line with its booking after staff
+// changed an item's price or dates (confirming a request, editing a
+// booking). Public checkout creates the invoice up front and
+// createDraftInvoiceForBooking never recomputes an existing one, so without
+// this "Pay Now" kept charging the old amount. Only touches an invoice that
+// is still plain unpaid — no payment, no installment plan, nothing pushed to
+// QuickBooks or sent as a payment link — since changing the amount of
+// anything already collected against or shared externally would leave it
+// inconsistent. Returns whether it changed anything.
+export async function syncInvoiceWithBooking(bookingId: string): Promise<boolean> {
+  const booking = await db.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    include: {
+      items: { include: { equipmentItem: { include: { category: true } } } },
+    },
+  });
+  const invoice = await db.invoice.findFirst({
+    where: { bookingId, organizationId: booking.organizationId },
+    include: { lineItems: true, installments: true },
+  });
+  if (!invoice) return false;
+  if (
+    invoice.status !== "unpaid" ||
+    invoice.installments.length > 0 ||
+    invoice.stripePaymentIntentId ||
+    invoice.paymentMethod ||
+    invoice.quickbooksInvoiceId ||
+    invoice.onlinePaymentUrl
+  ) {
+    return false;
+  }
+
+  const { lines, depositAmount } = await buildInvoiceLines(booking);
+  const keptTotal = invoice.lineItems
+    .filter((line) => !AUTO_LINE_TYPES.includes(line.type))
+    .reduce((sum, line) => sum + line.amount, 0);
+  const amount = keptTotal + lines.reduce((sum, line) => sum + line.amount, 0);
+
+  await db.$transaction([
+    db.invoiceLineItem.deleteMany({
+      where: { invoiceId: invoice.id, type: { in: AUTO_LINE_TYPES } },
+    }),
+    db.invoiceLineItem.createMany({ data: lines.map((line) => ({ ...line, invoiceId: invoice.id })) }),
+    db.invoice.update({ where: { id: invoice.id }, data: { amount } }),
+  ]);
+  if (depositAmount !== (booking.depositAmount ?? 0)) {
+    await db.booking.update({ where: { id: bookingId }, data: { depositAmount: depositAmount || null } });
+  }
+  return true;
+}
+
+type BookingForInvoice = Prisma.BookingGetPayload<{
+  include: { items: { include: { equipmentItem: { include: { category: true } } } } };
+}>;
+
+async function buildInvoiceLines(
+  booking: Pick<BookingForInvoice, "organizationId" | "items">
+): Promise<{ lines: ComputedLineItem[]; depositAmount: number }> {
   const lines = computeInvoiceLineItems(booking.items);
 
   // Tax applies to the actual rental charge only — computed on these lines
@@ -180,25 +266,7 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
     });
   }
 
-  const amount = lines.reduce((sum, line) => sum + line.amount, 0);
-  const invoiceNumber = await nextInvoiceNumber(booking.organizationId);
-
-  const invoice = await db.invoice.create({
-    data: {
-      organizationId: booking.organizationId,
-      bookingId,
-      invoiceNumber,
-      amount,
-      status: "unpaid",
-      lineItems: { create: lines },
-    },
-  });
-
-  if (depositAmount > 0) {
-    await db.booking.update({ where: { id: bookingId }, data: { depositAmount } });
-  }
-
-  return invoice;
+  return { lines, depositAmount };
 }
 
 // Marks an invoice paid after a successful Stripe charge and pushes the

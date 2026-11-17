@@ -155,7 +155,9 @@ export default async function ReportsPage({
       }),
       getJobCostingSettings(user.effectiveOrganizationId),
       db.bookingItem.findMany({
-        where: { booking: { organizationId: user.effectiveOrganizationId } },
+        // Cancelled/declined bookings never used the equipment, so they must
+        // not inflate utilization, fulfillment or per-channel booking stats.
+        where: { booking: { organizationId: user.effectiveOrganizationId, status: { not: "cancelled" } } },
         include: {
           equipmentItem: { include: { category: true } },
           booking: { include: { customer: true, driver: true } },
@@ -187,7 +189,11 @@ export default async function ReportsPage({
   // unfiltered bookingItems array so its own overlap math (an item that
   // started before the range but is still on-rent within it) stays
   // correct; see computeUtilization below.
-  const invoices = range ? invoicesRaw.filter((i) => inRange(i.issueDate, range)) : invoicesRaw;
+  // An unpaid invoice on a cancelled/declined booking was never earned or
+  // owed (cancelling doesn't void it), so it's left out of every revenue and
+  // receivable figure; a paid one stays, since real money changed hands.
+  const liveInvoices = invoicesRaw.filter((i) => !(i.booking?.status === "cancelled" && i.status !== "paid"));
+  const invoices = range ? liveInvoices.filter((i) => inRange(i.issueDate, range)) : liveInvoices;
   const expenses = range ? expensesRaw.filter((e) => inRange(e.date, range)) : expensesRaw;
   const timeEntries = range ? timeEntriesRaw.filter((t) => inRange(t.clockIn, range)) : timeEntriesRaw;
   const quotes = range ? quotesRaw.filter((q) => inRange(q.createdAt, range)) : quotesRaw;
@@ -253,7 +259,7 @@ export default async function ReportsPage({
   // picked, computed straight off the unfiltered fetch so it isn't
   // affected by the current range's own filtering above.
   const priorPeriodRevenue = priorRange
-    ? invoicesRaw.filter((i) => inRange(i.issueDate, priorRange)).reduce((sum, i) => sum + rentalAmount(i), 0)
+    ? liveInvoices.filter((i) => inRange(i.issueDate, priorRange)).reduce((sum, i) => sum + rentalAmount(i), 0)
     : null;
   const priorPeriodExpenses = priorRange
     ? expensesRaw.filter((e) => inRange(e.date, priorRange)).reduce((sum, e) => sum + e.amount, 0)
@@ -370,14 +376,14 @@ export default async function ReportsPage({
 
   const now = new Date();
   const sumSince = (start: Date) =>
-    invoicesRaw
+    liveInvoices
       .filter((i) => i.issueDate >= start)
       .reduce((sum, i) => sum + rentalAmount(i), 0);
   const revenueToday = sumSince(startOfDayUTC(now));
   const revenueThisWeek = sumSince(startOfWeekUTC(now));
   const revenueThisMonth = sumSince(startOfMonthUTC(now));
   const revenueThisYear = sumSince(startOfYearUTC(now));
-  const revenueAllTime = invoicesRaw.reduce((sum, i) => sum + rentalAmount(i), 0);
+  const revenueAllTime = liveInvoices.reduce((sum, i) => sum + rentalAmount(i), 0);
 
   const byCategory = new Map<string, number>();
   for (const expense of expenses) {
@@ -1411,7 +1417,7 @@ export default async function ReportsPage({
   // expenses above, since a payment's paidDate can fall in a different
   // month than the invoice's issueDate or the expense's incurred date.
   const cashMonthly = new Map<string, { cashIn: number; cashOut: number }>();
-  for (const invoice of invoicesRaw) {
+  for (const invoice of liveInvoices) {
     if (invoice.status !== "paid" || !invoice.paidDate) continue;
     const key = monthKey(invoice.paidDate);
     const entry = cashMonthly.get(key) ?? { cashIn: 0, cashOut: 0 };
@@ -1670,7 +1676,7 @@ export default async function ReportsPage({
     </section>
   );
 
-  const ltvRows = computeCustomerLtv(customersRaw, invoicesRaw);
+  const ltvRows = computeCustomerLtv(customersRaw, liveInvoices);
   const avgLtv = ltvRows.length > 0 ? ltvRows.reduce((sum, r) => sum + r.lifetimeRevenue, 0) / ltvRows.length : 0;
 
   const customerLtvTab = (

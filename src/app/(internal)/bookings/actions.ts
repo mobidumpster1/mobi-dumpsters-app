@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
 import { pushBookingToCalendar, deleteCalendarEvent } from "@/lib/googleCalendar";
-import { createDraftInvoiceForBooking } from "@/lib/invoicing";
+import { createDraftInvoiceForBooking, syncInvoiceWithBooking } from "@/lib/invoicing";
+import { verifySpecificItemsAvailable } from "@/lib/availability";
 import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
@@ -241,6 +242,22 @@ export async function confirmBooking(bookingId: string, formData: FormData) {
     include: { customer: true, items: { include: { equipmentItem: { include: { category: true } } } } },
   });
 
+  // Re-confirming a declined/cancelled request: its units were released when
+  // it was cancelled and may have been booked since — don't resurrect it on
+  // top of someone else's reservation.
+  if (booking.status === "cancelled") {
+    await verifySpecificItemsAvailable(
+      user.effectiveOrganizationId,
+      booking.items
+        .filter((item) => item.actualReturnDate === null)
+        .map((item) => ({
+          equipmentItemId: item.equipmentItemId,
+          startDate: item.startDate,
+          endDate: item.expectedReturnDate,
+        }))
+    );
+  }
+
   for (const item of booking.items) {
     const priceStr = formData.get(`price_${item.id}`);
     const price = typeof priceStr === "string" ? Number(priceStr) || 0 : item.price;
@@ -248,6 +265,10 @@ export async function confirmBooking(bookingId: string, formData: FormData) {
   }
 
   await db.booking.update({ where: { id: bookingId }, data: { status: "confirmed" } });
+
+  // Staff can change each item's price on this screen, but the invoice made
+  // at checkout still carries the old amount until it's refreshed.
+  await syncInvoiceWithBooking(bookingId);
 
   if (!booking.googleCalendarEventId) {
     const calendarEventId = await pushBookingToCalendar({
@@ -283,18 +304,34 @@ export async function declineBooking(bookingId: string) {
   });
 
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
-
-  await db.equipmentItem.updateMany({
-    where: {
-      id: { in: booking.items.map((item) => item.equipmentItemId) },
-      organizationId: user.effectiveOrganizationId,
-    },
-    data: { status: "available", currentCustomerId: null, currentLocation: null },
-  });
+  await releaseEquipment(user.effectiveOrganizationId, booking.items);
 
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath("/bookings");
   revalidatePath("/");
+}
+
+// Frees the units of a booking that was just cancelled/declined — except a
+// unit that is physically out on a different, still-active job (delivered
+// and not yet returned). Marking that one "available" would show a dumpster
+// sitting at someone's house as free to book.
+async function releaseEquipment(organizationId: string, items: { equipmentItemId: string }[]) {
+  const releasable: string[] = [];
+  for (const { equipmentItemId } of items) {
+    const outElsewhere = await db.bookingItem.count({
+      where: {
+        equipmentItemId,
+        deliveredAt: { not: null },
+        actualReturnDate: null,
+        booking: { status: { not: "cancelled" } },
+      },
+    });
+    if (outElsewhere === 0) releasable.push(equipmentItemId);
+  }
+  await db.equipmentItem.updateMany({
+    where: { id: { in: releasable }, organizationId },
+    data: { status: "available", currentCustomerId: null, currentLocation: null },
+  });
 }
 
 // Cancels a confirmed booking straight from the Calendar page — frees the
@@ -308,14 +345,7 @@ export async function cancelBooking(bookingId: string) {
   });
 
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
-
-  await db.equipmentItem.updateMany({
-    where: {
-      id: { in: booking.items.map((item) => item.equipmentItemId) },
-      organizationId: user.effectiveOrganizationId,
-    },
-    data: { status: "available", currentCustomerId: null, currentLocation: null },
-  });
+  await releaseEquipment(user.effectiveOrganizationId, booking.items);
 
   if (booking.googleCalendarEventId) {
     await deleteCalendarEvent(booking.googleCalendarEventId);
@@ -349,6 +379,35 @@ export async function updateBooking(bookingId: string, formData: FormData) {
     }),
   ]);
   const bookingAttributes = buildAttributesFromForm(formData, parseFieldDefinitions(org.bookingFieldDefinitions));
+
+  // Changing an item's dates used to skip the availability check entirely,
+  // so a unit could be moved onto days another booking already holds it.
+  // Checked before anything is written so a conflict leaves the booking
+  // untouched; the booking's own items don't count against themselves.
+  if (booking.status !== "cancelled") {
+    const dateChanges = booking.items
+      .filter((item) => item.actualReturnDate === null)
+      .flatMap((item) => {
+        const startStr = str(formData, `startDate_${item.id}`);
+        const endStr = str(formData, `expectedReturnDate_${item.id}`);
+        if (!startStr && !endStr) return [];
+        return [
+          {
+            equipmentItemId: item.equipmentItemId,
+            startDate: startStr ? new Date(startStr) : item.startDate,
+            endDate: endStr ? new Date(endStr) : item.expectedReturnDate,
+          },
+        ];
+      });
+    if (dateChanges.length > 0) {
+      await verifySpecificItemsAvailable(
+        user.effectiveOrganizationId,
+        dateChanges,
+        db,
+        booking.items.map((item) => item.id)
+      );
+    }
+  }
 
   await db.booking.update({
     where: { id: bookingId },
@@ -384,6 +443,9 @@ export async function updateBooking(bookingId: string, formData: FormData) {
       },
     });
   }
+
+  // Refresh a still-unpaid invoice so it matches the new prices/dates.
+  await syncInvoiceWithBooking(bookingId);
 
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath("/bookings");

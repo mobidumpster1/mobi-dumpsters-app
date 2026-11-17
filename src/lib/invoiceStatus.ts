@@ -26,6 +26,15 @@ export function invoiceStatusFilter(displayStatus: string): Prisma.InvoiceWhereI
   }
 }
 
+// Cancelling or declining a booking leaves its invoice in place (nothing
+// voids it), so anything that means "money someone owes us" — the unpaid
+// list, reports' receivables, the overdue-reminder emails — must skip
+// invoices whose booking was cancelled, or a customer who cancelled shows
+// up as owing money and can be sent payment reminders.
+export const invoiceNotOnCancelledBooking: Prisma.InvoiceWhereInput = {
+  OR: [{ bookingId: null }, { booking: { status: { not: "cancelled" } } }],
+};
+
 export const INVOICE_STATUS_STYLES: Record<string, string> = {
   paid: "bg-green-600 text-white font-black",
   unpaid: "bg-amber-500 text-white font-black",

@@ -145,7 +145,10 @@ export async function findAvailableItems(
 export async function verifySpecificItemsAvailable(
   organizationId: string,
   requests: { equipmentItemId: string; startDate: Date; endDate: Date }[],
-  client: Pick<typeof db, "equipmentItem"> = db
+  client: Pick<typeof db, "equipmentItem"> = db,
+  // When re-checking an existing booking (e.g. after its dates were edited),
+  // its own items must not count as conflicting with themselves.
+  excludeBookingItemIds: string[] = []
 ): Promise<void> {
   const dumpSchedule = await getDumpScheduleSettings(organizationId);
 
@@ -159,6 +162,7 @@ export async function verifySpecificItemsAvailable(
             actualReturnDate: null,
             startDate: { lt: request.endDate },
             booking: { status: { not: "cancelled" } },
+            ...(excludeBookingItemIds.length > 0 ? { id: { notIn: excludeBookingItemIds } } : {}),
           },
         },
         maintenanceWindows: {

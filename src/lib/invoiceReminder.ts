@@ -3,6 +3,7 @@ import { sendCustomerEmail } from "@/lib/email";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { branding } from "@/lib/branding";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
+import { invoiceNotOnCancelledBooking } from "@/lib/invoiceStatus";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -44,7 +45,11 @@ export async function sendPendingInvoiceReminders() {
         organizationId: org.id,
         status: { not: "paid" },
         dueDate: { not: null, lte: cutoffFirst },
-        OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }],
+        AND: [
+          { OR: [{ lastReminderSentAt: null }, { lastReminderSentAt: { lte: cutoffRepeat } }] },
+          // Never nag a customer whose booking was cancelled/declined.
+          invoiceNotOnCancelledBooking,
+        ],
       },
       include: {
         booking: { include: { customer: true } },
