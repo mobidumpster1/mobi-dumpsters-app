@@ -16,6 +16,7 @@ import {
 } from "@/lib/documents";
 import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
 import { requireUser, hasPlan } from "@/lib/session";
+import { getOrgContact } from "@/lib/orgContact";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { inputClass } from "@/components/Field";
 
@@ -40,6 +41,40 @@ function urgency(date: Date, today: Date) {
   }
   if (diffDays === 0) return { text: "Today", className: "text-amber-600 font-semibold" };
   return { text: `In ${diffDays}d`, className: "text-zinc-500" };
+}
+
+function StatTile({
+  label,
+  value,
+  caption,
+  href,
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  caption?: string;
+  href?: string;
+  highlight?: boolean;
+}) {
+  const className = `block rounded-2xl border p-4 shadow-sm transition-colors ${
+    highlight
+      ? "border-accent/50 bg-accent/15 hover:bg-accent/25"
+      : "border-[var(--app-line)] bg-white hover:bg-zinc-50"
+  }`;
+  const body = (
+    <>
+      <p className="text-sm font-semibold text-zinc-600">{label}</p>
+      <p className="mt-1 text-3xl font-extrabold tracking-tight text-ink">{value}</p>
+      {caption && <p className="mt-0.5 text-xs text-zinc-500">{caption}</p>}
+    </>
+  );
+  return href ? (
+    <Link href={href} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
 }
 
 function DispatchCard({
@@ -94,7 +129,7 @@ function DispatchCard({
           {extraFormFields}
           <button
             type="submit"
-            className="self-start text-sm font-semibold text-brand hover:underline"
+            className="min-h-11 self-start rounded-xl bg-brand px-5 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
           >
             {actionLabel}
           </button>
@@ -267,17 +302,42 @@ export default async function DispatchPage() {
     href: stop.href,
   }));
 
+  const contact = await getOrgContact(user.effectiveOrganizationId);
+  const localHour =
+    Number(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: contact.timeZone }).format(
+        new Date()
+      )
+    ) % 24;
+  const greeting = localHour < 12 ? "Good morning" : localHour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = user.name.split(" ")[0];
+  const needsAttentionCount = serviceRequests.length + expiringDocuments.length;
+
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-ink">Dispatch</h1>
+        <h1 className="text-3xl tracking-tight text-ink sm:text-4xl">
+          {greeting}, {firstName}
+        </h1>
         <p className="mt-1 text-zinc-500">
-          What&apos;s due for delivery or pickup/return, today and this week.
+          Here&apos;s what&apos;s due for delivery or pickup, and what needs you.
         </p>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label="New requests"
+          value={pendingBookings.length}
+          href="/bookings?status=pending"
+          highlight={pendingBookings.length > 0}
+        />
+        <StatTile label="Deliveries due" value={deliveries.length} caption="this week" />
+        <StatTile label="Pickups due" value={pickups.length} caption="this week" />
+        <StatTile label="Needs attention" value={needsAttentionCount} caption="requests and documents" />
+      </div>
+
       {pendingBookings.length > 0 && (
-        <section className="rounded-lg border-2 border-amber-600 bg-amber-50 p-5">
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
           <h2 className="text-xl font-black text-ink">
             {pendingBookings.length} New Booking Request
             {pendingBookings.length === 1 ? "" : "s"} Awaiting Review
@@ -302,7 +362,7 @@ export default async function DispatchPage() {
       )}
 
       {serviceRequests.length > 0 && (
-        <section className="rounded-lg border-2 border-amber-600 bg-amber-50 p-5">
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
           <h2 className="text-xl font-black text-ink">
             {serviceRequests.length} Service Request
             {serviceRequests.length === 1 ? "" : "s"}
@@ -340,7 +400,7 @@ export default async function DispatchPage() {
       )}
 
       {expiringDocuments.length > 0 && (
-        <section className="rounded-lg border-2 border-red-600 bg-red-50 p-5">
+        <section className="rounded-2xl border border-red-300 bg-red-50 p-5 shadow-sm">
           <h2 className="text-xl font-black text-ink">
             {expiringDocuments.length} Document{expiringDocuments.length === 1 ? "" : "s"} Expiring
             Soon
@@ -370,7 +430,7 @@ export default async function DispatchPage() {
       )}
 
       {dueMaintenanceEntries.length > 0 && (
-        <section className="rounded-lg border-2 border-amber-500 bg-amber-50 p-5">
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
           <h2 className="text-xl font-black text-ink">
             {dueMaintenanceEntries.length} Service{dueMaintenanceEntries.length === 1 ? "" : "s"} Due
             Soon

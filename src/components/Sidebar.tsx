@@ -87,7 +87,7 @@ const ORDER_STORAGE_KEY = "sidebarOrder";
 // globals.css), so it stays this same charcoal in both themes. That mirrors
 // how the old sidebar's branding.primaryColor background also ignored the
 // content theme toggle; the nav shell is chrome, not content.
-const SHELL_BG = "bg-zinc-950";
+const SHELL_BG = "bg-[var(--app-sidebar)]";
 
 export type SidebarUser = {
   name: string;
@@ -227,17 +227,25 @@ function NavLinks({
       {links.map((link, index) => {
         const isActive =
           link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
-        const rowClass = `flex items-center justify-between rounded px-5 py-4 text-base font-bold transition-colors ${
+        const rowClass = `flex items-center justify-between rounded-xl px-4 py-2.5 text-[15px] font-semibold transition-colors ${
           isActive && !reordering
-            ? "bg-brand text-white"
-            : "text-white/90 hover:bg-white/10 hover:text-white"
+            ? "bg-white/15 text-white"
+            : "text-white/80 hover:bg-white/10 hover:text-white"
         }`;
 
         const label = (
           <>
-            {link.label}
+            <span className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                  isActive && !reordering ? "bg-accent" : "bg-white/25"
+                }`}
+              />
+              {link.label}
+            </span>
             {link.href === "/bookings" && pendingCount > 0 && !reordering && (
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-black text-white">
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-black text-accent-ink">
                 {pendingCount}
               </span>
             )}
@@ -249,7 +257,7 @@ function NavLinks({
         const groupHeader = group && group !== previousGroup && (
           <div
             key={`${group}-header`}
-            className={`px-5 ${index === 0 ? "pt-0" : "pt-3"} pb-1 text-xs font-black uppercase tracking-wider text-white/40`}
+            className={`px-4 ${index === 0 ? "pt-0" : "pt-4"} pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/45`}
           >
             {group}
           </div>
@@ -340,7 +348,7 @@ function BackButton({ className }: { className: string }) {
 
 function AccountRow({ user }: { user: SidebarUser }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded border-2 border-zinc-800 px-5 py-3 text-sm text-white/90">
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 px-5 py-3 text-sm text-white/90">
       <Link href="/account" className="min-w-0 hover:underline">
         <div className="truncate font-bold">{user.name}</div>
         <div className="text-xs font-semibold capitalize text-white/50">{user.role}</div>
@@ -435,7 +443,7 @@ function MoreSheet({
   return (
     <div className="fixed inset-0 z-50 md:hidden">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <aside className={`absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col gap-6 overflow-y-auto border-r-2 border-zinc-800 ${SHELL_BG} px-4 py-6 shadow-2xl`}>
+      <aside className={`absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col gap-6 overflow-y-auto border-r border-white/10 ${SHELL_BG} px-4 py-6 shadow-2xl`}>
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2.5">
             {logo}
@@ -537,7 +545,7 @@ export function Sidebar({
     <>
       {/* Mobile top bar — sticky, so the back button stays reachable without
           scrolling back up on long pages. */}
-      <header className={`print:hidden sticky top-0 z-40 flex items-center justify-between border-b-2 border-zinc-800 ${SHELL_BG} px-4 py-3 md:hidden`}>
+      <header className={`print:hidden sticky top-0 z-40 flex items-center justify-between border-b border-white/10 ${SHELL_BG} px-4 py-3 md:hidden`}>
         {pathname === "/" ? (
           <Link href="/" className="flex items-center gap-2.5">
             {logo}
@@ -566,14 +574,14 @@ export function Sidebar({
 
       {/* Mobile bottom tab bar — reachable one-handed, no drawer to open
           for the highest-frequency screens. */}
-      <nav className={`print:hidden fixed inset-x-0 bottom-0 z-40 grid border-t-2 border-zinc-800 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
+      <nav className={`print:hidden fixed inset-x-0 bottom-0 z-40 grid border-t border-white/10 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
         {mobileTabs.map((link) => {
           const isActive = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`relative flex flex-col items-center gap-1 py-2.5 ${isActive ? "text-brand" : "text-white/60"}`}
+              className={`relative flex flex-col items-center gap-1 py-2.5 ${isActive ? "text-accent" : "text-white/60"}`}
             >
               <TabIcon href={link.href} />
               {link.href === "/bookings" && pendingCount > 0 && (
@@ -596,7 +604,7 @@ export function Sidebar({
       </nav>
 
       {/* Desktop / tablet persistent sidebar */}
-      <aside className={`print:hidden sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r-2 border-zinc-800 ${SHELL_BG} px-4 py-6 md:flex`}>
+      <aside className={`print:hidden sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r border-white/10 ${SHELL_BG} px-4 py-6 md:flex`}>
         <Link href="/" className="flex items-center gap-3 px-2">
           {logo}
           <span className="text-lg font-bold leading-tight text-white">{branding.businessName}</span>
@@ -617,7 +625,7 @@ export function Sidebar({
             onToggle={() => setReordering((r) => !r)}
             className="self-start rounded px-2 py-1 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white"
           />
-          <div className="flex items-center justify-between rounded border-2 border-zinc-800 px-5 py-3 text-sm font-bold text-white/90">
+          <div className="flex items-center justify-between rounded-xl border border-white/10 px-5 py-3 text-sm font-bold text-white/90">
             Theme
             <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-white hover:bg-white/10" />
           </div>

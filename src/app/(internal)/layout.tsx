@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Archivo } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
 import { UnsavedChangesProvider } from "@/components/UnsavedChangesProvider";
 import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
@@ -7,6 +8,10 @@ import { requireUser } from "@/lib/session";
 import { getOrgBranding } from "@/lib/orgBranding";
 import { stopImpersonation } from "@/app/(internal)/platform-admin/actions";
 import { resendVerificationEmailAction } from "@/app/(internal)/verificationActions";
+
+// Headline face for the admin app (page titles and section headings) — one
+// self-hosted font, not the whole website-builder set.
+const displayFont = Archivo({ subsets: ["latin"], variable: "--font-display-face" });
 
 export default async function InternalLayout({
   children,
@@ -27,11 +32,14 @@ export default async function InternalLayout({
   return (
     <UnsavedChangesProvider>
       <div
-        className="flex min-h-full flex-col md:flex-row"
+        className={`app-shell ${displayFont.variable} flex min-h-full flex-col md:flex-row`}
         style={
           {
             "--rt-brand": orgBranding.primaryColor,
             "--rt-brand-dark": orgBranding.primaryColorDark,
+            // The sidebar is the business's own color, deepened — so a
+            // different brand color restyles the whole shell automatically.
+            "--app-sidebar": `color-mix(in srgb, ${orgBranding.primaryColor} 38%, #0a1207)`,
           } as React.CSSProperties
         }
       >

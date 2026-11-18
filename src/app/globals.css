@@ -6,7 +6,7 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f8f6;
+  --background: #f6f4ee;
   --foreground: #1a1a1a;
 
   /* Runtime values behind the neutral Tailwind color tokens below. Every
@@ -28,6 +28,8 @@
      internal app's root wrapper — see src/app/(internal)/layout.tsx. */
   --rt-brand: #3f6b2f;
   --rt-brand-dark: #2f5122;
+  --rt-accent: #ff8a1f;
+  --rt-brand-fg: var(--rt-brand);
 }
 
 .dark {
@@ -45,6 +47,36 @@
   --rt-zinc-600: #d4d4d8;
   --rt-zinc-700: #e4e4e7;
   --rt-zinc-900: #fafafa;
+  --rt-brand-fg: color-mix(in srgb, var(--rt-brand) 50%, white);
+}
+
+/* ------------------------------------------------------------------ */
+/* Admin app look — applied by src/app/(internal)/layout.tsx.           */
+/* Restyles the heavy black-outlined cards used on every admin page in  */
+/* one place (soft border, rounder corners, gentle shadow) instead of   */
+/* touching each page, and gives headings the display font.             */
+/* ------------------------------------------------------------------ */
+.app-shell {
+  --app-line: #e3e0d3;
+  --app-shadow: 0 1px 2px rgb(20 33 15 / 0.06), 0 8px 24px rgb(20 33 15 / 0.06);
+}
+.dark .app-shell {
+  --app-line: #3f3f46;
+  --app-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+.app-shell [class~="border-2"][class~="border-zinc-900"] {
+  border-width: 1px;
+  border-color: var(--app-line);
+  border-radius: 1rem;
+  box-shadow: var(--app-shadow);
+}
+.app-shell h1,
+.app-shell h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+.app-shell h1 {
+  font-weight: 800;
 }
 
 @theme inline {
@@ -57,6 +89,13 @@
   --color-brand-dark: var(--rt-brand-dark);
   --color-brand-light: #eef3ea;
   --color-ink: var(--foreground);
+  /* The one "do this next" color (bright orange, dark text on it) and a
+     brand-tinted text color that stays readable on dark surfaces — the raw
+     brand green is too dark to read on a dark background. */
+  --color-accent: var(--rt-accent);
+  --color-accent-ink: #1b1100;
+  --color-brand-fg: var(--rt-brand-fg);
+  --font-display: var(--font-display-face, var(--font-geist-sans));
 
   --color-white: var(--rt-white);
   --color-zinc-50: var(--rt-zinc-50);
@@ -85,7 +124,7 @@ body {
    no theme toggle of their own and weren't designed with a dark palette. */
 .theme-light {
   color-scheme: light;
-  --background: #f7f8f6;
+  --background: #f6f4ee;
   --foreground: #1a1a1a;
   --rt-white: #ffffff;
   --rt-zinc-50: #fafafa;
