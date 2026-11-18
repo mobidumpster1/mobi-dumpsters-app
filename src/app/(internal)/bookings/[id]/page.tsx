@@ -28,6 +28,8 @@ import { matchesPermitArea, PERMIT_STATUS_LABELS } from "@/lib/permits";
 import { formatDate } from "@/lib/date";
 import { Field, inputClass } from "@/components/Field";
 import { LocationMap } from "@/components/LocationMap";
+import { PlacementPreview } from "@/components/PlacementPreview";
+import { containerFootprint } from "@/lib/containerSize";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { SendPhotoNotificationButton } from "@/components/SendPhotoNotificationButton";
@@ -158,6 +160,25 @@ export default async function BookingDetailPage({
           />
         </div>
       )}
+
+      {booking.placementLatitude !== null &&
+        booking.placementLongitude !== null &&
+        booking.placementRotation !== null &&
+        booking.items[0] && (
+          <div>
+            <h3 className="mb-1.5 text-sm font-semibold text-zinc-700">Where the customer wants it</h3>
+            <PlacementPreview
+              lat={booking.placementLatitude}
+              lng={booking.placementLongitude}
+              rotation={booking.placementRotation}
+              {...containerFootprint(booking.items[0].equipmentItem.category)}
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Drawn to size (about {containerFootprint(booking.items[0].equipmentItem.category).lengthFt} ×{" "}
+              {containerFootprint(booking.items[0].equipmentItem.category).widthFt} ft) and turned the way the customer set it.
+            </p>
+          </div>
+        )}
 
       {/* Mobile: card list */}
       <div className="flex flex-col gap-3 md:hidden">

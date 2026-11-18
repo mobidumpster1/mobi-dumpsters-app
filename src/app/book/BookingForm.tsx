@@ -6,6 +6,7 @@ import { Field, inputClass } from "@/components/Field";
 import { formatDate } from "@/lib/date";
 import { AvailabilityCalendar } from "@/components/AvailabilityCalendar";
 import { PlacementMap } from "@/components/PlacementMap";
+import { containerFootprint } from "@/lib/containerSize";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import {
   priceLabel,
@@ -158,6 +159,9 @@ export function BookingForm({
   const [address, setAddress] = useState("");
   const [geocodeCenter, setGeocodeCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [placementPoint, setPlacementPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // Which way the container sits on that spot (degrees clockwise from north
+  // for its long side), set by the Turn controls on the placement map.
+  const [placementRotation, setPlacementRotation] = useState(0);
   // Once the customer drags/taps the placement map themselves, further
   // address edits stop re-centering their pin — a ref (not state) so the
   // debounced geocode callback always reads the latest value even if it
@@ -774,11 +778,26 @@ export function BookingForm({
             </p>
             <PlacementMap
               value={placementPoint}
+              rotation={placementRotation}
               onChange={onPlacementChange}
+              onRotationChange={(degrees) => {
+                placementTouchedRef.current = true;
+                setPlacementRotation(degrees);
+              }}
               center={geocodeCenter ?? undefined}
+              footprint={
+                selectedCategory
+                  ? containerFootprint(selectedCategory)
+                  : { lengthFt: 22, widthFt: 8, exact: false }
+              }
             />
             <input type="hidden" name="placementLatitude" value={placementPoint?.lat ?? ""} />
             <input type="hidden" name="placementLongitude" value={placementPoint?.lng ?? ""} />
+            <input
+              type="hidden"
+              name="placementRotation"
+              value={placementPoint ? Math.round(placementRotation) : ""}
+            />
           </div>
 
           <Field label="Anything else we should know? (optional)" htmlFor="notes">

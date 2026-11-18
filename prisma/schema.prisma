@@ -805,6 +805,10 @@ model Booking {
   // never touched the map (e.g. no API key configured, or they skipped it).
   placementLatitude     Float?
   placementLongitude    Float?
+  // Which way the customer turned the container on that spot, in degrees
+  // clockwise from north for its long side (0 = runs north-south). Null for
+  // bookings made before rotation existed or when they only tapped a point.
+  placementRotation     Float?
   notes                 String?
   // JSON object keyed by field key — see Organization.bookingFieldDefinitions
   // and src/lib/categoryFields.ts (the parse/format helpers are generic,

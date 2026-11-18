@@ -209,6 +209,13 @@ async function processBookingRequest(formData: FormData): Promise<string> {
   const placementLongitudeStr = str(formData, "placementLongitude");
   const placementLatitude = placementLatitudeStr && Number.isFinite(Number(placementLatitudeStr)) ? Number(placementLatitudeStr) : null;
   const placementLongitude = placementLongitudeStr && Number.isFinite(Number(placementLongitudeStr)) ? Number(placementLongitudeStr) : null;
+  const placementRotationStr = str(formData, "placementRotation");
+  // Only meaningful alongside a placement point; wrapped into 0-359 so a
+  // tampered value can't store anything odd.
+  const placementRotation =
+    placementLatitude !== null && placementLongitude !== null && placementRotationStr && Number.isFinite(Number(placementRotationStr))
+      ? ((Number(placementRotationStr) % 360) + 360) % 360
+      : null;
   const agreed = formData.get("agreed") === "on";
   const isEmbed = formData.get("embed") === "1";
 
@@ -463,6 +470,7 @@ async function processBookingRequest(formData: FormData): Promise<string> {
             longitude: geocoded?.longitude,
             placementLatitude,
             placementLongitude,
+            placementRotation,
             status: "pending",
             notes: str(formData, "notes"),
             promoCodeId: appliedPromoCodeId,
