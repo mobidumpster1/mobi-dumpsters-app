@@ -6,16 +6,20 @@ import { getStripeConnection, createSetupIntent } from "@/lib/stripe";
 import { payBookingInvoiceNow } from "../actions";
 import { SaveCardSection } from "../SaveCardSection";
 import { EmbedAutoResize } from "@/components/EmbedAutoResize";
+import { getOrgContact } from "@/lib/orgContact";
+import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 
 export default async function ThankYouPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string; agreement?: string; invoice?: string; payError?: string; embed?: string }>;
+  searchParams: Promise<{ ref?: string; agreement?: string; invoice?: string; payError?: string; embed?: string; theme?: string }>;
 }) {
-  const { ref, agreement, invoice: invoiceId, payError, embed } = await searchParams;
+  const { ref, agreement, invoice: invoiceId, payError, embed, theme: themeParam } = await searchParams;
   const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
-  const branding = await getOrgBranding(organizationId);
+  const [branding, contact] = await Promise.all([getOrgBranding(organizationId), getOrgContact(organizationId)]);
+  const isDark = themeParam === "dark" || (themeParam !== "light" && isEmbed);
+  const phoneDigits = contact.phone?.replace(/\D/g, "");
 
   const [invoice, connection] = await Promise.all([
     // Scoped to this request's own organization — invoiceId comes straight
@@ -49,20 +53,51 @@ export default async function ThankYouPage({
 
   return (
     <div
-      className={
-        isEmbed
-          ? "theme-embed flex items-center justify-center px-2 py-4"
-          : "theme-public-dark flex min-h-screen items-center justify-center bg-background px-4"
+      className={`${FONT_VARIABLES_CLASS} ${
+        isDark ? (isEmbed ? "theme-embed" : "theme-public-dark") : "theme-booking"
+      } ${isEmbed ? "flex items-center justify-center px-2 py-4" : "flex min-h-screen items-center justify-center bg-background px-4 py-8"}`}
+      style={
+        {
+          "--rt-brand": branding.primaryColor,
+          "--rt-brand-dark": branding.primaryColorDark,
+          "--font-display-face": "var(--font-archivo)",
+        } as React.CSSProperties
       }
     >
       {isEmbed && <EmbedAutoResize />}
-      <div className="max-w-md rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
-        <h1 className="text-2xl font-bold text-ink">Request received!</h1>
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-8 text-center shadow-[0_8px_30px_rgb(0_0_0/0.08)]">
+        <div
+          aria-hidden="true"
+          className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-accent text-3xl font-extrabold text-accent-ink"
+        >
+          &#10003;
+        </div>
+        <h1 className="mt-5 font-display text-3xl font-extrabold tracking-tight text-ink">Request received!</h1>
         <p className="mt-3 text-zinc-600">
           Thanks for your request. {branding.businessName} will contact you
           shortly to confirm details.
         </p>
-        {ref && <p className="mt-4 text-sm text-zinc-400">Reference #: {ref}</p>}
+        {ref && <p className="mt-4 text-sm text-zinc-500">Reference #: {ref}</p>}
+
+        <ol className="mt-6 flex flex-col gap-2 rounded-2xl bg-zinc-50 p-4 text-left text-sm text-zinc-600">
+          <li className="font-bold text-ink">What happens next</li>
+          {["We review your request and confirm by phone or text.", "We deliver on your day.", "We pick it up when your rental ends."].map((line, index) => (
+            <li key={line} className="flex items-start gap-2.5">
+              <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-extrabold text-brand-fg">
+                {index + 1}
+              </span>
+              <span className="pt-0.5">{line}</span>
+            </li>
+          ))}
+        </ol>
+        {phoneDigits && phoneDigits.length >= 10 && (
+          <a
+            href={`tel:${phoneDigits}`}
+            className="mt-3 flex min-h-11 items-center justify-center rounded-xl border-2 border-brand px-4 text-sm font-bold text-brand-fg transition-colors hover:bg-brand/10"
+          >
+            Questions? Call or text {contact.phone}
+          </a>
+        )}
 
         {invoice && (
           <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-5 text-left">
@@ -85,7 +120,7 @@ export default async function ThankYouPage({
               <form action={payNowWithId} className="mt-4">
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                  className="min-h-12 w-full rounded-xl bg-accent px-5 text-base font-extrabold text-accent-ink transition-all hover:brightness-105"
                 >
                   Pay ${invoice.amount.toFixed(2)} Now
                 </button>

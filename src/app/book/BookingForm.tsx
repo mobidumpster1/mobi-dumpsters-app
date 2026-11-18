@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { checkAvailability, geocodePreview, getUnavailableStartDates, submitBookingRequest } from "./actions";
 import { Field, inputClass } from "@/components/Field";
 import { formatDate } from "@/lib/date";
@@ -50,7 +50,173 @@ export type BookingFormProps = {
   // inside an iframe lands on a broken (non-transparent, non-resizing)
   // confirmation screen. See book/thank-you/page.tsx.
   isEmbed?: boolean;
+  // Shown in the "questions?" strip - the business's own call/text number.
+  contactPhone?: string;
 };
+
+const STEP_LABELS: { id: Step; label: string }[] = [
+  { id: "browse", label: "Choose a size" },
+  { id: "review", label: "Review details" },
+  { id: "form", label: "Dates & booking" },
+];
+
+// Where the customer is in the three steps - always visible, so they know how
+// close they are to done.
+function Stepper({ step }: { step: Step }) {
+  const current = STEP_LABELS.findIndex((x) => x.id === step);
+  return (
+    <ol className="flex flex-wrap gap-2" aria-label="Progress">
+      {STEP_LABELS.map((item, index) => {
+        const state = index < current ? "done" : index === current ? "current" : "todo";
+        return (
+          <li
+            key={item.id}
+            aria-current={state === "current" ? "step" : undefined}
+            className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 text-sm font-semibold ${
+              state === "current" ? "bg-brand text-white" : "bg-zinc-100 text-zinc-600"
+            }`}
+          >
+            <span
+              className={`grid h-6 w-6 place-items-center rounded-full text-xs font-extrabold ${
+                state === "todo" ? "bg-zinc-200 text-zinc-600" : "bg-accent text-accent-ink"
+              }`}
+            >
+              {state === "done" ? "✓" : index + 1}
+            </span>
+            {item.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// The service agreement as a readable, keyboard-scrollable box with a
+// full-screen reader. The "I agree" checkbox stays locked until the customer
+// has scrolled to the end (or the whole text already fits), so agreeing
+// means they had the chance to read it.
+function AgreementReader({
+  title,
+  content,
+  active,
+  onRead,
+}: {
+  title: string;
+  content: string;
+  active: boolean;
+  onRead: () => void;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [atEnd, setAtEnd] = useState(false);
+
+  const check = useCallback(
+    (target?: HTMLElement | null) => {
+      const el = target ?? boxRef.current;
+      if (!el || el.clientHeight === 0) return;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 6) {
+        setAtEnd(true);
+        onRead();
+      }
+    },
+    [onRead]
+  );
+
+  // The box is display:none until its step is showing, so re-measure then.
+  useEffect(() => {
+    if (active) check();
+  }, [active, check]);
+
+  return (
+    <div className="rounded-2xl border-2 border-zinc-200 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-2.5">
+        <p className="text-sm font-bold text-ink">{title}</p>
+        <button
+          type="button"
+          onClick={() => dialogRef.current?.showModal()}
+          className="min-h-9 px-1 text-sm font-bold text-brand-fg hover:underline"
+        >
+          Read full screen
+        </button>
+      </div>
+      <div
+        ref={boxRef}
+        onScroll={() => check()}
+        tabIndex={0}
+        role="region"
+        aria-label={`${title}, scrollable`}
+        className="max-h-52 overflow-y-auto whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-zinc-700"
+      >
+        {content}
+      </div>
+      <p
+        className={`border-t border-zinc-200 px-4 py-2 text-xs ${
+          atEnd ? "bg-brand/10 font-bold text-brand-fg" : "bg-zinc-50 text-zinc-500"
+        }`}
+        aria-live="polite"
+      >
+        {atEnd ? "You've reached the end - you can agree below." : "Scroll to the end to unlock the agreement box."}
+      </p>
+
+      <dialog
+        ref={dialogRef}
+        className="m-auto max-h-[88vh] w-[min(92vw,44rem)] rounded-2xl p-0 backdrop:bg-black/60"
+        onClick={(e) => {
+          if (e.target === dialogRef.current) dialogRef.current?.close();
+        }}
+      >
+        <div className="flex max-h-[88vh] flex-col bg-white text-ink">
+          <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-5 py-3">
+            <h3 className="font-display text-lg font-bold">{title}</h3>
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.close()}
+              className="min-h-11 rounded-xl bg-brand px-4 text-sm font-bold text-white"
+            >
+              Close
+            </button>
+          </div>
+          <div
+            tabIndex={0}
+            onScroll={(e) => check(e.currentTarget)}
+            className="overflow-y-auto whitespace-pre-wrap px-5 py-4 text-sm leading-relaxed text-zinc-700"
+          >
+            {content}
+          </div>
+        </div>
+      </dialog>
+    </div>
+  );
+}
+
+function NextSteps({ contactPhone }: { contactPhone?: string }) {
+  const digits = contactPhone?.replace(/\D/g, "");
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+      <p className="text-sm font-bold text-ink">What happens next</p>
+      <ol className="mt-2 flex flex-col gap-2 text-sm text-zinc-600">
+        {["You send your request.", "We confirm by phone or text.", "We deliver on your day.", "We pick it up when your rental ends."].map(
+          (line, index) => (
+            <li key={line} className="flex items-start gap-2.5">
+              <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-extrabold text-brand-fg">
+                {index + 1}
+              </span>
+              <span className="pt-0.5">{line}</span>
+            </li>
+          )
+        )}
+      </ol>
+      {digits && digits.length >= 10 && (
+        <a
+          href={`tel:${digits}`}
+          className="mt-3 flex min-h-11 items-center justify-center rounded-xl border-2 border-brand px-4 text-sm font-bold text-brand-fg transition-colors hover:bg-brand/10"
+        >
+          Questions? Call or text {contactPhone}
+        </a>
+      )}
+    </div>
+  );
+}
 
 export function BookingForm({
   categories,
@@ -58,6 +224,7 @@ export function BookingForm({
   agreementContent,
   initialCategoryId,
   isEmbed,
+  contactPhone,
 }: BookingFormProps) {
   const [step, setStep] = useState<Step>(initialCategoryId ? "review" : "browse");
   const [categoryId, setCategoryId] = useState(initialCategoryId ?? "");
@@ -162,6 +329,8 @@ export function BookingForm({
   // Which way the container sits on that spot (degrees clockwise from north
   // for its long side), set by the Turn controls on the placement map.
   const [placementRotation, setPlacementRotation] = useState(0);
+  const [agreementRead, setAgreementRead] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   // Once the customer drags/taps the placement map themselves, further
   // address edits stop re-centering their pin — a ref (not state) so the
   // debounced geocode callback always reads the latest value even if it
@@ -280,14 +449,15 @@ export function BookingForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="categoryId" value={categoryId} required />
       {isEmbed && <input type="hidden" name="embed" value="1" />}
+      <Stepper step={step} />
 
       {/* Step 1: browse — CSS-hidden (not unmounted) once past it, same as
           the other steps below, so nothing typed further along is lost if
           someone taps Back. */}
       <div className={step === "browse" ? "" : "hidden"}>
-        <p className="mb-2 text-sm font-medium text-zinc-700">
+        <h2 className="mb-3 font-display text-2xl font-extrabold tracking-tight text-ink">
           What do you need?
-        </p>
+        </h2>
 
         <div className="mb-3 flex flex-col gap-2 sm:flex-row">
           <input
@@ -315,7 +485,7 @@ export function BookingForm({
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {visibleCategories.map((c) => {
             const price = priceLabel(c);
             return (
@@ -323,32 +493,29 @@ export function BookingForm({
                 key={c.id}
                 type="button"
                 onClick={() => onCategoryChange(c.id)}
-                className="flex flex-col overflow-hidden rounded-2xl border-2 border-zinc-200 text-left transition-all hover:border-brand/50 hover:shadow-md"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
               >
-                {c.imageUrl ? (
-                  // Kept object-contain (never crops) rather than a filled
-                  // object-cover crop — once real dumpster photos with
-                  // dimension callouts/labels are in use, cropping could cut
-                  // off the exact info a customer needs to see.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={c.imageUrl}
-                    alt={c.name}
-                    className="h-44 w-full bg-zinc-50 object-contain sm:h-52"
-                  />
-                ) : (
-                  <div className="flex h-44 w-full items-center justify-center bg-zinc-100 text-xs text-zinc-400 sm:h-52">
-                    No photo yet
-                  </div>
-                )}
-                <div className="p-3">
-                  <p className="text-sm font-semibold text-ink">{c.name}</p>
+                <div className="relative w-full bg-zinc-50">
+                  {c.imageUrl ? (
+                    // Kept object-contain (never crops) - real dumpster photos
+                    // can carry dimension callouts a customer needs to see.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.imageUrl} alt={c.name} className="h-44 w-full object-contain sm:h-52" />
+                  ) : (
+                    <div className="flex h-44 w-full items-center justify-center bg-zinc-100 text-xs text-zinc-500 sm:h-52">
+                      No photo yet
+                    </div>
+                  )}
                   {price && (
-                    <p className="text-xs text-zinc-500">{price}</p>
+                    <span className="absolute bottom-3 left-3 rounded-full bg-accent px-3 py-1.5 text-sm font-extrabold text-accent-ink shadow-md">
+                      {price}
+                    </span>
                   )}
-                  {c.dimensions && (
-                    <p className="mt-0.5 text-xs text-zinc-400">{c.dimensions}</p>
-                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-1 p-4">
+                  <h3 className="font-display text-lg font-bold leading-tight text-ink">{c.name}</h3>
+                  {c.dimensions && <p className="text-xs text-zinc-500">{c.dimensions}</p>}
+                  <span className="mt-2 text-sm font-bold text-brand-fg">Choose this size &rarr;</span>
                 </div>
               </button>
             );
@@ -363,7 +530,7 @@ export function BookingForm({
           <button
             type="button"
             onClick={() => setStep("browse")}
-            className="self-start text-sm font-semibold text-brand hover:underline"
+            className="self-start text-sm font-semibold text-brand-fg hover:underline"
           >
             ‹ Back to rentals
           </button>
@@ -373,20 +540,20 @@ export function BookingForm({
             <img
               src={selectedCategory.imageUrl}
               alt={selectedCategory.name}
-              className="h-48 w-full rounded-xl bg-zinc-50 object-contain"
+              className="h-52 w-full rounded-2xl bg-zinc-50 object-contain"
             />
           )}
 
           <div>
-            <h2 className="text-xl font-bold text-ink">{selectedCategory.name}</h2>
+            <h2 className="font-display text-3xl font-extrabold tracking-tight text-ink">{selectedCategory.name}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
               {priceLabel(selectedCategory) && (
-                <span className="font-semibold text-brand">
+                <span className="font-semibold text-brand-fg">
                   {priceLabel(selectedCategory)}
                 </span>
               )}
               {selectedCategory.dimensions && (
-                <span className="text-zinc-400">{selectedCategory.dimensions}</span>
+                <span className="text-zinc-500">{selectedCategory.dimensions}</span>
               )}
             </div>
           </div>
@@ -398,9 +565,9 @@ export function BookingForm({
           {selectedCategory.pricingTiers.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
               {selectedCategory.pricingTiers.map((tier) => (
-                <div key={tier.id} className="rounded-xl border border-zinc-200 p-3">
+                <div key={tier.id} className="rounded-2xl border-2 border-zinc-200 p-4">
                   <p className="text-sm font-semibold text-ink">{tier.label}</p>
-                  <p className="text-sm font-semibold text-brand">
+                  <p className="text-2xl font-extrabold tracking-tight text-ink">
                     {tier.price != null ? `$${tier.price.toFixed(2)}` : "Call"}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
@@ -415,7 +582,7 @@ export function BookingForm({
 
           {selectedCategory.materialOptions.length > 0 && (
             <div>
-              <p className="mb-2 text-xs text-zinc-400">
+              <p className="mb-2 text-xs text-zinc-500">
                 Tap a material to book it directly.
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -427,7 +594,7 @@ export function BookingForm({
                     className="rounded-xl border border-zinc-200 p-3 text-left transition-colors hover:border-brand/50"
                   >
                     <p className="text-sm font-semibold text-ink">{m.name}</p>
-                    <p className="text-sm font-semibold text-brand">
+                    <p className="text-sm font-semibold text-brand-fg">
                       ${m.pricePerUnit.toFixed(2)}/{m.unit}
                     </p>
                   </button>
@@ -488,14 +655,14 @@ export function BookingForm({
                           )}
                         </span>
                       </div>
-                      <span className="flex-shrink-0 text-xs font-semibold text-brand">
+                      <span className="flex-shrink-0 text-xs font-semibold text-brand-fg">
                         {interested ? "Added ✓" : "+ I'm interested"}
                       </span>
                     </button>
                   );
                 })}
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-zinc-500">
                 We&apos;ll follow up on anything you flag here — it&apos;s just a note for now, not a
                 separate order.
               </p>
@@ -504,20 +671,25 @@ export function BookingForm({
 
           <div>
             <p className="text-sm font-semibold text-ink">{agreementTitle}</p>
-            <div className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label={`${agreementTitle}, scrollable`}
+              className="mt-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-700"
+            >
               {agreementContent}
             </div>
-            <p className="mt-1 text-xs text-zinc-400">
-              You&apos;ll confirm you agree to this on the next step.
+            <p className="mt-1 text-xs text-zinc-500">
+              You&apos;ll confirm you agree to this on the last step.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onContinueToForm}
-            className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark"
+            className="min-h-14 rounded-xl bg-accent px-5 text-lg font-extrabold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
-            Continue to Book →
+            Continue to Book &rarr;
           </button>
         </div>
       )}
@@ -529,7 +701,7 @@ export function BookingForm({
           <button
             type="button"
             onClick={() => setStep("review")}
-            className="self-start text-sm font-semibold text-brand hover:underline"
+            className="self-start text-sm font-semibold text-brand-fg hover:underline"
           >
             ‹ Back to details
           </button>
@@ -539,7 +711,7 @@ export function BookingForm({
               reads from). Previously this step showed no price at all once
               past Review, so there was nothing to check against while
               filling in contact details. */}
-          <div className="rounded-xl border-2 border-brand/20 bg-brand/5 p-4">
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
             <div className="flex items-center gap-3">
               {selectedCategory.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -555,7 +727,7 @@ export function BookingForm({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-col gap-1.5 border-t border-brand/20 pt-3 text-sm">
+            <div className="mt-3 flex flex-col gap-1.5 border-t border-zinc-200 pt-3 text-sm">
               {hasTiers && selectedTier && (
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-600">{selectedTier.label} rental</span>
@@ -597,36 +769,45 @@ export function BookingForm({
                   </span>
                 </div>
               )}
-              <div className="mt-1 flex items-center justify-between border-t border-brand/20 pt-2 text-base font-bold text-ink">
+              <div className="mt-1 flex items-center justify-between border-t border-zinc-200 pt-2 text-base font-bold text-ink">
                 <span>Estimated Total</span>
                 <span>
                   {summaryTotal != null ? `$${summaryTotal.toFixed(2)}` : "TBD"}
                 </span>
               </div>
             </div>
-            <p className="mt-2 text-xs text-zinc-400">
+            <p className="mt-2 text-xs text-zinc-500">
               {materialQuote?.note ??
                 "Doesn't include delivery mileage past 30 miles or a weight overage, if any — we'll confirm before your date."}
             </p>
           </div>
 
           {hasTiers && (
-            <Field label="How long do you need it?" htmlFor="tierId">
-              <select
-                id="tierId"
-                name="tierId"
-                required
-                className={inputClass}
-                value={tierId}
-                onChange={(e) => onTierChange(e.target.value)}
-              >
-                {selectedCategory.pricingTiers.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.label} — {tier.price != null ? `$${tier.price.toFixed(2)}` : "Call for pricing"}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-semibold text-zinc-700">How long do you need it?</legend>
+              <input type="hidden" name="tierId" value={tierId} />
+              <div className="grid grid-cols-2 gap-2">
+                {selectedCategory.pricingTiers.map((tier) => {
+                  const selected = tier.id === tierId;
+                  return (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => onTierChange(tier.id)}
+                      className={`rounded-2xl border-2 p-3 text-left transition-colors ${
+                        selected ? "border-brand bg-brand/10" : "border-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold text-ink">{tier.label}</span>
+                      <span className="block text-xl font-extrabold tracking-tight text-ink">
+                        {tier.price != null ? `$${tier.price.toFixed(2)}` : "Call"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
           )}
 
           {hasTiers && selectedTier?.price == null && (
@@ -700,7 +881,7 @@ export function BookingForm({
 
           {hasTiers && (
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Delivery Time" htmlFor="deliveryTime">
+              <Field label="Preferred delivery time" htmlFor="deliveryTime">
                 <input
                   id="deliveryTime"
                   name="deliveryTime"
@@ -711,7 +892,7 @@ export function BookingForm({
                   onChange={(e) => setDeliveryTime(e.target.value)}
                 />
               </Field>
-              <Field label="Pickup Time" htmlFor="pickupTime">
+              <Field label="Preferred pickup time" htmlFor="pickupTime">
                 <input
                   id="pickupTime"
                   name="pickupTime"
@@ -722,6 +903,9 @@ export function BookingForm({
                   onChange={(e) => setPickupTime(e.target.value)}
                 />
               </Field>
+              <p className="col-span-2 -mt-2 text-xs text-zinc-500">
+                We&apos;ll do our best to match your times and confirm them by phone or text.
+              </p>
             </div>
           )}
 
@@ -731,7 +915,7 @@ export function BookingForm({
           {!isPending && availability.checked && (
             <p
               className={`text-sm font-medium ${
-                availability.isAvailable ? "text-brand" : "text-red-600"
+                availability.isAvailable ? "text-brand-fg" : "text-red-600"
               }`}
             >
               {availability.isAvailable
@@ -741,7 +925,7 @@ export function BookingForm({
           )}
 
           <Field label="Your Name" htmlFor="name">
-            <input id="name" name="name" required className={inputClass} />
+            <input id="name" name="name" required autoComplete="name" className={inputClass} />
           </Field>
           <Field label="Phone" htmlFor="phone">
             <input
@@ -749,6 +933,7 @@ export function BookingForm({
               name="phone"
               type="tel"
               required
+              autoComplete="tel"
               className={inputClass}
             />
           </Field>
@@ -758,6 +943,7 @@ export function BookingForm({
               name="email"
               type="email"
               required
+              autoComplete="email"
               className={inputClass}
             />
           </Field>
@@ -766,6 +952,7 @@ export function BookingForm({
               id="address"
               name="address"
               required
+              autoComplete="street-address"
               className={inputClass}
               value={address}
               onChange={(e) => onAddressChange(e.target.value)}
@@ -773,9 +960,9 @@ export function BookingForm({
           </Field>
 
           <div>
-            <p className="mb-1.5 text-sm font-medium text-zinc-700">
+            <h3 className="mb-1.5 font-display text-lg font-bold text-ink">
               Where should we place it?
-            </p>
+            </h3>
             <PlacementMap
               value={placementPoint}
               rotation={placementRotation}
@@ -809,6 +996,22 @@ export function BookingForm({
               onChange={(e) => setNotes(e.target.value)}
               className={inputClass}
             />
+            <div className="mt-1 flex flex-wrap gap-2" aria-label="Quick notes">
+              {["Call when you arrive", "Gate code needed", "Steep driveway", "Dogs on site"].map((note) => (
+                <button
+                  key={note}
+                  type="button"
+                  onClick={() =>
+                    setNotes((prev) =>
+                      prev.includes(note) ? prev : `${prev.trimEnd()}${prev.trim() ? "\n" : ""}${note}`
+                    )
+                  }
+                  className="min-h-9 rounded-full border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:border-brand hover:bg-brand/10"
+                >
+                  + {note}
+                </button>
+              ))}
+            </div>
           </Field>
 
           <Field label="Promo code (optional)" htmlFor="promoCode">
@@ -834,16 +1037,21 @@ export function BookingForm({
             />
           </Field>
 
-          <div>
-            <p className="text-sm font-medium text-zinc-700">{agreementTitle}</p>
-            <div className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600">
-              {agreementContent}
-            </div>
-            <label className="mt-2 flex items-start gap-3 text-sm text-zinc-700">
+          <div className="flex flex-col gap-3">
+            <AgreementReader
+              title={agreementTitle}
+              content={agreementContent}
+              active={step === "form"}
+              onRead={() => setAgreementRead(true)}
+            />
+            <label className={`flex items-start gap-3 text-sm text-zinc-700 ${agreementRead ? "" : "opacity-60"}`}>
               <input
                 type="checkbox"
                 name="agreed"
                 required
+                checked={agreed}
+                disabled={!agreementRead}
+                onChange={(e) => setAgreed(e.target.checked)}
                 className="mt-1 h-5 w-5 flex-shrink-0 rounded border-zinc-300"
               />
               I have read and agree to the terms above. Typing my name above and
@@ -858,15 +1066,21 @@ export function BookingForm({
           )}
           <button
             type="submit"
-            disabled={isSubmitting || !bookable || (availability.checked && !availability.isAvailable)}
-            className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSubmitting || !bookable || !agreed || (availability.checked && !availability.isAvailable)}
+            className="min-h-14 rounded-xl bg-accent px-5 text-lg font-extrabold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Sending…" : "Request Booking"}
           </button>
-          <p className="text-xs text-zinc-400">
+          {!agreed && (
+            <p className="text-xs text-zinc-500">
+              Read to the end of the agreement and tick the box to send your request.
+            </p>
+          )}
+          <p className="text-xs text-zinc-500">
             This sends a request — we&apos;ll contact you shortly to confirm
             details and payment.
           </p>
+          <NextSteps contactPhone={contactPhone} />
         </div>
       )}
     </form>

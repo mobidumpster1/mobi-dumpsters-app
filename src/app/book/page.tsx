@@ -14,18 +14,24 @@ import { SectionList } from "@/components/websiteBuilder/SectionRenderer";
 import { themeToCssVars } from "@/lib/websiteBuilderTheme";
 import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 import { db } from "@/lib/db";
+import { getOrgContact } from "@/lib/orgContact";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ embed?: string; category?: string; builderPreview?: string }>;
+  searchParams: Promise<{ embed?: string; category?: string; builderPreview?: string; theme?: string }>;
 }) {
-  const { embed, category, builderPreview } = await searchParams;
+  const { embed, category, builderPreview, theme: themeParam } = await searchParams;
   const isEmbed = embed === "1";
+  // Embedded on a business's own (usually dark) website it defaults to the
+  // dark look so it doesn't sit there as a bolted-on white rectangle; opened
+  // directly it defaults to the light look. ?theme=light or ?theme=dark
+  // overrides either way.
+  const isDark = themeParam === "dark" || (themeParam !== "light" && isEmbed);
   const organizationId = await getPublicOrganizationId();
-  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage, org] =
+  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage, org, contact] =
     await Promise.all([
       listBookableCategories(),
       getAgreementSettings(organizationId),
@@ -36,6 +42,7 @@ export default async function PublicBookingPage({
       // free to skip there. See the Website Builder feature.
       isEmbed ? getWebsiteBuilderPage(organizationId) : Promise.resolve(null),
       isEmbed ? db.organization.findUnique({ where: { id: organizationId }, select: { plan: true } }) : Promise.resolve(null),
+      getOrgContact(organizationId),
     ]);
   // Lets a link on Chase's own website (e.g. the Junk Removal section) go
   // straight to that category's review step, instead of dropping the
@@ -98,13 +105,12 @@ export default async function PublicBookingPage({
     ? themeToCssVars(pageData.theme)
     : ({ "--rt-brand": branding.primaryColor, "--rt-brand-dark": branding.primaryColorDark } as React.CSSProperties);
 
+  const themeClass = isDark ? (isEmbed ? "theme-embed" : "theme-public-dark") : "theme-booking";
+  const layoutClass = isEmbed ? "px-2 py-4" : "min-h-screen bg-background px-4 py-8 sm:py-10";
+  const wrapperStyle = { ...cssVars, "--font-display-face": "var(--font-archivo)" } as React.CSSProperties;
+
   return (
-    <div
-      className={`${FONT_VARIABLES_CLASS} ${
-        isEmbed ? "theme-embed px-2 py-4" : "theme-public-dark min-h-screen bg-background px-4 py-10"
-      }`}
-      style={cssVars}
-    >
+    <div className={`${FONT_VARIABLES_CLASS} ${themeClass} ${layoutClass}`} style={wrapperStyle}>
       <UtmCapture />
       <ReferralCapture />
       {isEmbed && <EmbedAutoResize />}
@@ -118,19 +124,46 @@ export default async function PublicBookingPage({
             agreementContent: agreement.content,
             initialCategoryId,
             isEmbed,
+            contactPhone: contact.phone,
           }}
         />
       ) : (
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-2xl">
           {!isEmbed && (
-            <div className="mb-6 text-center">
-              <h1 className="text-3xl font-bold tracking-tight text-ink">
-                {branding.businessName}
+            <header className="mb-5 overflow-hidden rounded-3xl bg-[color-mix(in_srgb,var(--rt-brand)_38%,#0a1207)] px-6 py-7 text-white shadow-lg sm:px-8 sm:py-9">
+              <div className="flex items-center gap-3">
+                {branding.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={branding.logoUrl}
+                    alt=""
+                    className="h-12 w-12 rounded-xl bg-white object-contain p-1"
+                  />
+                )}
+                <span className="font-display text-lg font-bold tracking-tight">{branding.businessName}</span>
+              </div>
+              <h1 className="mt-5 font-display text-3xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
+                Book your rental online. <span className="text-accent">It takes three simple steps.</span>
               </h1>
-              <p className="mt-1 text-zinc-600">Request a rental online</p>
-            </div>
+              <p className="mt-3 max-w-lg text-base text-white/80">
+                Pick what you need, choose your dates, and tell us where it goes.
+              </p>
+              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/90">
+                {["Prices shown up front", "We confirm every request"].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="grid h-[18px] w-[18px] place-items-center rounded-full bg-accent text-[11px] font-extrabold text-accent-ink"
+                    >
+                      ✓
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </header>
           )}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-[0_8px_30px_rgb(0_0_0/0.08)] sm:p-7">
             {bookingAvailabilitySettings.awayModeEnabled ? (
               <p className="text-center text-zinc-500">{bookingAvailabilitySettings.awayModeMessage}</p>
             ) : categories.length === 0 ? (
@@ -145,6 +178,7 @@ export default async function PublicBookingPage({
                 agreementContent={agreement.content}
                 initialCategoryId={initialCategoryId}
                 isEmbed={isEmbed}
+                contactPhone={contact.phone}
               />
             )}
           </div>

@@ -148,16 +148,19 @@ body {
   color-scheme: dark;
   --background: transparent;
   --foreground: #ffffff;
-  --rt-white: #2a2a2a;
-  --rt-zinc-50: #242424;
-  --rt-zinc-100: #333333;
-  --rt-zinc-200: #3f3f46;
-  --rt-zinc-300: #52525b;
-  --rt-zinc-400: #71717a;
-  --rt-zinc-500: #a1a1aa;
+  --rt-white: #212121;
+  --rt-zinc-50: #1a1a1a;
+  --rt-zinc-100: #2d2d2d;
+  --rt-zinc-200: #3d3d3d;
+  /* Input borders sit at ~3:1 against the card so fields are findable. */
+  --rt-zinc-300: #6b6b72;
+  /* Secondary and hint text, lifted to stay readable on dark cards. */
+  --rt-zinc-400: #9d9da6;
+  --rt-zinc-500: #b6b6be;
   --rt-zinc-600: #d4d4d8;
   --rt-zinc-700: #e4e4e7;
   --rt-zinc-900: #fafafa;
+  --rt-brand-fg: color-mix(in srgb, var(--rt-brand) 50%, white);
 }
 
 /* Same palette as .theme-embed, but with a solid page background instead
@@ -167,18 +170,39 @@ body {
    it for the background color. */
 .theme-public-dark {
   color-scheme: dark;
-  --background: #1a1a1a;
+  --background: #141414;
   --foreground: #ffffff;
-  --rt-white: #2a2a2a;
-  --rt-zinc-50: #242424;
-  --rt-zinc-100: #333333;
-  --rt-zinc-200: #3f3f46;
-  --rt-zinc-300: #52525b;
-  --rt-zinc-400: #71717a;
-  --rt-zinc-500: #a1a1aa;
+  --rt-white: #212121;
+  --rt-zinc-50: #1a1a1a;
+  --rt-zinc-100: #2d2d2d;
+  --rt-zinc-200: #3d3d3d;
+  --rt-zinc-300: #6b6b72;
+  --rt-zinc-400: #9d9da6;
+  --rt-zinc-500: #b6b6be;
   --rt-zinc-600: #d4d4d8;
   --rt-zinc-700: #e4e4e7;
   --rt-zinc-900: #fafafa;
+  --rt-brand-fg: color-mix(in srgb, var(--rt-brand) 50%, white);
+}
+
+/* The customer booking page's light look (the default when /book is opened
+   directly): warm off-white page, white cards, muted greens-greys for
+   secondary text, all tuned to pass 4.5:1 text contrast. */
+.theme-booking {
+  color-scheme: light;
+  --background: #f6f4ee;
+  --foreground: #14210f;
+  --rt-white: #ffffff;
+  --rt-zinc-50: #faf9f4;
+  --rt-zinc-100: #f1efe6;
+  --rt-zinc-200: #e3e0d3;
+  --rt-zinc-300: #a8a595;
+  --rt-zinc-400: #6b7364;
+  --rt-zinc-500: #56624f;
+  --rt-zinc-600: #44503c;
+  --rt-zinc-700: #2f3a28;
+  --rt-zinc-900: #14210f;
+  --rt-brand-fg: var(--rt-brand);
 }
 
 @media print {
