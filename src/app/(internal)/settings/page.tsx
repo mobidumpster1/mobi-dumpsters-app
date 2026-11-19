@@ -316,7 +316,7 @@ export default async function SettingsPage({
         </Field>
         <button
           type="submit"
-          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save Branding
         </button>
@@ -336,7 +336,7 @@ export default async function SettingsPage({
         <CopyLinkButton
           path="/book"
           label="Copy Booking Page Link"
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         />
         <a
           href="/book"
@@ -374,7 +374,7 @@ export default async function SettingsPage({
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save Domain
           </button>
@@ -410,7 +410,7 @@ export default async function SettingsPage({
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save
         </button>
@@ -489,7 +489,7 @@ export default async function SettingsPage({
         </div>
         <button
           type="submit"
-          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save
         </button>
@@ -539,7 +539,7 @@ export default async function SettingsPage({
         </div>
         <button
           type="submit"
-          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save
         </button>
@@ -651,7 +651,7 @@ export default async function SettingsPage({
         </div>
         <button
           type="submit"
-          className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save
         </button>
@@ -678,7 +678,7 @@ export default async function SettingsPage({
           />
           <button
             type="submit"
-            className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -692,7 +692,7 @@ export default async function SettingsPage({
           />
           <button
             type="submit"
-            className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -730,7 +730,7 @@ export default async function SettingsPage({
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save
         </button>
@@ -912,7 +912,7 @@ export default async function SettingsPage({
               <p className="text-zinc-500">Not connected yet.</p>
               <a
                 href="/api/quickbooks/connect"
-                className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
               >
                 Connect to QuickBooks
               </a>
@@ -1007,7 +1007,7 @@ export default async function SettingsPage({
             <div>
               <button
                 type="submit"
-                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
               >
                 Save Mappings
               </button>
@@ -1076,7 +1076,7 @@ export default async function SettingsPage({
           <p className="text-zinc-500">Not connected yet.</p>
           <a
             href="/api/google-business/connect"
-            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Connect Google Business Profile
           </a>
@@ -1134,7 +1134,7 @@ export default async function SettingsPage({
           <p className="text-zinc-500">Not connected yet.</p>
           <a
             href="/api/google-ads/connect"
-            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Connect Google Ads
           </a>
@@ -1199,7 +1199,7 @@ export default async function SettingsPage({
           </p>
           <a
             href="/api/google-search-console/connect"
-            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Connect Search Console
           </a>
@@ -1284,7 +1284,7 @@ export default async function SettingsPage({
             <div>
               <button
                 type="submit"
-                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
               >
                 Save Stripe Keys
               </button>
@@ -1330,7 +1330,7 @@ export default async function SettingsPage({
             <div>
               <button
                 type="submit"
-                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
               >
                 Update Stripe Keys
               </button>
@@ -1442,7 +1442,7 @@ export default async function SettingsPage({
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save Agreement Text
           </button>
@@ -1565,7 +1565,7 @@ export default async function SettingsPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -1633,7 +1633,7 @@ export default async function SettingsPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -1675,7 +1675,7 @@ export default async function SettingsPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -1707,7 +1707,7 @@ export default async function SettingsPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Save
           </button>
@@ -1748,7 +1748,7 @@ export default async function SettingsPage({
           <div>
             <button
               type="submit"
-              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
             >
               Save
             </button>
@@ -1811,7 +1811,7 @@ export default async function SettingsPage({
           <div>
             <button
               type="submit"
-              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
             >
               Save
             </button>
@@ -2132,7 +2132,7 @@ export default async function SettingsPage({
           href={`${widgetBaseUrl}/book`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-shrink-0 rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+          className="flex-shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           View Booking Page ↗
         </a>

@@ -434,7 +434,7 @@ export default async function BookingDetailPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             File Damage Report
           </button>
@@ -738,7 +738,7 @@ export default async function BookingDetailPage({
             (booking.invoices.length === 0 ? (
               <Link
                 href={`/invoices/new?bookingId=${booking.id}`}
-                className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
               >
                 Create Invoice
               </Link>
@@ -1072,7 +1072,7 @@ export default async function BookingDetailPage({
           <div className="flex gap-3">
             <button
               type="submit"
-              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
             >
               Confirm Booking
             </button>

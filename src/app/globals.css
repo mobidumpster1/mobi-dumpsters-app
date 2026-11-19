@@ -18,7 +18,8 @@
   --rt-zinc-100: #f4f4f5;
   --rt-zinc-200: #e4e4e7;
   --rt-zinc-300: #d4d4d8;
-  --rt-zinc-400: #a1a1aa;
+  /* Hint and placeholder text: 4.5:1 on white (was a lighter grey at ~2.5:1). */
+  --rt-zinc-400: #6f6f7a;
   --rt-zinc-500: #71717a;
   --rt-zinc-600: #52525b;
   --rt-zinc-700: #3f3f46;
@@ -42,7 +43,7 @@
   --rt-zinc-100: #27272a;
   --rt-zinc-200: #3f3f46;
   --rt-zinc-300: #52525b;
-  --rt-zinc-400: #71717a;
+  --rt-zinc-400: #8e8e98;
   --rt-zinc-500: #a1a1aa;
   --rt-zinc-600: #d4d4d8;
   --rt-zinc-700: #e4e4e7;
@@ -70,6 +71,10 @@
   border-radius: 1rem;
   box-shadow: var(--app-shadow);
 }
+.app-shell [class~="border-2"][class~="border-dashed"] {
+  border-width: 1px;
+  border-radius: 1rem;
+}
 .app-shell h1,
 .app-shell h2 {
   font-family: var(--font-display);
@@ -77,6 +82,27 @@
 }
 .app-shell h1 {
   font-weight: 800;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark-theme text fixes.                                              */
+/* In dark themes the "white" color token is remapped to a near-black  */
+/* surface color, which turned text-white on green/red/blue buttons    */
+/* and badges dark-on-dark. Text that is meant to be white on a        */
+/* colored background stays white. (bg-zinc-900 buttons are meant to   */
+/* flip with the theme, so they are excluded.)                         */
+/* ------------------------------------------------------------------ */
+:is(.dark, .theme-embed, .theme-public-dark) .text-white:not(.bg-zinc-900) {
+  color: #ffffff;
+}
+
+/* Small buttons get a comfortable touch height on phones/tablets. */
+@media (pointer: coarse) {
+  .app-shell button[class*="py-1.5"],
+  .app-shell button[class*="py-1 "],
+  .app-shell button[class*="py-2 "] {
+    min-height: 2.5rem;
+  }
 }
 
 @theme inline {

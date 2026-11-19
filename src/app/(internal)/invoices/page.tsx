@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Badge, invoiceTone } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
-import { computeDisplayStatus, invoiceStatusFilter, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
+import { computeDisplayStatus, invoiceStatusFilter } from "@/lib/invoiceStatus";
 import { SearchBox } from "@/components/SearchBox";
 import { Pagination } from "@/components/Pagination";
 import { requireUser, hasPermission } from "@/lib/session";
@@ -145,13 +146,9 @@ export default async function InvoicesPage({
               <span className="font-medium text-zinc-900">
                 {invoice.invoiceNumber}
               </span>
-              <span
-                className={`inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-black capitalize ${
-                  INVOICE_STATUS_STYLES[invoice.displayStatus] ?? "bg-zinc-500 text-white"
-                }`}
-              >
-                {invoice.displayStatus}
-              </span>
+              <Badge tone={invoiceTone(invoice.displayStatus)}>
+                <span className="capitalize">{invoice.displayStatus}</span>
+              </Badge>
             </div>
             <dl className="mt-2 flex flex-col gap-1 text-sm">
               <div className="flex justify-between gap-2">
@@ -209,13 +206,9 @@ export default async function InvoicesPage({
                   ${invoice.amount.toFixed(2)}
                 </td>
                 <td className="px-5 py-4">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-black capitalize ${
-                      INVOICE_STATUS_STYLES[invoice.displayStatus] ?? "bg-zinc-500 text-white"
-                    }`}
-                  >
-                    {invoice.displayStatus}
-                  </span>
+                  <Badge tone={invoiceTone(invoice.displayStatus)}>
+                    <span className="capitalize">{invoice.displayStatus}</span>
+                  </Badge>
                 </td>
               </tr>
             ))}

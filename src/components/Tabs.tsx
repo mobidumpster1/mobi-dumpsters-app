@@ -19,21 +19,30 @@ export function Tabs({ tabs, initialTab }: { tabs: TabItem[]; initialTab: string
 
   return (
     <div>
-      <div className="print:hidden flex flex-wrap gap-2 border-b-2 border-zinc-900 pb-3">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActive(tab.id)}
-            className={
-              tab.id === activeTab.id
-                ? "rounded-lg bg-zinc-900 px-4 py-2 text-sm font-bold text-white"
-                : "rounded-lg px-4 py-2 text-sm font-bold text-zinc-500 hover:bg-zinc-100"
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* One scrollable row (not a wrapping pile of rows) so a page with many
+          tabs stays tidy on a phone; same pill look as the section tab bars. */}
+      <div className="print:hidden -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div role="tablist" className="flex w-max min-w-full gap-2 sm:w-auto sm:flex-wrap">
+          {tabs.map((tab) => {
+            const isActive = tab.id === activeTab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActive(tab.id)}
+                className={`min-h-11 whitespace-nowrap rounded-full px-4 text-sm font-bold transition-colors ${
+                  isActive
+                    ? "bg-brand text-on-brand shadow-sm"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <h2 className="hidden text-lg font-black text-ink print:block">{activeTab.label}</h2>
       <div className="mt-6 flex flex-col gap-6">{activeTab.content}</div>

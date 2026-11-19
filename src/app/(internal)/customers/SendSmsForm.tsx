@@ -45,7 +45,7 @@ export function SendSmsForm({ customerId }: { customerId: string }) {
         <button
           type="submit"
           disabled={sending}
-          className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
         >
           {sending ? "Sending…" : "Send Text"}
         </button>

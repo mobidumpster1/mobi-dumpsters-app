@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge, EmptyState, PageHeader, bookingTone, buttonClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { computeBookingStatus, bookingStatusFilter } from "@/lib/bookingStatus";
 import { AddressLink } from "@/components/AddressLink";
@@ -108,25 +109,22 @@ export default async function BookingsPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-black tracking-tight text-ink">Bookings</h1>
-        <div className="flex flex-wrap gap-2">
-          {hasPermission(user, "canViewReports") && (
-            <a
-              href="/api/bookings/export"
-              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-            >
-              Export CSV
-            </a>
-          )}
-          <Link
-            href="/bookings/new"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
-          >
-            + New Booking
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Bookings"
+        description="Every rental request and job, from first request to pickup."
+        actions={
+          <>
+            {hasPermission(user, "canViewReports") && (
+              <a href="/api/bookings/export" className={buttonClass("secondary")}>
+                Export CSV
+              </a>
+            )}
+            <Link href="/bookings/new" className={buttonClass("primary")}>
+              + New Booking
+            </Link>
+          </>
+        }
+      />
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
@@ -168,17 +166,7 @@ export default async function BookingsPage({
               >
                 {booking.customer.name}
               </Link>
-              {booking.displayStatus.value === "pending" ? (
-                <span className="inline-block flex-shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
-                  Pending Review
-                </span>
-              ) : booking.displayStatus.value === "cancelled" ? (
-                <span className="inline-block flex-shrink-0 rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black text-white">
-                  Cancelled
-                </span>
-              ) : (
-                <span className="flex-shrink-0 text-xs text-zinc-500">{booking.displayStatus.label}</span>
-              )}
+              <Badge tone={bookingTone(booking.displayStatus.value)}>{booking.displayStatus.label}</Badge>
             </div>
             <p className="mt-1 text-sm text-zinc-600">
               {booking.items.map((i) => i.equipmentItem.label).join(", ")}
@@ -189,9 +177,9 @@ export default async function BookingsPage({
           </div>
         ))}
         {bookings.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-zinc-400">
+          <EmptyState>
             {allCount === 0 ? "No bookings yet — create your first one above." : "No bookings match your search/filter."}
-          </p>
+          </EmptyState>
         )}
       </div>
 
@@ -221,17 +209,7 @@ export default async function BookingsPage({
                   {booking.items.map((i) => i.equipmentItem.label).join(", ")}
                 </td>
                 <td className="px-5 py-4">
-                  {booking.displayStatus.value === "pending" ? (
-                    <span className="inline-block rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
-                      Pending Review
-                    </span>
-                  ) : booking.displayStatus.value === "cancelled" ? (
-                    <span className="inline-block rounded-full bg-zinc-500 px-2 py-0.5 text-xs font-black text-white">
-                      Cancelled
-                    </span>
-                  ) : (
-                    <span className="text-zinc-600">{booking.displayStatus.label}</span>
-                  )}
+                  <Badge tone={bookingTone(booking.displayStatus.value)}>{booking.displayStatus.label}</Badge>
                 </td>
                 <td className="px-5 py-4 text-zinc-600">
                   <AddressLink address={booking.deliveryAddress} />

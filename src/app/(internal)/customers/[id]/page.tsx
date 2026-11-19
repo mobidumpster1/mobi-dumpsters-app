@@ -266,7 +266,7 @@ export default async function CustomerDetailPage({
           <div>
             <button
               type="submit"
-              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
             >
               Add Dump
             </button>
@@ -355,7 +355,7 @@ export default async function CustomerDetailPage({
           <div>
             <button
               type="submit"
-              className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
             >
               Add Adjustment
             </button>
@@ -486,7 +486,7 @@ export default async function CustomerDetailPage({
         <div>
           <button
             type="submit"
-            className="rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Add Entry
           </button>
@@ -582,7 +582,7 @@ export default async function CustomerDetailPage({
       </div>
       <Link
         href={`/quotes/new?customerId=${customer.id}`}
-        className="self-start rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+        className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
       >
         Create Quote
       </Link>

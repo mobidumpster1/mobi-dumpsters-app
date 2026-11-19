@@ -57,7 +57,7 @@ export default async function ReviewsPage() {
           <p className="text-sm text-zinc-600">Not connected yet.</p>
           <a
             href="/api/google-business/connect"
-            className="mt-3 inline-block rounded-lg bg-brand px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+            className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
           >
             Connect Google Business Profile
           </a>
