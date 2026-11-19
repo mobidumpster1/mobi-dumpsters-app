@@ -12,7 +12,7 @@ export function CustomerTabs({ showWinBack }: { showWinBack: boolean }) {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2" aria-label="Sub-sections">
       {tabs.map((tab) => {
         const isActive =
           tab.href === "/customers" ? pathname === "/customers" : pathname.startsWith(tab.href);
@@ -20,10 +20,11 @@ export function CustomerTabs({ showWinBack }: { showWinBack: boolean }) {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            aria-current={isActive ? "page" : undefined}
+            className={`flex min-h-10 items-center rounded-full border px-4 text-sm font-semibold transition-colors ${
               isActive
-                ? "bg-ink text-white"
-                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                ? "border-brand bg-brand/10 text-brand-fg"
+                : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
             }`}
           >
             {tab.label}

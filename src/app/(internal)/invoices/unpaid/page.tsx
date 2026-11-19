@@ -35,12 +35,6 @@ export default async function UnpaidInvoicesPage() {
             {totalOwed.toFixed(2)}
           </p>
         </div>
-        <Link
-          href="/invoices"
-          className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-        >
-          All Invoices
-        </Link>
       </div>
 
       {/* Mobile: card list */}

@@ -21,7 +21,7 @@ export function Tabs({ tabs, initialTab }: { tabs: TabItem[]; initialTab: string
     <div>
       {/* One scrollable row (not a wrapping pile of rows) so a page with many
           tabs stays tidy on a phone; same pill look as the section tab bars. */}
-      <div className="print:hidden -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div className="print:hidden -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div role="tablist" className="flex w-max min-w-full gap-2 sm:w-auto sm:flex-wrap">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTab.id;

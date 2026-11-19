@@ -17,7 +17,7 @@ export function HubTabs({ entries }: { entries: NavEntry[] }) {
   const active = activeTabFor(hub, pathname);
 
   return (
-    <nav aria-label={`${hub.label} sections`} className="print:hidden -mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav aria-label={`${hub.label} sections`} className="print:hidden -mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <ul className="flex w-max min-w-full gap-2 sm:w-auto sm:flex-wrap">
         {hub.tabs.map((tab) => {
           const isActive = active?.href === tab.href;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, invoiceTone } from "@/components/ui";
+import { Badge, PageHeader, buttonClass, invoiceTone } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { computeDisplayStatus, invoiceStatusFilter } from "@/lib/invoiceStatus";
@@ -88,25 +88,17 @@ export default async function InvoicesPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-black tracking-tight text-ink">Invoices</h1>
-        <div className="flex flex-wrap gap-2">
-          {hasPermission(user, "canViewReports") && (
-            <a
-              href="/api/invoices/export"
-              className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-            >
+      <PageHeader
+        title="Invoices"
+        description="What you have billed and what has been paid."
+        actions={
+          hasPermission(user, "canViewReports") ? (
+            <a href="/api/invoices/export" className={buttonClass("secondary")}>
               Export CSV
             </a>
-          )}
-          <Link
-            href="/invoices/unpaid"
-            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Who Owes Me Money
-          </Link>
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
