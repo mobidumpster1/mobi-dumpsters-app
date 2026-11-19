@@ -3,7 +3,7 @@ import { Archivo } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
 import { HubTabs } from "@/components/HubTabs";
 import { entriesForUser } from "@/lib/navigation";
-import { enabledAddOns } from "@/lib/addOns";
+import { enabledAddOnsForOrg } from "@/lib/addOns";
 import { UnsavedChangesProvider } from "@/components/UnsavedChangesProvider";
 import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 import { db } from "@/lib/db";
@@ -27,7 +27,7 @@ export default async function InternalLayout({
   // every page this layout wraps is exactly the "everything else" a
   // driver-only account shouldn't reach.
   if (user.isDriverOnly) redirect("/driver");
-  const navEntries = entriesForUser(user, enabledAddOns());
+  const navEntries = entriesForUser(user, await enabledAddOnsForOrg(user.effectiveOrganizationId));
   const orgBranding = await getOrgBranding(user.effectiveOrganizationId);
   const pendingCount = await db.booking.count({
     where: { status: "pending", organizationId: user.effectiveOrganizationId },

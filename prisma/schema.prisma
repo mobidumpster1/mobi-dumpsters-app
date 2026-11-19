@@ -53,6 +53,10 @@ model Organization {
   // only upgrading to team/pro ever creates a real PlatformSubscription row.
   plan                 String                @default("solo")
   platformSubscription PlatformSubscription?
+  // Paid add-ons this business has bought (comma-separated keys, e.g.
+  // "secretary,phone-agent") — see src/lib/addOns.ts. Switched on per
+  // business from Platform Admin; empty means none.
+  enabledAddOns        String                @default("")
 
   users                           User[]
   customers                       Customer[]

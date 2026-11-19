@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser, IMPERSONATION_COOKIE } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
+import { ADD_ON_KEYS, serializeAddOns } from "@/lib/addOns";
 
 async function requirePlatformAdmin() {
   const user = await getCurrentUser();
@@ -70,4 +71,18 @@ export async function setPlatformAdmin(userId: string, isPlatformAdmin: boolean)
     userId
   );
   revalidatePath("/settings");
+}
+
+// Switches a business's paid add-ons on or off (checkbox form on the
+// Platform Admin page). Only platform admins can do this — a business can't
+// grant itself an add-on it hasn't bought.
+export async function setOrganizationAddOns(organizationId: string, formData: FormData) {
+  await requirePlatformAdmin();
+  const chosen = ADD_ON_KEYS.filter((key) => formData.get(`addOn_${key}`) === "on");
+  const org = await db.organization.update({
+    where: { id: organizationId },
+    data: { enabledAddOns: serializeAddOns(chosen) },
+  });
+  await logAction("platform_admin.add_ons_changed", "Organization", org.id);
+  revalidatePath("/platform-admin");
 }

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { startImpersonation } from "./actions";
+import { startImpersonation, setOrganizationAddOns } from "./actions";
+import { ADD_ONS, ADD_ON_KEYS, parseAddOns } from "@/lib/addOns";
+import { buttonClass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export default async function PlatformAdminPage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-ink">Platform Admin</h1>
         <p className="mt-1 text-zinc-500">
-          Every business using this app. "View As" lets you see the app exactly as that business
+          Every business using this app, and which paid add-ons each one has bought. "View As" lets you see the app exactly as that business
           does, for troubleshooting — it's time-limited (4 hours) and logged under your own name,
           not theirs.
         </p>
@@ -34,6 +36,7 @@ export default async function PlatformAdminPage() {
             <tr>
               <th className="px-5 py-3.5 font-semibold">Organization</th>
               <th className="px-5 py-3.5 font-semibold">Staff Accounts</th>
+              <th className="px-5 py-3.5 font-semibold">Add-ons</th>
               <th className="px-5 py-3.5 font-semibold">Created</th>
               <th className="px-5 py-3.5 font-semibold"></th>
             </tr>
@@ -43,6 +46,24 @@ export default async function PlatformAdminPage() {
               <tr key={org.id} className="hover:bg-zinc-50">
                 <td className="px-5 py-4 font-medium text-zinc-900">{org.name}</td>
                 <td className="px-5 py-4 text-zinc-600">{org._count.users}</td>
+                <td className="px-5 py-4">
+                  <form action={setOrganizationAddOns.bind(null, org.id)} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    {ADD_ON_KEYS.map((key) => (
+                      <label key={key} className="flex items-center gap-2 text-sm text-zinc-700">
+                        <input
+                          type="checkbox"
+                          name={`addOn_${key}`}
+                          defaultChecked={parseAddOns(org.enabledAddOns).includes(key)}
+                          className="h-5 w-5 rounded border-zinc-300"
+                        />
+                        {ADD_ONS[key]}
+                      </label>
+                    ))}
+                    <button type="submit" className={buttonClass("secondary")}>
+                      Save
+                    </button>
+                  </form>
+                </td>
                 <td className="px-5 py-4 text-zinc-600">
                   {org.createdAt.toLocaleDateString()}
                 </td>
