@@ -130,7 +130,7 @@ export default async function PublicBookingPage({
       ) : (
         <div className="mx-auto max-w-2xl">
           {!isEmbed && (
-            <header className="mb-5 overflow-hidden rounded-3xl bg-[color-mix(in_srgb,var(--rt-brand)_38%,#0a1207)] px-6 py-7 text-white shadow-lg sm:px-8 sm:py-9">
+            <header className="mb-5 overflow-hidden rounded-3xl bg-[color-mix(in_srgb,var(--rt-brand)_38%,#0a1207)] px-6 py-7 text-on-brand shadow-lg sm:px-8 sm:py-9">
               <div className="flex items-center gap-3">
                 {branding.logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -145,10 +145,10 @@ export default async function PublicBookingPage({
               <h1 className="mt-5 font-display text-3xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
                 Book your rental online. <span className="text-accent">It takes three simple steps.</span>
               </h1>
-              <p className="mt-3 max-w-lg text-base text-white/80">
+              <p className="mt-3 max-w-lg text-base text-on-brand/80">
                 Pick what you need, choose your dates, and tell us where it goes.
               </p>
-              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/90">
+              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-on-brand/90">
                 {["Prices shown up front", "We confirm every request"].map((item) => (
                   <li key={item} className="flex items-center gap-2">
                     <span

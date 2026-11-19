@@ -73,7 +73,7 @@ function Stepper({ step }: { step: Step }) {
             key={item.id}
             aria-current={state === "current" ? "step" : undefined}
             className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 text-sm font-semibold ${
-              state === "current" ? "bg-brand text-white" : "bg-zinc-100 text-zinc-600"
+              state === "current" ? "bg-brand text-on-brand" : "bg-zinc-100 text-zinc-600"
             }`}
           >
             <span
@@ -171,7 +171,7 @@ function AgreementReader({
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
-              className="min-h-11 rounded-xl bg-brand px-4 text-sm font-bold text-white"
+              className="min-h-11 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand"
             >
               Close
             </button>

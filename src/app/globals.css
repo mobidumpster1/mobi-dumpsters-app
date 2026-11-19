@@ -95,6 +95,10 @@
   --color-accent: var(--rt-accent);
   --color-accent-ink: #1b1100;
   --color-brand-fg: var(--rt-brand-fg);
+  /* Text that sits on a brand-colored or always-dark surface. Unlike
+     text-white it is NOT remapped in dark themes (where --rt-white becomes
+     near-black), so it stays readable. */
+  --color-on-brand: #ffffff;
   --font-display: var(--font-display-face, var(--font-geist-sans));
 
   --color-white: var(--rt-white);
