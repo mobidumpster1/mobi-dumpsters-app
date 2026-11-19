@@ -69,7 +69,7 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { CopyTextButton } from "@/components/CopyTextButton";
 import { WebsiteSnippetManager } from "@/components/WebsiteSnippetManager";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { Tabs, type TabItem } from "@/components/Tabs";
+import { SettingsMenu, type SettingsGroup } from "@/components/SettingsMenu";
 import { buildWebsiteWidgets } from "@/lib/websiteWidgets";
 import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
@@ -109,19 +109,19 @@ function computeInitialTab(params: {
     params.search_console_connected !== undefined ||
     params.search_console_error !== undefined
   ) {
-    return "integrations";
+    // Land on the integration the person just connected (or failed to).
+    if (params.qb_connected !== undefined || params.qb_error !== undefined) return "quickbooks";
+    if (params.gbp_connected !== undefined || params.gbp_error !== undefined) return "google-business";
+    if (params.ads_connected !== undefined || params.ads_error !== undefined) return "google-ads";
+    return "search-console";
   }
-  if (
-    params.reviews_sent !== undefined ||
-    params.invoices_sent !== undefined ||
-    params.deliveries_sent !== undefined
-  ) {
-    return "emails";
-  }
+  if (params.reviews_sent !== undefined) return "review-requests";
+  if (params.invoices_sent !== undefined) return "invoice-reminders";
+  if (params.deliveries_sent !== undefined) return "job-notifications";
   if (params.billing_success !== undefined || params.billing_cancelled !== undefined) {
     return "billing";
   }
-  return "business";
+  return "branding";
 }
 
 export const dynamic = "force-dynamic";
@@ -1993,111 +1993,70 @@ export default async function SettingsPage({
     </section>
   );
 
-  const tabs: TabItem[] = [
+  // Every setting is its own menu item. Falsy sections (e.g. automation
+  // limits when not applicable) are dropped.
+  const groups: SettingsGroup[] = [
     {
-      id: "business",
       label: "Business",
-      content: (
-        <>
-          {brandingSection}
-          {bookingLinkSection}
-          {jobCostingSection}
-          {dumpScheduleSection}
-          {bookingAvailabilitySection}
-          {taxSection}
-          {customFieldsSection}
-          {apiKeysSection}
-          {automationSection}
-        </>
-      ),
-    },
-    { id: "team", label: "Team", content: staffSection },
-    { id: "billing", label: "Plan & Billing", content: billingSection },
-    {
-      id: "booking",
-      label: "Booking & Agreements",
-      content: (
-        <>
-          {agreementSection}
-          {permitAreasSection}
-        </>
-      ),
+      items: [
+        { id: "branding", label: "Branding", content: brandingSection },
+        { id: "booking-link", label: "Booking link", content: bookingLinkSection },
+        { id: "availability", label: "Availability", content: bookingAvailabilitySection },
+        { id: "dump-schedule", label: "Dump schedule", content: dumpScheduleSection },
+        { id: "tax", label: "Tax", content: taxSection },
+        { id: "job-costing", label: "Job costing", content: jobCostingSection },
+        { id: "custom-fields", label: "Custom fields", content: customFieldsSection },
+        { id: "automation-limits", label: "Automation limits", content: automationSection },
+      ],
     },
     {
-      id: "emails",
-      label: "Automated Emails",
-      content: (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["#email-review-requests", "Review Requests"],
-              ["#email-invoice-reminders", "Invoice Reminders"],
-              ["#email-job-notifications", "Job Notifications"],
-              ["#email-win-back", "Win-Back"],
-              ["#email-templates", "Templates"],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-          {reviewRequestsSection}
-          {invoiceRemindersSection}
-          {jobNotificationsSection}
-          {winBackSection}
-          {emailTemplatesSection}
-        </>
-      ),
+      label: "People & plan",
+      items: [
+        { id: "team", label: "Team", content: staffSection },
+        { id: "billing", label: "Plan & billing", content: billingSection },
+      ],
     },
     {
-      id: "integrations",
+      label: "Booking",
+      items: [
+        { id: "agreement", label: "Service agreement", content: agreementSection },
+        { id: "permit-areas", label: "Permit areas", content: permitAreasSection },
+      ],
+    },
+    {
+      label: "Automated emails",
+      items: [
+        { id: "review-requests", label: "Review requests", content: reviewRequestsSection },
+        { id: "invoice-reminders", label: "Invoice reminders", content: invoiceRemindersSection },
+        { id: "job-notifications", label: "Job notifications", content: jobNotificationsSection },
+        { id: "win-back", label: "Win-back", content: winBackSection },
+        { id: "email-templates", label: "Templates", content: emailTemplatesSection },
+      ],
+    },
+    {
       label: "Integrations",
-      content: (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["#integration-stripe", "Stripe"],
-              ["#integration-twilio", "Twilio"],
-              ["#integration-quickbooks", "QuickBooks"],
-              ["#integration-gbp", "Google Business Profile"],
-              ["#integration-google-ads", "Google Ads"],
-              ["#integration-search-console", "Search Console"],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50"
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-          {stripeSection}
-          {twilioSection}
-          {quickbooksSection}
-          {googleBusinessSection}
-          {googleAdsSection}
-          {searchConsoleSection}
-        </>
-      ),
+      items: [
+        { id: "stripe", label: "Stripe", content: stripeSection },
+        { id: "twilio", label: "Twilio", content: twilioSection },
+        { id: "quickbooks", label: "QuickBooks", content: quickbooksSection },
+        { id: "google-business", label: "Google Business", content: googleBusinessSection },
+        { id: "google-ads", label: "Google Ads", content: googleAdsSection },
+        { id: "search-console", label: "Search Console", content: searchConsoleSection },
+        { id: "api-keys", label: "API access", content: apiKeysSection },
+      ],
     },
     {
-      id: "marketing",
-      label: "Marketing",
-      content: (
-        <>
-          {seoSection}
-          {websiteWidgetsSection}
-        </>
-      ),
+      label: "Website",
+      items: [
+        { id: "seo", label: "SEO", content: seoSection },
+        { id: "widgets", label: "Website widgets", content: websiteWidgetsSection },
+      ],
     },
-  ];
+  ]
+    .map((group) => ({ ...group, items: group.items.filter((item) => Boolean(item.content)) }))
+    .filter((group) => group.items.length > 0);
 
-  const initialTab = computeInitialTab({
+  const initialItem = computeInitialTab({
     qb_connected,
     qb_error,
     gbp_connected,
@@ -2114,7 +2073,7 @@ export default async function SettingsPage({
   });
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <h1 className="text-3xl font-black tracking-tight text-ink">Settings</h1>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-zinc-900 bg-white p-5">
@@ -2139,7 +2098,7 @@ export default async function SettingsPage({
       </div>
 
       <div className="mt-6">
-        <Tabs tabs={tabs} initialTab={initialTab} />
+        <SettingsMenu groups={groups} initialItem={initialItem} />
       </div>
     </div>
   );

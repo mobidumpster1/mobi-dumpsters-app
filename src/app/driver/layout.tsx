@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { Archivo } from "next/font/google";
 import { requireUser } from "@/lib/session";
 import { getOrgBranding } from "@/lib/orgBranding";
 import { logout } from "@/app/login/actions";
+
+// Headline face shared with the main admin app.
+const displayFont = Archivo({ subsets: ["latin"], variable: "--font-display-face" });
 
 // Deliberately its own minimal layout, not the full internal Sidebar shell
 // — this is meant to be usable one-handed on a phone in a truck, by both
@@ -14,7 +18,7 @@ export default async function DriverLayout({ children }: { children: React.React
 
   return (
     <div
-      className="min-h-full bg-zinc-50"
+      className={`app-shell ${displayFont.variable} min-h-full bg-background`}
       style={
         {
           "--rt-brand": branding.primaryColor,
@@ -26,7 +30,7 @@ export default async function DriverLayout({ children }: { children: React.React
         <span className="text-sm font-bold tracking-tight text-ink">{branding.businessName}</span>
         <div className="flex items-center gap-4">
           {!user.isDriverOnly && (
-            <Link href="/" className="text-xs font-semibold text-brand hover:underline">
+            <Link href="/" className="text-sm font-semibold text-brand-fg hover:underline">
               Full App
             </Link>
           )}

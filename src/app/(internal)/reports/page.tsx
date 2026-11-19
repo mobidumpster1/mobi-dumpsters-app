@@ -97,13 +97,13 @@ function SummaryCard({
     <div className="min-w-0 rounded-lg border-2 border-zinc-900 bg-white p-5">
       <div className="truncate text-sm text-zinc-500">{label}</div>
       <div
-        className={`mt-1 break-words text-xl font-semibold sm:text-2xl ${
+        className={`mt-1 whitespace-nowrap text-xl font-extrabold tracking-tight sm:text-2xl ${
           highlight ? (value >= 0 ? "text-green-700" : "text-red-600") : "text-zinc-900"
         }`}
       >
         {formatValue(value)}
       </div>
-      {sub && <div className="mt-1 text-xs text-zinc-400">{sub}</div>}
+      {sub && <div className="mt-1 text-xs text-zinc-500">{sub}</div>}
     </div>
   );
 }
@@ -115,7 +115,7 @@ function ChangeCard({ label, current, prior }: { label: string; current: number;
       <p className="text-sm text-zinc-500">{label}</p>
       <p className="mt-1 text-2xl font-black text-zinc-900">${current.toFixed(2)}</p>
       {change === null ? (
-        <p className="mt-1 text-xs text-zinc-400">No prior-period data to compare</p>
+        <p className="mt-1 text-xs text-zinc-500">No prior-period data to compare</p>
       ) : (
         <p className={`mt-1 text-sm font-bold ${change >= 0 ? "text-green-700" : "text-red-600"}`}>
           {change >= 0 ? "+" : ""}
@@ -454,7 +454,7 @@ export default async function ReportsPage({
         </p>
         {!range && (
           <>
-            <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
               <SummaryCard label="Today" value={revenueToday} />
               <SummaryCard label="This Week" value={revenueThisWeek} />
               <SummaryCard label="This Month" value={revenueThisMonth} />
@@ -465,7 +465,7 @@ export default async function ReportsPage({
               <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
                 <p className="text-sm text-zinc-500">Month over Month</p>
                 {momRevenueChange === null ? (
-                  <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
+                  <p className="mt-1 text-lg font-semibold text-zinc-500">Not enough history yet</p>
                 ) : (
                   <p
                     className={`mt-1 text-2xl font-black ${momRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
@@ -478,7 +478,7 @@ export default async function ReportsPage({
               <div className="rounded-lg border-2 border-zinc-900 bg-white p-5">
                 <p className="text-sm text-zinc-500">Year over Year</p>
                 {yoyRevenueChange === null ? (
-                  <p className="mt-1 text-lg font-semibold text-zinc-400">Not enough history yet</p>
+                  <p className="mt-1 text-lg font-semibold text-zinc-500">Not enough history yet</p>
                 ) : (
                   <p
                     className={`mt-1 text-2xl font-black ${yoyRevenueChange >= 0 ? "text-green-700" : "text-red-600"}`}
@@ -567,7 +567,7 @@ export default async function ReportsPage({
               ))}
               {months.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
                     No data yet.
                   </td>
                 </tr>
@@ -617,7 +617,7 @@ export default async function ReportsPage({
                 ))}
                 {categoryRows.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
+                    <td colSpan={3} className="px-4 py-8 text-center text-zinc-500">
                       No data yet.
                     </td>
                   </tr>
@@ -648,7 +648,7 @@ export default async function ReportsPage({
               ))}
               {vendorRows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
                     No data yet.
                   </td>
                 </tr>
@@ -717,7 +717,7 @@ export default async function ReportsPage({
               ))}
               {customerRows.length === 0 && (
                 <tr>
-                  <td colSpan={2} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={2} className="px-4 py-8 text-center text-zinc-500">
                     No data yet.
                   </td>
                 </tr>
@@ -772,7 +772,7 @@ export default async function ReportsPage({
               ))}
               {channelRows.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={3} className="px-4 py-8 text-center text-zinc-500">
                     No data yet.
                   </td>
                 </tr>
@@ -795,7 +795,7 @@ export default async function ReportsPage({
               <div className="mt-1 text-xl font-semibold text-zinc-900 sm:text-2xl">
                 {quoteConversionRate === null ? "—" : `${quoteConversionRate.toFixed(0)}%`}
               </div>
-              <div className="mt-1 text-xs text-zinc-400">
+              <div className="mt-1 text-xs text-zinc-500">
                 {quotesAccepted.length} accepted, {quotesDeclined.length} declined
               </div>
             </div>
@@ -896,7 +896,7 @@ export default async function ReportsPage({
             ))}
             {jobProfitabilityRows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={4} className="px-5 py-4 text-center text-zinc-500">
                   No invoiced jobs yet.
                 </td>
               </tr>
@@ -1167,7 +1167,7 @@ export default async function ReportsPage({
             ))}
             {arRows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={4} className="px-5 py-4 text-center text-zinc-500">
                   Nothing outstanding.
                 </td>
               </tr>
@@ -1214,7 +1214,7 @@ export default async function ReportsPage({
             ))}
             {laborRows.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={3} className="px-5 py-4 text-center text-zinc-500">
                   No time logged yet.
                 </td>
               </tr>
@@ -1277,7 +1277,7 @@ export default async function ReportsPage({
             </div>
           ))}
           {categoryRevenueRows.length === 0 && (
-            <p className="text-zinc-400">No categorized revenue yet.</p>
+            <p className="text-zinc-500">No categorized revenue yet.</p>
           )}
         </div>
 
@@ -1293,7 +1293,7 @@ export default async function ReportsPage({
             </div>
           ))}
           {categoryRows.length === 0 && (
-            <p className="text-zinc-400">No expenses logged yet.</p>
+            <p className="text-zinc-500">No expenses logged yet.</p>
           )}
         </div>
 
@@ -1399,7 +1399,7 @@ export default async function ReportsPage({
             ))}
             {apRows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={4} className="px-5 py-4 text-center text-zinc-500">
                   Nothing owed.
                 </td>
               </tr>
@@ -1538,7 +1538,7 @@ export default async function ReportsPage({
             ))}
             {cashMonthsAsc.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={5} className="px-5 py-4 text-center text-zinc-500">
                   No paid invoices or expenses yet.
                 </td>
               </tr>
@@ -1665,7 +1665,7 @@ export default async function ReportsPage({
             ))}
             {fulfillmentRows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={5} className="px-5 py-4 text-center text-zinc-500">
                   No deliveries scheduled in this period.
                 </td>
               </tr>
@@ -1729,7 +1729,7 @@ export default async function ReportsPage({
               <tr key={row.customerId}>
                 <td className="px-5 py-4 font-medium text-zinc-900">
                   {row.name}
-                  {row.companyName && <span className="ml-1 text-zinc-400">({row.companyName})</span>}
+                  {row.companyName && <span className="ml-1 text-zinc-500">({row.companyName})</span>}
                 </td>
                 <td className="px-5 py-4 text-zinc-600">${row.lifetimeRevenue.toFixed(2)}</td>
                 <td className="px-5 py-4 text-zinc-600">{row.orderCount}</td>
@@ -1740,7 +1740,7 @@ export default async function ReportsPage({
             ))}
             {ltvRows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-4 text-center text-zinc-400">
+                <td colSpan={6} className="px-5 py-4 text-center text-zinc-500">
                   No customers with orders yet.
                 </td>
               </tr>
@@ -1771,7 +1771,14 @@ export default async function ReportsPage({
   // "see the full breakdown" link → /reports?tab=expenses) instead of
   // always landing on Revenue.
   const initialTab = tab && tabs.some((t) => t.id === tab) ? tab : "revenue";
-  const tabsElement = <Tabs tabs={tabs} initialTab={initialTab} />;
+  // Twelve tabs grouped under three headings, so the page opens on a short
+  // row instead of a wall of tabs.
+  const tabGroups = [
+    { label: "Money", ids: ["revenue", "pl", "cash-flow", "expenses", "ar-aging", "ap-aging"] },
+    { label: "Customers", ids: ["customers", "customer-ltv"] },
+    { label: "Operations", ids: ["job-profitability", "equipment", "fulfillment", "labor"] },
+  ];
+  const tabsElement = <Tabs tabs={tabs} initialTab={initialTab} groups={tabGroups} />;
 
   return (
     <div className="flex flex-col gap-8">
@@ -1799,7 +1806,7 @@ export default async function ReportsPage({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <SummaryCard label={range ? "Revenue (Period)" : "Total Revenue"} value={totalRevenue} />
         <SummaryCard label={range ? "Expenses (Period)" : "Total Expenses"} value={totalExpenses} />
         <SummaryCard label="Net Profit" value={profit} highlight />
