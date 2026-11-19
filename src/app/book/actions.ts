@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { notifyOwner } from "@/lib/orgContact";
 import { headers, cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
 import { str } from "@/lib/formData";
 import { findAvailableItems, effectiveCategoryId, requiredQuantity } from "@/lib/availability";
 import { geocodeAddress } from "@/lib/geocode";
-import { sendNotificationEmail, sendCustomerEmail, siteOrigin } from "@/lib/email";
+import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { getAgreementSettings } from "@/lib/agreement";
 import { savePhotoFile } from "@/lib/uploads";
 import { branding } from "@/lib/branding";
@@ -566,7 +567,8 @@ async function processBookingRequest(formData: FormData): Promise<string> {
     })
   );
 
-  await afterCommit("notify owner", () => sendNotificationEmail(
+  await afterCommit("notify owner", () => notifyOwner(
+    organizationId,
     `New booking request from ${name}`,
     [
       tier

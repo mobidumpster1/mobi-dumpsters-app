@@ -26,6 +26,7 @@ import {
   type EmailTemplateKey,
 } from "@/lib/emailTemplates";
 import { requireUser, requirePlanFor } from "@/lib/session";
+import { isValidTimeZone } from "@/lib/orgContact";
 
 function parsePick(formData: FormData, key: string) {
   const raw = str(formData, key);
@@ -174,6 +175,27 @@ export async function updateBranding(formData: FormData) {
 
   revalidatePath("/settings");
   revalidatePath("/", "layout");
+}
+
+// Settings -> Business Contact: this business's own callback phone, alert
+// inbox and time zone (see src/lib/orgContact.ts). Blank fields fall back
+// to the platform defaults.
+export async function updateBusinessContact(formData: FormData) {
+  const user = await requireUser();
+  if (user.role !== "owner") throw new Error("Only the owner can change the business contact details.");
+  const contactPhone = str(formData, "contactPhone") || null;
+  const notificationEmail = str(formData, "notificationEmail") || null;
+  const timeZone = str(formData, "timeZone") || "America/New_York";
+  if (notificationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationEmail)) {
+    throw new Error("That alert email doesn't look valid.");
+  }
+  if (!isValidTimeZone(timeZone)) throw new Error("Unknown time zone.");
+
+  await db.organization.update({
+    where: { id: user.effectiveOrganizationId },
+    data: { contactPhone, notificationEmail, timeZone },
+  });
+  revalidatePath("/settings");
 }
 
 // Strips a pasted "https://book.example.com/" down to the bare hostname

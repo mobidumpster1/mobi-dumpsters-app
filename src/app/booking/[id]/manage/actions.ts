@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { sendNotificationEmail } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 
 export async function requestExtension(bookingId: string, formData: FormData) {
   const newDate = str(formData, "newDate");
@@ -23,7 +23,8 @@ export async function requestExtension(bookingId: string, formData: FormData) {
     data: { bookingId, type: "extension", details },
   });
 
-  await sendNotificationEmail(
+  await notifyOwner(
+    booking.organizationId,
     `Extension request from ${booking.customer.name}`,
     [
       `${booking.customer.name} requested more time on their rental at ${booking.deliveryAddress}.`,
@@ -49,7 +50,8 @@ export async function requestDumpAndReturn(bookingId: string, formData: FormData
     data: { bookingId, type: "dump_and_return", details: note },
   });
 
-  await sendNotificationEmail(
+  await notifyOwner(
+    booking.organizationId,
     `Dump & return request from ${booking.customer.name}`,
     [
       `${booking.customer.name} asked to have their unit emptied and brought back to ${booking.deliveryAddress}, instead of a final pickup.`,

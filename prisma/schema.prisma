@@ -28,6 +28,14 @@ model Organization {
   // pages had no way to tell organizations apart and just showed
   // whichever org happened to be first in the table.
   publicDomain String?  @unique
+  // Per-business contact profile (Settings -> Business Contact), so the
+  // platform can be sold to other businesses instead of every org sharing
+  // the static config/branding.json phone and the NOTIFICATION_EMAIL env
+  // inbox. Null falls back to those legacy single-tenant values (see
+  // src/lib/orgContact.ts). Used first by the AI phone agent.
+  contactPhone      String?
+  notificationEmail String?
+  timeZone          String   @default("America/New_York")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

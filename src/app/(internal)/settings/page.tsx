@@ -10,6 +10,7 @@ import {
   importCustomersFromQuickBooks,
   importExpensesFromQuickBooks,
   updateBranding,
+  updateBusinessContact,
   updatePublicDomain,
   updateAgreementSettings,
   updateReviewRequestSettings,
@@ -319,6 +320,74 @@ export default async function SettingsPage({
           className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
         >
           Save Branding
+        </button>
+      </form>
+    </section>
+  );
+
+  const contactProfile = await db.organization.findUniqueOrThrow({
+    where: { id: currentUser.effectiveOrganizationId },
+    select: { contactPhone: true, notificationEmail: true, timeZone: true },
+  });
+  const timeZones = Array.from(
+    new Set([
+      contactProfile.timeZone,
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Phoenix",
+      "America/Los_Angeles",
+      "America/Anchorage",
+      "Pacific/Honolulu",
+    ])
+  );
+  const businessContactSection = (
+    <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
+      <h2 className="text-xl font-black text-ink">Business Contact</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Your callback phone (shown to customers on your booking page), the inbox for new-request alerts, and your
+        time zone. Leave a field blank to use the platform default.
+      </p>
+      <form action={updateBusinessContact} className="mt-4 flex flex-col gap-4">
+        <Field label="Callback phone" htmlFor="contactPhone">
+          <input
+            id="contactPhone"
+            name="contactPhone"
+            type="tel"
+            defaultValue={contactProfile.contactPhone ?? ""}
+            placeholder="(478) 555-0100"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Alert email (new requests and callbacks)" htmlFor="notificationEmail">
+          <input
+            id="notificationEmail"
+            name="notificationEmail"
+            type="email"
+            defaultValue={contactProfile.notificationEmail ?? ""}
+            placeholder="owner@yourbusiness.com"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Time zone" htmlFor="timeZone">
+          <select
+            id="timeZone"
+            name="timeZone"
+            defaultValue={contactProfile.timeZone}
+            className={inputClass}
+          >
+            {timeZones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <button
+          type="submit"
+          className="self-start inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
+        >
+          Save Contact
         </button>
       </form>
     </section>
@@ -2000,6 +2069,7 @@ export default async function SettingsPage({
       label: "Business",
       items: [
         { id: "branding", label: "Branding", content: brandingSection },
+        { id: "contact", label: "Contact", content: businessContactSection },
         { id: "booking-link", label: "Booking link", content: bookingLinkSection },
         { id: "availability", label: "Availability", content: bookingAvailabilitySection },
         { id: "dump-schedule", label: "Dump schedule", content: dumpScheduleSection },

@@ -73,7 +73,10 @@ function wrapEmailHtml(body: string): string {
 // Sends a plain-text notification email to the business owner. Silently
 // does nothing if email isn't configured yet, and never throws — a missed
 // notification shouldn't block the booking request itself from saving.
-export async function sendNotificationEmail(subject: string, body: string) {
+// `to` lets a caller route the alert to one business's own inbox
+// (Organization.notificationEmail, see src/lib/orgContact.ts) instead of
+// the single NOTIFICATION_EMAIL inbox; omitted, behavior is unchanged.
+export async function sendNotificationEmail(subject: string, body: string, to?: string | null) {
   if (!isEmailConfigured()) return;
 
   try {
@@ -85,7 +88,7 @@ export async function sendNotificationEmail(subject: string, body: string) {
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
-        to: NOTIFICATION_EMAIL,
+        to: to || NOTIFICATION_EMAIL,
         subject,
         text: body,
         html: wrapEmailHtml(body),
