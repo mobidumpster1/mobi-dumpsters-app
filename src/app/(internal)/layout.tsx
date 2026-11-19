@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { Archivo } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
+import { HubTabs } from "@/components/HubTabs";
+import { entriesForUser } from "@/lib/navigation";
 import { UnsavedChangesProvider } from "@/components/UnsavedChangesProvider";
 import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 import { db } from "@/lib/db";
@@ -24,6 +26,7 @@ export default async function InternalLayout({
   // every page this layout wraps is exactly the "everything else" a
   // driver-only account shouldn't reach.
   if (user.isDriverOnly) redirect("/driver");
+  const navEntries = entriesForUser(user);
   const orgBranding = await getOrgBranding(user.effectiveOrganizationId);
   const pendingCount = await db.booking.count({
     where: { status: "pending", organizationId: user.effectiveOrganizationId },
@@ -43,7 +46,7 @@ export default async function InternalLayout({
           } as React.CSSProperties
         }
       >
-        <Sidebar branding={orgBranding} pendingCount={pendingCount} user={user} />
+        <Sidebar branding={orgBranding} pendingCount={pendingCount} user={user} entries={navEntries} />
         <main className="w-full min-w-0 flex-1 px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-10 md:pb-10">
           <div className="mx-auto w-full max-w-6xl">
             {!user.emailVerifiedAt && <VerifyEmailBanner action={resendVerificationEmailAction} />}
@@ -63,6 +66,7 @@ export default async function InternalLayout({
                 </form>
               </div>
             )}
+            <HubTabs entries={navEntries} />
             {children}
           </div>
         </main>

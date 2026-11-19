@@ -7,80 +7,22 @@ import type { OrgBranding } from "@/lib/orgBranding";
 import { ThemeToggle } from "./ThemeToggle";
 import { useUnsavedChanges } from "./UnsavedChangesProvider";
 import { logout } from "@/app/login/actions";
+import { FOOTER_LINKS, entryIsActive, type NavEntry } from "@/lib/navigation";
 
-const DEFAULT_LINKS = [
-  { href: "/", label: "Dispatch" },
+// The highest-frequency screens for someone checking the app one-handed in a
+// truck, always reachable without opening the full menu — everything else
+// lives one tap away behind "More". Deliberately fixed (not reorderable) so
+// the bottom bar stays predictable. Each is looked up among the visible tabs,
+// so a person who can't open one simply doesn't get it.
+const PRIMARY_MOBILE_LINKS: { href: string; label: string }[] = [
+  { href: "/", label: "Today" },
   { href: "/calendar", label: "Calendar" },
-  { href: "/customers", label: "Customers" },
-  { href: "/leads", label: "Leads" },
-  { href: "/prospecting", label: "Company Prospecting" },
-  { href: "/quotes", label: "Quotes" },
   { href: "/bookings", label: "Bookings" },
-  { href: "/driver", label: "Driver View" },
-  { href: "/equipment", label: "Equipment" },
-  { href: "/mileage", label: "Mileage" },
-  { href: "/maintenance", label: "Maintenance" },
-  { href: "/time", label: "Track Time" },
-  { href: "/agreements", label: "Agreements" },
-  { href: "/demolition-agreements", label: "Demolition Agreements" },
-  { href: "/gallery", label: "Gallery" },
-  { href: "/documents", label: "Documents" },
-  { href: "/invoices", label: "Invoices" },
-  { href: "/expenses", label: "Expenses" },
-  { href: "/reports", label: "Reports" },
-  { href: "/reviews", label: "Reviews" },
-  { href: "/automation", label: "Automation" },
-  { href: "/marketing", label: "Marketing" },
-  { href: "/promotions", label: "Promotions" },
-  { href: "/website-builder", label: "Website Builder" },
-  { href: "/activity", label: "Activity Log" },
-  { href: "/settings", label: "Settings" },
-  { href: "/platform-admin", label: "Platform Admin" },
+  { href: "/driver", label: "Driver" },
 ];
 
-// Purely a visual grouping label for the nav — doesn't affect permission
-// filtering, plan gating, or the existing reorder mechanics at all. A
-// group's header only ever appears above a run of links that are actually
-// in the (already-filtered) list, so a plan/permission that hides every
-// link in a group hides that group's header too, for free.
-const GROUP_FOR_HREF: Record<string, string> = {
-  "/": "Overview",
-  "/calendar": "Overview",
-  "/customers": "Sales",
-  "/leads": "Sales",
-  "/prospecting": "Sales",
-  "/quotes": "Sales",
-  "/bookings": "Jobs",
-  "/driver": "Jobs",
-  "/equipment": "Jobs",
-  "/mileage": "Jobs",
-  "/maintenance": "Jobs",
-  "/agreements": "Jobs",
-  "/demolition-agreements": "Jobs",
-  "/gallery": "Jobs",
-  "/documents": "Jobs",
-  "/time": "Jobs",
-  "/invoices": "Money",
-  "/expenses": "Money",
-  "/reports": "Money",
-  "/reviews": "Growth",
-  "/automation": "Growth",
-  "/marketing": "Growth",
-  "/promotions": "Growth",
-  "/website-builder": "Growth",
-  "/activity": "Admin",
-  "/settings": "Admin",
-  "/platform-admin": "Admin",
-};
-
-// The 3 highest-frequency screens for someone checking the app one-handed
-// in a truck, always reachable without opening the full nav — everything
-// else (including these three, at full length) lives one tap away behind
-// "More". Deliberately fixed (not reorderable) so the bottom bar stays
-// predictable regardless of how someone has customized the full list.
-const PRIMARY_MOBILE_LINKS = ["/", "/calendar", "/bookings"];
-
-const ORDER_STORAGE_KEY = "sidebarOrder";
+// V2: the sidebar was regrouped into hubs, so old saved orders no longer apply.
+const ORDER_STORAGE_KEY = "sidebarOrderV2";
 
 // Always dark regardless of the light/dark content toggle — bg-zinc-950
 // isn't one of the shades the app's dark-mode CSS variables override (see
@@ -103,62 +45,14 @@ export type SidebarUser = {
   plan: string;
 };
 
-// session.ts's hasPlan() can't be imported here (it's "server-only"), so
-// this is a small standalone copy of the same rank comparison.
-const PLAN_RANK: Record<string, number> = { solo: 0, team: 1, pro: 2 };
-function planAtLeast(plan: string, minPlan: "team" | "pro"): boolean {
-  return (PLAN_RANK[plan] ?? 0) >= PLAN_RANK[minPlan];
-}
-
-// Owner sees everything a staff permission would gate. Staff see
-// everything except Settings (never togglable — it's how permissions
-// themselves get granted) and whatever they haven't been individually
-// granted access to. Plan gating applies on top of that, to everyone
-// including the owner, since a Solo-plan owner doesn't get Team/Pro
-// features just by being the owner. Platform Admin is separate from both
-// — it's gated purely on isPlatformAdmin, a cross-organization support
-// capability rather than an in-org permission.
-function linksForUser(user: SidebarUser): typeof DEFAULT_LINKS {
-  const permissionFiltered = user.role === "owner"
-    ? DEFAULT_LINKS
-    : DEFAULT_LINKS.filter((link) => {
-        if (link.href === "/settings" || link.href === "/automation" || link.href === "/website-builder") return false;
-        if (link.href === "/reports" || link.href === "/marketing") return user.canViewReports;
-        if (link.href === "/documents") return user.canViewReports;
-        if (link.href === "/leads" || link.href === "/prospecting") return user.canManageLeads;
-        if (link.href === "/expenses") return user.canManageExpenses;
-        return true;
-      });
-  const planFiltered = permissionFiltered.filter((link) => {
-    if (link.href === "/leads" || link.href === "/quotes" || link.href === "/reports" || link.href === "/website-builder") {
-      return planAtLeast(user.plan, "team");
-    }
-    if (
-      link.href === "/time" ||
-      link.href === "/reviews" ||
-      link.href === "/automation" ||
-      link.href === "/marketing"
-    ) {
-      return planAtLeast(user.plan, "pro");
-    }
-    return true;
-  });
-  return planFiltered.filter((link) => link.href !== "/platform-admin" || user.isPlatformAdmin);
-}
-
-// Applies a saved href order to the given link list, appending any links
-// that aren't in the saved order yet (a page added since, or a permission
-// just granted) so nav items never silently disappear.
-function applyOrder(
-  availableLinks: typeof DEFAULT_LINKS,
-  savedOrder: string[]
-): typeof DEFAULT_LINKS {
-  if (savedOrder.length === 0) return availableLinks;
-  const byHref = new Map(availableLinks.map((link) => [link.href, link]));
-  const ordered = savedOrder
-    .map((href) => byHref.get(href))
-    .filter((link): link is (typeof DEFAULT_LINKS)[number] => Boolean(link));
-  const missing = availableLinks.filter((link) => !savedOrder.includes(link.href));
+// Applies a saved id order to the visible entries, appending any that aren't
+// in the saved order yet (an entry added since, or a permission just granted)
+// so nav items never silently disappear.
+function applyOrder(available: NavEntry[], savedOrder: string[]): NavEntry[] {
+  if (savedOrder.length === 0) return available;
+  const byId = new Map(available.map((entry) => [entry.id, entry]));
+  const ordered = savedOrder.map((id) => byId.get(id)).filter((entry): entry is NavEntry => Boolean(entry));
+  const missing = available.filter((entry) => !savedOrder.includes(entry.id));
   return [...ordered, ...missing];
 }
 
@@ -183,7 +77,7 @@ function MoveArrows({
         }}
         disabled={disableUp}
         aria-label="Move up"
-        className="flex h-8 w-8 items-center justify-center rounded text-white/80 hover:bg-white/10 disabled:opacity-30"
+        className="flex h-8 w-8 items-center justify-center rounded text-on-brand/80 hover:bg-on-brand/10 disabled:opacity-30"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
           <polyline points="18 15 12 9 6 15" />
@@ -197,7 +91,7 @@ function MoveArrows({
         }}
         disabled={disableDown}
         aria-label="Move down"
-        className="flex h-8 w-8 items-center justify-center rounded text-white/80 hover:bg-white/10 disabled:opacity-30"
+        className="flex h-8 w-8 items-center justify-center rounded text-on-brand/80 hover:bg-on-brand/10 disabled:opacity-30"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
           <polyline points="6 9 12 15 18 9" />
@@ -215,7 +109,7 @@ function NavLinks({
   reordering,
   onMove,
 }: {
-  links: typeof DEFAULT_LINKS;
+  links: NavEntry[];
   pathname: string;
   pendingCount: number;
   onNavigate?: () => void;
@@ -225,12 +119,11 @@ function NavLinks({
   return (
     <nav className="flex flex-col gap-1">
       {links.map((link, index) => {
-        const isActive =
-          link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+        const isActive = entryIsActive(link, pathname);
         const rowClass = `flex items-center justify-between rounded-xl px-4 py-2.5 text-[15px] font-semibold transition-colors ${
           isActive && !reordering
-            ? "bg-white/15 text-white"
-            : "text-white/80 hover:bg-white/10 hover:text-white"
+            ? "bg-on-brand/15 text-on-brand"
+            : "text-on-brand/80 hover:bg-on-brand/10 hover:text-on-brand"
         }`;
 
         const label = (
@@ -239,12 +132,12 @@ function NavLinks({
               <span
                 aria-hidden="true"
                 className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                  isActive && !reordering ? "bg-accent" : "bg-white/25"
+                  isActive && !reordering ? "bg-accent" : "bg-on-brand/25"
                 }`}
               />
               {link.label}
             </span>
-            {link.href === "/bookings" && pendingCount > 0 && !reordering && (
+            {link.id === "bookings" && pendingCount > 0 && !reordering && (
               <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-black text-accent-ink">
                 {pendingCount}
               </span>
@@ -252,22 +145,10 @@ function NavLinks({
           </>
         );
 
-        const group = GROUP_FOR_HREF[link.href];
-        const previousGroup = index > 0 ? GROUP_FOR_HREF[links[index - 1].href] : null;
-        const groupHeader = group && group !== previousGroup && (
-          <div
-            key={`${group}-header`}
-            className={`px-4 ${index === 0 ? "pt-0" : "pt-4"} pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/45`}
-          >
-            {group}
-          </div>
-        );
-
         if (reordering) {
           return (
-            <div key={link.href} className="contents">
-              {groupHeader}
-              <div className={rowClass}>
+            <div key={link.id} className="contents">
+                            <div className={rowClass}>
                 {label}
                 <MoveArrows
                   onMoveUp={() => onMove(index, -1)}
@@ -281,9 +162,8 @@ function NavLinks({
         }
 
         return (
-          <div key={link.href} className="contents">
-            {groupHeader}
-            <Link href={link.href} onClick={onNavigate} className={rowClass}>
+          <div key={link.id} className="contents">
+                        <Link href={link.href} onClick={onNavigate} className={rowClass}>
               {label}
             </Link>
           </div>
@@ -346,17 +226,34 @@ function BackButton({ className }: { className: string }) {
   );
 }
 
+function FooterLinks({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 px-2">
+      {FOOTER_LINKS.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          onClick={onNavigate}
+          className="py-1.5 text-xs font-bold text-on-brand/60 hover:text-on-brand"
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function AccountRow({ user }: { user: SidebarUser }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-xl border border-white/10 px-5 py-3 text-sm text-white/90">
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-on-brand/10 px-5 py-3 text-sm text-on-brand/90">
       <Link href="/account" className="min-w-0 hover:underline">
         <div className="truncate font-bold">{user.name}</div>
-        <div className="text-xs font-semibold capitalize text-white/50">{user.role}</div>
+        <div className="text-xs font-semibold capitalize text-on-brand/50">{user.role}</div>
       </Link>
       <form action={logout}>
         <button
           type="submit"
-          className="flex-shrink-0 rounded px-2.5 py-1.5 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white"
+          className="flex-shrink-0 rounded px-2.5 py-1.5 text-xs font-bold text-on-brand/70 hover:bg-on-brand/10 hover:text-on-brand"
         >
           Sign Out
         </button>
@@ -382,6 +279,14 @@ function TabIcon({ href }: { href: string }) {
         <path d="M14 10h4l3 3v4h-7z" />
         <circle cx="6" cy="19" r="1.5" />
         <circle cx="17" cy="19" r="1.5" />
+      </svg>
+    );
+  }
+  if (href === "/driver") {
+    return (
+      <svg {...common}>
+        <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z" />
+        <circle cx="12" cy="11" r="2.2" />
       </svg>
     );
   }
@@ -431,7 +336,7 @@ function MoreSheet({
 }: {
   branding: OrgBranding;
   logo: React.ReactNode;
-  links: typeof DEFAULT_LINKS;
+  links: NavEntry[];
   pathname: string;
   pendingCount: number;
   reordering: boolean;
@@ -443,19 +348,19 @@ function MoreSheet({
   return (
     <div className="fixed inset-0 z-50 md:hidden">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <aside className={`absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col gap-6 overflow-y-auto border-r border-white/10 ${SHELL_BG} px-4 py-6 shadow-2xl`}>
+      <aside className={`absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col gap-6 overflow-y-auto border-r border-on-brand/10 ${SHELL_BG} px-4 py-6 shadow-2xl`}>
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2.5">
             {logo}
-            <span className="text-base font-bold leading-tight text-white">{branding.businessName}</span>
+            <span className="text-base font-bold leading-tight text-on-brand">{branding.businessName}</span>
           </div>
           <div className="flex items-center gap-1">
-            <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-white hover:bg-white/10" />
+            <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-on-brand hover:bg-on-brand/10" />
             <button
               type="button"
               onClick={onClose}
               aria-label="Close menu"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-white hover:bg-white/10"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-on-brand hover:bg-on-brand/10"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -467,7 +372,7 @@ function MoreSheet({
         <ReorderToggle
           reordering={reordering}
           onToggle={onToggleReorder}
-          className="self-start rounded px-3 py-1.5 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white"
+          className="self-start rounded px-3 py-1.5 text-xs font-bold text-on-brand/70 hover:bg-on-brand/10 hover:text-on-brand"
         />
         <NavLinks
           links={links}
@@ -477,7 +382,8 @@ function MoreSheet({
           reordering={reordering}
           onMove={onMove}
         />
-        <div className="mt-auto">
+        <div className="mt-auto flex flex-col gap-2">
+          <FooterLinks onNavigate={onClose} />
           <AccountRow user={user} />
         </div>
       </aside>
@@ -489,14 +395,16 @@ export function Sidebar({
   branding,
   pendingCount = 0,
   user,
+  entries,
 }: {
   branding: OrgBranding;
   pendingCount?: number;
   user: SidebarUser;
+  entries: NavEntry[];
 }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const availableLinks = linksForUser(user);
+  const availableLinks = entries;
   const [links, setLinks] = useState(availableLinks);
   const [reordering, setReordering] = useState(false);
 
@@ -522,7 +430,7 @@ export function Sidebar({
     [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
     setLinks(next);
     try {
-      localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next.map((l) => l.href)));
+      localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next.map((l) => l.id)));
     } catch {
       // localStorage unavailable — order just won't persist across visits.
     }
@@ -537,22 +445,21 @@ export function Sidebar({
     />
   );
 
-  const mobileTabs = PRIMARY_MOBILE_LINKS
-    .map((href) => links.find((l) => l.href === href))
-    .filter((l): l is (typeof DEFAULT_LINKS)[number] => Boolean(l));
+  const visibleHrefs = new Set(entries.flatMap((entry) => entry.tabs.map((tab) => tab.href)));
+  const mobileTabs = PRIMARY_MOBILE_LINKS.filter((link) => visibleHrefs.has(link.href));
 
   return (
     <>
       {/* Mobile top bar — sticky, so the back button stays reachable without
           scrolling back up on long pages. */}
-      <header className={`print:hidden sticky top-0 z-40 flex items-center justify-between border-b border-white/10 ${SHELL_BG} px-4 py-3 md:hidden`}>
+      <header className={`print:hidden sticky top-0 z-40 flex items-center justify-between border-b border-on-brand/10 ${SHELL_BG} px-4 py-3 md:hidden`}>
         {pathname === "/" ? (
           <Link href="/" className="flex items-center gap-2.5">
             {logo}
-            <span className="text-base font-bold leading-tight text-white">{branding.businessName}</span>
+            <span className="text-base font-bold leading-tight text-on-brand">{branding.businessName}</span>
           </Link>
         ) : (
-          <BackButton className="-ml-2 flex items-center gap-1.5 rounded px-2 py-1.5 text-base font-bold text-white hover:bg-white/10" />
+          <BackButton className="-ml-2 flex items-center gap-1.5 rounded px-2 py-1.5 text-base font-bold text-on-brand hover:bg-on-brand/10" />
         )}
         <ThemeToggle />
       </header>
@@ -574,18 +481,18 @@ export function Sidebar({
 
       {/* Mobile bottom tab bar — reachable one-handed, no drawer to open
           for the highest-frequency screens. */}
-      <nav className={`print:hidden fixed inset-x-0 bottom-0 z-40 grid border-t border-white/10 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
+      <nav className={`print:hidden fixed inset-x-0 bottom-0 z-40 grid border-t border-on-brand/10 ${SHELL_BG} md:hidden`} style={{ gridTemplateColumns: `repeat(${mobileTabs.length + 1}, minmax(0, 1fr))` }}>
         {mobileTabs.map((link) => {
-          const isActive = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+          const isActive = link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`relative flex flex-col items-center gap-1 py-2.5 ${isActive ? "text-accent" : "text-white/60"}`}
+              className={`relative flex flex-col items-center gap-1 py-2.5 ${isActive ? "text-accent" : "text-on-brand/60"}`}
             >
               <TabIcon href={link.href} />
               {link.href === "/bookings" && pendingCount > 0 && (
-                <span className="absolute right-[28%] top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white">
+                <span className="absolute right-[28%] top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-black text-accent-ink">
                   {pendingCount}
                 </span>
               )}
@@ -596,7 +503,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
-          className="flex flex-col items-center gap-1 py-2.5 text-white/60"
+          className="flex flex-col items-center gap-1 py-2.5 text-on-brand/60"
         >
           <TabIcon href="more" />
           <span className="text-[10px] font-bold">More</span>
@@ -604,13 +511,13 @@ export function Sidebar({
       </nav>
 
       {/* Desktop / tablet persistent sidebar */}
-      <aside className={`print:hidden sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r border-white/10 ${SHELL_BG} px-4 py-6 md:flex`}>
+      <aside className={`print:hidden sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-6 overflow-y-auto border-r border-on-brand/10 ${SHELL_BG} px-4 py-6 md:flex`}>
         <Link href="/" className="flex items-center gap-3 px-2">
           {logo}
-          <span className="text-lg font-bold leading-tight text-white">{branding.businessName}</span>
+          <span className="text-lg font-bold leading-tight text-on-brand">{branding.businessName}</span>
         </Link>
         {pathname !== "/" && (
-          <BackButton className="-mt-4 flex items-center gap-1.5 self-start rounded px-2 py-1.5 text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white" />
+          <BackButton className="-mt-4 flex items-center gap-1.5 self-start rounded px-2 py-1.5 text-sm font-bold text-on-brand/80 hover:bg-on-brand/10 hover:text-on-brand" />
         )}
         <NavLinks
           links={links}
@@ -623,12 +530,13 @@ export function Sidebar({
           <ReorderToggle
             reordering={reordering}
             onToggle={() => setReordering((r) => !r)}
-            className="self-start rounded px-2 py-1 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white"
+            className="self-start rounded px-2 py-1 text-xs font-bold text-on-brand/70 hover:bg-on-brand/10 hover:text-on-brand"
           />
-          <div className="flex items-center justify-between rounded-xl border border-white/10 px-5 py-3 text-sm font-bold text-white/90">
+          <div className="flex items-center justify-between rounded-xl border border-on-brand/10 px-5 py-3 text-sm font-bold text-on-brand/90">
             Theme
-            <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-white hover:bg-white/10" />
+            <ThemeToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-on-brand hover:bg-on-brand/10" />
           </div>
+          <FooterLinks />
           <AccountRow user={user} />
         </div>
       </aside>
