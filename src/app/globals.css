@@ -96,6 +96,52 @@
   color: #ffffff;
 }
 
+/* Tables inside <StackTables> become stacked cards on phones. */
+@media (max-width: 639px) {
+  table.stack-table,
+  table.stack-table tbody,
+  table.stack-table tfoot {
+    display: block;
+  }
+  table.stack-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  table.stack-table tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--rt-zinc-200);
+    border-radius: 0.75rem;
+    background: var(--rt-white);
+  }
+  table.stack-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 0 !important;
+    text-align: right;
+    border: 0;
+  }
+  table.stack-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-weight: 600;
+    text-align: left;
+    color: var(--rt-zinc-500);
+  }
+  table.stack-table td:not([data-label]) {
+    display: block;
+    text-align: left;
+  }
+  table.stack-table td:not([data-label])::before {
+    content: none;
+  }
+}
+
 /* Small buttons get a comfortable touch height on phones/tablets. */
 @media (pointer: coarse) {
   .app-shell button[class*="py-1.5"],

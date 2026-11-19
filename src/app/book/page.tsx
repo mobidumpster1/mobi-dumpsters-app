@@ -14,7 +14,7 @@ import { SectionList } from "@/components/websiteBuilder/SectionRenderer";
 import { themeToCssVars } from "@/lib/websiteBuilderTheme";
 import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 import { db } from "@/lib/db";
-import { branding as staticBranding } from "@/lib/branding";
+import { getOrgContact } from "@/lib/orgContact";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +31,8 @@ export default async function PublicBookingPage({
   // overrides either way.
   const isDark = themeParam === "dark" || (themeParam !== "light" && isEmbed);
   const organizationId = await getPublicOrganizationId();
-  const contactPhone = staticBranding.smsPhone || staticBranding.phone;
-  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage, org] =
+  // Each business's own number (Settings -> Contact), never another business's.
+  const [categories, agreement, branding, bookingAvailabilitySettings, websiteBuilderPage, org, contact] =
     await Promise.all([
       listBookableCategories(),
       getAgreementSettings(organizationId),
@@ -43,6 +43,7 @@ export default async function PublicBookingPage({
       // free to skip there. See the Website Builder feature.
       isEmbed ? getWebsiteBuilderPage(organizationId) : Promise.resolve(null),
       isEmbed ? db.organization.findUnique({ where: { id: organizationId }, select: { plan: true } }) : Promise.resolve(null),
+      getOrgContact(organizationId),
     ]);
   // Lets a link on Chase's own website (e.g. the Junk Removal section) go
   // straight to that category's review step, instead of dropping the
@@ -124,7 +125,7 @@ export default async function PublicBookingPage({
             agreementContent: agreement.content,
             initialCategoryId,
             isEmbed,
-            contactPhone: contactPhone,
+            contactPhone: contact.phone,
           }}
         />
       ) : (
@@ -178,7 +179,7 @@ export default async function PublicBookingPage({
                 agreementContent={agreement.content}
                 initialCategoryId={initialCategoryId}
                 isEmbed={isEmbed}
-                contactPhone={contactPhone}
+                contactPhone={contact.phone}
               />
             )}
           </div>

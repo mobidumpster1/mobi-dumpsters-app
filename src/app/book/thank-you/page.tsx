@@ -6,7 +6,7 @@ import { getStripeConnection, createSetupIntent } from "@/lib/stripe";
 import { payBookingInvoiceNow } from "../actions";
 import { SaveCardSection } from "../SaveCardSection";
 import { EmbedAutoResize } from "@/components/EmbedAutoResize";
-import { branding as staticBranding } from "@/lib/branding";
+import { getOrgContact } from "@/lib/orgContact";
 import { FONT_VARIABLES_CLASS } from "@/lib/websiteBuilderFonts";
 
 export default async function ThankYouPage({
@@ -17,8 +17,7 @@ export default async function ThankYouPage({
   const { ref, agreement, invoice: invoiceId, payError, embed, theme: themeParam } = await searchParams;
   const isEmbed = embed === "1";
   const organizationId = await getPublicOrganizationId();
-  const branding = await getOrgBranding(organizationId);
-  const contact = { phone: staticBranding.smsPhone || staticBranding.phone };
+  const [branding, contact] = await Promise.all([getOrgBranding(organizationId), getOrgContact(organizationId)]);
   const isDark = themeParam === "dark" || (themeParam !== "light" && isEmbed);
   const phoneDigits = contact.phone?.replace(/\D/g, "");
 

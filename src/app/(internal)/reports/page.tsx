@@ -5,6 +5,7 @@ import { DonutChart } from "@/components/DonutChart";
 import { BarChart } from "@/components/BarChart";
 import { LineChart } from "@/components/LineChart";
 import { Tabs } from "@/components/Tabs";
+import { StackTables } from "@/components/StackTables";
 import { ReportsFilterBar } from "@/components/ReportsFilterBar";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { PrintReportButton } from "@/components/PrintReportButton";
@@ -1778,7 +1779,11 @@ export default async function ReportsPage({
     { label: "Customers", ids: ["customers", "customer-ltv"] },
     { label: "Operations", ids: ["job-profitability", "equipment", "fulfillment", "labor"] },
   ];
-  const tabsElement = <Tabs tabs={tabs} initialTab={initialTab} groups={tabGroups} />;
+  const tabsElement = (
+    <StackTables>
+      <Tabs tabs={tabs} initialTab={initialTab} groups={tabGroups} />
+    </StackTables>
+  );
 
   return (
     <div className="flex flex-col gap-8">

@@ -16,6 +16,7 @@ import {
 } from "@/lib/documents";
 import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
 import { requireUser, hasPlan } from "@/lib/session";
+import { getOrgContact } from "@/lib/orgContact";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { inputClass } from "@/components/Field";
 import { ExtendForm, LogWeightForm } from "@/components/QuickBookingForms";
@@ -354,9 +355,8 @@ export default async function DispatchPage() {
     href: stop.href,
   }));
 
-  // Greeting follows the business's local time of day. A per-business time
-  // zone setting can replace this constant later.
-  const timeZone = "America/New_York";
+  // Greeting follows the business's own time zone (Settings -> Contact).
+  const { timeZone } = await getOrgContact(user.effectiveOrganizationId);
   const localHour =
     Number(
       new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone }).format(
