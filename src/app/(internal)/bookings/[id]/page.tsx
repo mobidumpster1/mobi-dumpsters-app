@@ -7,6 +7,7 @@ import {
   markReturned,
   confirmBooking,
   declineBooking,
+  cancelBooking,
   deleteBooking,
   notifyOnTheWay,
   setBookingVehicle,
@@ -40,6 +41,8 @@ import { VehicleQuickSelect } from "@/components/VehicleQuickSelect";
 import { DriverQuickSelect } from "@/components/DriverQuickSelect";
 import { DepositReleaseButton } from "@/components/DepositReleaseButton";
 import { Tabs } from "@/components/Tabs";
+import { ExtendForm, LogWeightForm } from "@/components/QuickBookingForms";
+import { extendBooking, logBookingWeight } from "../quickActions";
 import { requireUser, hasPlan } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -787,6 +790,16 @@ export default async function BookingDetailPage({
           >
             Edit
           </Link>
+          {!isPending && !isCancelled && (
+            <form action={cancelBooking.bind(null, booking.id)}>
+              <ConfirmButton
+                message={`Cancel ${booking.customer.name}'s booking? This frees the equipment and removes it from Google Calendar.`}
+                className="rounded-xl border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+              >
+                Cancel Booking
+              </ConfirmButton>
+            </form>
+          )}
           {canDelete ? (
             <form action={deleteWithId}>
               <ConfirmButton
@@ -819,6 +832,43 @@ export default async function BookingDetailPage({
           </Link>
         </p>
       )}
+
+      {!isPending && !isCancelled && (() => {
+        const openItems = booking.items.filter((item) => item.actualReturnDate === null);
+        const waitingOnWeight = booking.items.filter(
+          (item) =>
+            item.actualReturnDate !== null &&
+            item.actualTonnage === null &&
+            item.equipmentItem.category.includedTonnage !== null
+        );
+        if (openItems.length === 0 && waitingOnWeight.length === 0) return null;
+        return (
+          <section className="mt-4 flex flex-col gap-4 rounded-2xl border border-[var(--app-line)] bg-white p-5 shadow-sm">
+            {waitingOnWeight.length > 0 && (
+              <div>
+                <h2 className="text-lg font-extrabold text-ink">Waiting on the scale ticket</h2>
+                <p className="mb-2 mt-0.5 text-sm text-zinc-500">
+                  This load came back but its dump weight isn&apos;t in yet. Enter it and any overweight charge is
+                  added to the invoice.
+                </p>
+                <LogWeightForm
+                  action={logBookingWeight.bind(null, booking.id)}
+                  items={waitingOnWeight.map((item) => ({ id: item.id, label: item.equipmentItem.label }))}
+                />
+              </div>
+            )}
+            {openItems.length > 0 && (
+              <div>
+                <h2 className="text-lg font-extrabold text-ink">Keeping it longer?</h2>
+                <p className="mb-2 mt-0.5 text-sm text-zinc-500">
+                  Moves the pickup date out and adds the extra days to the invoice.
+                </p>
+                <ExtendForm action={extendBooking.bind(null, booking.id)} />
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {notified === "1" && (
         <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">

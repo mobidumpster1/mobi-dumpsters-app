@@ -83,7 +83,10 @@ export async function applyDumpWeightToBooking(
   organizationId: string,
   customer: { id: string; name: string; phone: string | null },
   bookingId: string,
-  weightTons: number
+  weightTons: number,
+  // When a booking has several returned-but-unweighed items, the person
+  // entering the weight can say which one the scale ticket belongs to.
+  itemId?: string
 ) {
   const booking = await db.booking.findFirst({
     where: { id: bookingId, organizationId },
@@ -92,7 +95,8 @@ export async function applyDumpWeightToBooking(
   if (!booking || booking.customerId !== customer.id) return;
 
   const unweighedReturnedItems = booking.items.filter(
-    (item) => item.actualReturnDate !== null && item.actualTonnage === null
+    (item) =>
+      item.actualReturnDate !== null && item.actualTonnage === null && (!itemId || item.id === itemId)
   );
   if (unweighedReturnedItems.length !== 1) return;
   const item = unweighedReturnedItems[0];

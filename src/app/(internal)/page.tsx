@@ -18,6 +18,9 @@ import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency
 import { requireUser, hasPlan } from "@/lib/session";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { inputClass } from "@/components/Field";
+import { ExtendForm, LogWeightForm } from "@/components/QuickBookingForms";
+import { extendForRequest, logBookingWeight } from "./bookings/quickActions";
+import { invoiceNotOnCancelledBooking, invoiceStatusFilter } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -142,8 +145,12 @@ function DispatchCard({
 export default async function DispatchPage() {
   const user = await requireUser();
   const canRouteOptimize = hasPlan(user, "pro");
+  // Money totals are for the owner and anyone granted report access.
+  const canSeeMoney = user.role === "owner" || user.canViewReports;
   const today = startOfToday();
   const weekEnd = daysFromNow(7);
+  const monthStart = startOfToday();
+  monthStart.setDate(1);
   const docToday = utcStartOfToday();
   const docAlertCutoff = new Date(docToday);
   docAlertCutoff.setUTCDate(docAlertCutoff.getUTCDate() + DOCUMENT_EXPIRY_ALERT_DAYS);
@@ -158,6 +165,10 @@ export default async function DispatchPage() {
     serviceRequests,
     expiringDocuments,
     dueMaintenanceEntries,
+    awaitingWeight,
+    owedTotals,
+    overdueCount,
+    collectedThisMonth,
   ] = await Promise.all([
       db.bookingItem.findMany({
         where: {
@@ -210,6 +221,48 @@ export default async function DispatchPage() {
         include: { vehicle: true, equipmentItem: true },
         orderBy: { nextServiceDue: "asc" },
       }),
+      // Loads that came back but whose dump weight has not been entered, so a
+      // scale ticket does not quietly go unbilled. Only categories that
+      // actually track tonnage, and only the last 60 days.
+      db.bookingItem.findMany({
+        where: {
+          actualReturnDate: { not: null, gte: daysFromNow(-60) },
+          actualTonnage: null,
+          equipmentItem: { category: { includedTonnage: { not: null } } },
+          booking: { status: { notIn: ["cancelled", "pending"] }, organizationId: user.effectiveOrganizationId },
+        },
+        include: { equipmentItem: true, booking: { include: { customer: true } } },
+        orderBy: { actualReturnDate: "desc" },
+        take: 20,
+      }),
+      canSeeMoney
+        ? db.invoice.aggregate({
+            _sum: { amount: true },
+            where: {
+              organizationId: user.effectiveOrganizationId,
+              status: { in: ["unpaid", "partial"] },
+              ...invoiceNotOnCancelledBooking,
+            },
+          })
+        : Promise.resolve(null),
+      canSeeMoney
+        ? db.invoice.count({
+            where: {
+              organizationId: user.effectiveOrganizationId,
+              AND: [invoiceStatusFilter("overdue"), invoiceNotOnCancelledBooking],
+            },
+          })
+        : Promise.resolve(0),
+      canSeeMoney
+        ? db.invoice.aggregate({
+            _sum: { amount: true },
+            where: {
+              organizationId: user.effectiveOrganizationId,
+              status: "paid",
+              paidDate: { gte: monthStart },
+            },
+          })
+        : Promise.resolve(null),
     ]);
 
   // Pin both equipment that's already out at a site and deliveries that are
@@ -332,8 +385,68 @@ export default async function DispatchPage() {
         />
         <StatTile label="Deliveries due" value={deliveries.length} caption="this week" />
         <StatTile label="Pickups due" value={pickups.length} caption="this week" />
-        <StatTile label="Needs attention" value={needsAttentionCount} caption="requests and documents" />
+        <StatTile
+          label="Needs attention"
+          value={needsAttentionCount}
+          caption="requests and documents"
+          href="#needs-attention"
+        />
       </div>
+
+      {canSeeMoney && (
+        <Link
+          href="/invoices/unpaid"
+          className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 rounded-2xl border border-[var(--app-line)] bg-white px-5 py-4 shadow-sm transition-colors hover:bg-zinc-50"
+        >
+          <div>
+            <p className="text-sm font-semibold text-zinc-600">Owed to you</p>
+            <p className="text-2xl font-extrabold tracking-tight text-ink">
+              ${(owedTotals?._sum.amount ?? 0).toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-600">Overdue invoices</p>
+            <p className={`text-2xl font-extrabold tracking-tight ${overdueCount > 0 ? "text-red-600" : "text-ink"}`}>
+              {overdueCount}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-600">Collected this month</p>
+            <p className="text-2xl font-extrabold tracking-tight text-ink">
+              ${(collectedThisMonth?._sum.amount ?? 0).toFixed(2)}
+            </p>
+          </div>
+          <span className="text-sm font-bold text-brand-fg">See who owes you &rarr;</span>
+        </Link>
+      )}
+
+      {awaitingWeight.length > 0 && (
+        <section className="rounded-2xl border border-accent/50 bg-accent/10 p-5 shadow-sm">
+          <h2 className="text-xl font-black text-ink">
+            {awaitingWeight.length} Load{awaitingWeight.length === 1 ? "" : "s"} Waiting on the Scale Ticket
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            These came back but the dump weight isn&apos;t in yet. Enter it and any overweight charge goes on the
+            invoice.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            {awaitingWeight.map((item) => (
+              <div key={item.id} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+                <Link href={`/bookings/${item.booking.id}`} className="font-medium text-zinc-900 hover:underline">
+                  {item.booking.customer.name}
+                </Link>
+                <span className="ml-2 text-sm text-zinc-500">{item.equipmentItem.label}</span>
+                <div className="mt-2">
+                  <LogWeightForm
+                    action={logBookingWeight.bind(null, item.booking.id)}
+                    items={[{ id: item.id, label: item.equipmentItem.label }]}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {pendingBookings.length > 0 && (
         <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
@@ -361,7 +474,7 @@ export default async function DispatchPage() {
       )}
 
       {serviceRequests.length > 0 && (
-        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
+        <section id="needs-attention" className="scroll-mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
           <h2 className="text-xl font-black text-ink">
             {serviceRequests.length} Service Request
             {serviceRequests.length === 1 ? "" : "s"}
@@ -384,14 +497,22 @@ export default async function DispatchPage() {
                     {req.details ? ` â€” ${req.details}` : ""}
                   </p>
                 </div>
-                <form action={resolveServiceRequest.bind(null, req.id)}>
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-                  >
-                    Mark Handled
-                  </button>
-                </form>
+                <div className="flex flex-wrap items-end gap-3">
+                  {req.type === "extension" && (
+                    <ExtendForm
+                      action={extendForRequest.bind(null, req.id)}
+                      submitLabel="Extend & mark handled"
+                    />
+                  )}
+                  <form action={resolveServiceRequest.bind(null, req.id)}>
+                    <button
+                      type="submit"
+                      className="min-h-11 rounded-xl border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      {req.type === "extension" ? "Dismiss" : "Mark Handled"}
+                    </button>
+                  </form>
+                </div>
               </div>
             ))}
           </div>
