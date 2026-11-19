@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDateAndTime } from "@/lib/date";
 import { markDelivered, markReturned, resolveServiceRequest } from "./bookings/actions";
@@ -16,7 +16,6 @@ import {
 } from "@/lib/documents";
 import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
 import { requireUser, hasPlan } from "@/lib/session";
-import { getOrgContact } from "@/lib/orgContact";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { inputClass } from "@/components/Field";
 
@@ -225,7 +224,7 @@ export default async function DispatchPage() {
       id: b.id,
       lat: b.latitude as number,
       lng: b.longitude as number,
-      label: `${b.customer.name} — ${b.deliveryAddress}`,
+      label: `${b.customer.name} â€” ${b.deliveryAddress}`,
       href: `/bookings/${b.id}`,
     });
   }
@@ -237,7 +236,7 @@ export default async function DispatchPage() {
       id: booking.id,
       lat: booking.latitude,
       lng: booking.longitude,
-      label: `Scheduled: ${booking.customer.name} — ${booking.deliveryAddress}`,
+      label: `Scheduled: ${booking.customer.name} â€” ${booking.deliveryAddress}`,
       href: `/bookings/${booking.id}`,
     });
   }
@@ -246,7 +245,7 @@ export default async function DispatchPage() {
   // Today's suggested route: every delivery/pickup due today or overdue,
   // combined into one loop (a truck usually does both in the same run),
   // ordered with a free greedy nearest-neighbor pass starting from the
-  // yard — recomputed on every load, not persisted or reorderable in v1.
+  // yard â€” recomputed on every load, not persisted or reorderable in v1.
   const todayEnd = daysFromNow(1);
   type RouteStopInfo = {
     id: string;
@@ -298,11 +297,11 @@ export default async function DispatchPage() {
     id: stop.id,
     lat: stop.lat,
     lng: stop.lng,
-    label: `${i + 1}. ${stop.kind}: ${stop.customerName} — ${stop.address}`,
+    label: `${i + 1}. ${stop.kind}: ${stop.customerName} â€” ${stop.address}`,
     href: stop.href,
   }));
 
-  const contact = await getOrgContact(user.effectiveOrganizationId);
+  const contact = { timeZone: "America/New_York" };
   const localHour =
     Number(
       new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: contact.timeZone }).format(
@@ -382,7 +381,7 @@ export default async function DispatchPage() {
                   </Link>
                   <p className="text-sm text-zinc-500">
                     {req.type === "extension" ? "Wants more time" : "Wants dump & return"}
-                    {req.details ? ` — ${req.details}` : ""}
+                    {req.details ? ` â€” ${req.details}` : ""}
                   </p>
                 </div>
                 <form action={resolveServiceRequest.bind(null, req.id)}>
@@ -418,7 +417,7 @@ export default async function DispatchPage() {
                     <span className="font-medium text-zinc-900">{doc.name}</span>
                     <span className="ml-2 text-sm text-zinc-500">
                       {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
-                      {doc.vehicle ? ` — ${doc.vehicle.label}` : ""}
+                      {doc.vehicle ? ` â€” ${doc.vehicle.label}` : ""}
                     </span>
                   </div>
                   <span className={`text-sm ${u.className}`}>{u.text}</span>
@@ -446,7 +445,7 @@ export default async function DispatchPage() {
                 >
                   <div>
                     <span className="font-medium text-zinc-900">
-                      {entry.vehicle?.label ?? entry.equipmentItem?.label ?? "—"}
+                      {entry.vehicle?.label ?? entry.equipmentItem?.label ?? "â€”"}
                     </span>
                     <span className="ml-2 text-sm text-zinc-500">
                       {MAINTENANCE_TYPE_LABELS[entry.type] ?? entry.type}

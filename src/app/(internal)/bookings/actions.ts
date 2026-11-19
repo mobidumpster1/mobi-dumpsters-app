@@ -8,7 +8,6 @@ import { str } from "@/lib/formData";
 import { geocodeAddress } from "@/lib/geocode";
 import { pushBookingToCalendar, deleteCalendarEvent } from "@/lib/googleCalendar";
 import { createDraftInvoiceForBooking, syncInvoiceWithBooking } from "@/lib/invoicing";
-import { verifySpecificItemsAvailable } from "@/lib/availability";
 import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
 import { branding } from "@/lib/branding";
