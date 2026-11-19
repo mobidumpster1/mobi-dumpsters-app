@@ -65,13 +65,13 @@
   --app-line: #3f3f46;
   --app-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
-.app-shell [class~="border-2"][class~="border-zinc-900"] {
+:is(.app-shell, .theme-light, .theme-booking, .theme-public-dark, .theme-embed) [class~="border-2"][class~="border-zinc-900"] {
   border-width: 1px;
-  border-color: var(--app-line);
+  border-color: var(--app-line, var(--rt-zinc-200));
   border-radius: 1rem;
-  box-shadow: var(--app-shadow);
+  box-shadow: var(--app-shadow, 0 1px 2px rgb(20 33 15 / 0.06), 0 8px 24px rgb(20 33 15 / 0.06));
 }
-.app-shell [class~="border-2"][class~="border-dashed"] {
+:is(.app-shell, .theme-light, .theme-booking, .theme-public-dark, .theme-embed) [class~="border-2"][class~="border-dashed"] {
   border-width: 1px;
   border-radius: 1rem;
 }
