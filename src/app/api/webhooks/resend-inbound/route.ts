@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendNotificationEmail } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 import { stopAllActiveEnrollmentsForLead } from "@/lib/leadSequences";
 import { logAction } from "@/lib/auditLog";
 import { verifyResendWebhookSignature } from "@/lib/resendWebhook";
@@ -95,7 +95,8 @@ export async function POST(request: Request) {
   await stopAllActiveEnrollmentsForLead(leadId, "replied");
   await logAction("lead.replied", "Lead", leadId);
 
-  await sendNotificationEmail(
+  await notifyOwner(
+    lead.organizationId,
     `${lead.name} replied to your outreach`,
     [
       `${lead.name} replied to a sequence email. Status was set to Interested and their sequence has stopped.`,

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAnyTwilioConnection, verifyTwilioSignature } from "@/lib/twilio";
 import { lastTenDigits } from "@/lib/phone";
-import { sendNotificationEmail, siteOrigin } from "@/lib/email";
+import { siteOrigin } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 
 const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
@@ -63,7 +64,8 @@ export async function POST(request: Request) {
 
     // Notify staff either way — an unmatched number still deserves a
     // heads-up rather than silently disappearing.
-    await sendNotificationEmail(
+    await notifyOwner(
+      connection.organizationId,
       matched ? `${matched.name} texted you` : `New text from ${from}`,
       [
         matched

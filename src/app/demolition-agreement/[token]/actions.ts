@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { fillBlankCustomerFields } from "@/lib/customerSync";
-import { sendNotificationEmail, siteOrigin } from "@/lib/email";
+import { siteOrigin } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 
 // Public, unauthenticated — reached from the link staff copy/paste or text
 // to a customer. No session exists here, same "no user to log an action
@@ -85,7 +86,8 @@ export async function submitDemolitionSignature(publicToken: string, formData: F
     },
   });
 
-  await sendNotificationEmail(
+  await notifyOwner(
+    agreement.organizationId,
     `Demolition agreement signed — ${agreement.structureDescription}`,
     [
       `${customerName} signed the demolition agreement for ${agreement.propertyAddress}.`,

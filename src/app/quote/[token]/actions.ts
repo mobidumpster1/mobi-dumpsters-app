@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { sendNotificationEmail } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 
 // Public, unauthenticated — reached from the link a customer/lead is
 // texted or emailed. No session exists here, so nothing is audit-logged
@@ -98,7 +98,8 @@ export async function acceptQuote(publicToken: string, selectedOptionalLineItemI
     },
   });
 
-  await sendNotificationEmail(
+  await notifyOwner(
+    quote.organizationId,
     `Quote ${quote.quoteNumber} accepted`,
     [
       `${customer.name} accepted quote ${quote.quoteNumber} ($${acceptedAmount.toFixed(2)}).`,

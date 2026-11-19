@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
-import { sendNotificationEmail } from "@/lib/email";
+import { notifyOwner } from "@/lib/orgContact";
 import {
   createSessionToken,
   createPendingTwoFactorToken,
@@ -52,7 +52,9 @@ export async function login(formData: FormData) {
           headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
           headerList.get("x-real-ip") ??
           "unknown";
-        await sendNotificationEmail(
+        // Goes to the locked-out person's own business, not a shared inbox.
+        await notifyOwner(
+          user.organizationId,
           `Account locked: ${MAX_FAILED_ATTEMPTS} failed login attempts`,
           [
             `${user.email} (${user.name}) was locked out after ${MAX_FAILED_ATTEMPTS} consecutive failed login attempts.`,
