@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDateAndTime } from "@/lib/date";
 import { markDelivered, markReturned, resolveServiceRequest } from "./bookings/actions";
@@ -277,7 +277,7 @@ export default async function DispatchPage() {
       id: b.id,
       lat: b.latitude as number,
       lng: b.longitude as number,
-      label: `${b.customer.name} â€” ${b.deliveryAddress}`,
+      label: `${b.customer.name} — ${b.deliveryAddress}`,
       href: `/bookings/${b.id}`,
     });
   }
@@ -289,7 +289,7 @@ export default async function DispatchPage() {
       id: booking.id,
       lat: booking.latitude,
       lng: booking.longitude,
-      label: `Scheduled: ${booking.customer.name} â€” ${booking.deliveryAddress}`,
+      label: `Scheduled: ${booking.customer.name} — ${booking.deliveryAddress}`,
       href: `/bookings/${booking.id}`,
     });
   }
@@ -298,7 +298,7 @@ export default async function DispatchPage() {
   // Today's suggested route: every delivery/pickup due today or overdue,
   // combined into one loop (a truck usually does both in the same run),
   // ordered with a free greedy nearest-neighbor pass starting from the
-  // yard â€” recomputed on every load, not persisted or reorderable in v1.
+  // yard — recomputed on every load, not persisted or reorderable in v1.
   const todayEnd = daysFromNow(1);
   type RouteStopInfo = {
     id: string;
@@ -350,14 +350,16 @@ export default async function DispatchPage() {
     id: stop.id,
     lat: stop.lat,
     lng: stop.lng,
-    label: `${i + 1}. ${stop.kind}: ${stop.customerName} â€” ${stop.address}`,
+    label: `${i + 1}. ${stop.kind}: ${stop.customerName} — ${stop.address}`,
     href: stop.href,
   }));
 
-  const contact = { timeZone: "America/New_York" };
+  // Greeting follows the business's local time of day. A per-business time
+  // zone setting can replace this constant later.
+  const timeZone = "America/New_York";
   const localHour =
     Number(
-      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: contact.timeZone }).format(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone }).format(
         new Date()
       )
     ) % 24;
@@ -494,7 +496,7 @@ export default async function DispatchPage() {
                   </Link>
                   <p className="text-sm text-zinc-500">
                     {req.type === "extension" ? "Wants more time" : "Wants dump & return"}
-                    {req.details ? ` â€” ${req.details}` : ""}
+                    {req.details ? ` — ${req.details}` : ""}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
@@ -538,7 +540,7 @@ export default async function DispatchPage() {
                     <span className="font-medium text-zinc-900">{doc.name}</span>
                     <span className="ml-2 text-sm text-zinc-500">
                       {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
-                      {doc.vehicle ? ` â€” ${doc.vehicle.label}` : ""}
+                      {doc.vehicle ? ` — ${doc.vehicle.label}` : ""}
                     </span>
                   </div>
                   <span className={`text-sm ${u.className}`}>{u.text}</span>
@@ -566,7 +568,7 @@ export default async function DispatchPage() {
                 >
                   <div>
                     <span className="font-medium text-zinc-900">
-                      {entry.vehicle?.label ?? entry.equipmentItem?.label ?? "â€”"}
+                      {entry.vehicle?.label ?? entry.equipmentItem?.label ?? "—"}
                     </span>
                     <span className="ml-2 text-sm text-zinc-500">
                       {MAINTENANCE_TYPE_LABELS[entry.type] ?? entry.type}

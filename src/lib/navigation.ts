@@ -36,6 +36,8 @@ export type NavHub = {
   id: string;
   label: string;
   tabs: NavTab[];
+  // Only shown when this paid add-on is switched on (see lib/addOns.ts).
+  addOn?: string;
 };
 
 export type NavEntry = {
@@ -148,7 +150,12 @@ export const NAV: NavHub[] = [
     ],
   },
   { id: "website-builder", label: "Website Builder", tabs: [{ href: "/website-builder", label: "Website Builder" }] },
-  { id: "secretary", label: "Secretary", tabs: [{ href: "/secretary", label: "Secretary", also: ["/secretary/memory"] }] },
+  {
+    id: "secretary",
+    label: "Secretary",
+    addOn: "secretary",
+    tabs: [{ href: "/secretary", label: "Secretary", also: ["/secretary/memory"] }],
+  },
   { id: "settings", label: "Settings", tabs: [{ href: "/settings", label: "Settings" }] },
   { id: "platform-admin", label: "Platform Admin", tabs: [{ href: "/platform-admin", label: "Platform Admin" }] },
 ];
@@ -161,9 +168,10 @@ export const FOOTER_LINKS: { href: string; label: string }[] = [{ href: "/activi
 // entry whose tabs are all dropped disappears, and the sidebar link points
 // at the first tab they can open (so someone with only Invoices lands on
 // /invoices, not a page that bounces them home).
-export function entriesForUser(user: NavUser): NavEntry[] {
+export function entriesForUser(user: NavUser, addOns: readonly string[] = []): NavEntry[] {
   const out: NavEntry[] = [];
   for (const hub of NAV) {
+    if (hub.addOn && !addOns.includes(hub.addOn)) continue;
     const tabs = hub.tabs.filter((tab) => canSeeHref(tab.href, user));
     if (tabs.length === 0) continue;
     out.push({ id: hub.id, label: hub.label, href: tabs[0].href, tabs });

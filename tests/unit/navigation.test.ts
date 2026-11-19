@@ -19,15 +19,17 @@ const staff = (over: Partial<NavUser> = {}): NavUser => ({
   ...over,
 });
 
-const ids = (u: NavUser) => entriesForUser(u).map((e) => e.id);
+const ids = (u: NavUser, addOns: string[] = []) => entriesForUser(u, addOns).map((e) => e.id);
 const tabHrefs = (u: NavUser, id: string) =>
   entriesForUser(u)
     .find((e) => e.id === id)
     ?.tabs.map((t) => t.href) ?? [];
 
 describe("navigation", () => {
-  it("a Pro owner gets the nine regular entries", () => {
-    expect(ids(owner("pro"))).toEqual([
+  it("a Pro owner gets the eight core entries, and Secretary only with its add-on", () => {
+    const core = ["dispatch", "bookings", "customers", "fleet", "money", "growth", "website-builder", "settings"];
+    expect(ids(owner("pro"))).toEqual(core);
+    expect(ids(owner("pro"), ["secretary"])).toEqual([
       "dispatch",
       "bookings",
       "customers",
@@ -38,6 +40,8 @@ describe("navigation", () => {
       "secretary",
       "settings",
     ]);
+    // An add-on the business has not bought never shows, whatever their plan.
+    expect(ids(owner("solo"), ["phone-agent"])).not.toContain("secretary");
   });
 
   it("a Solo owner loses Team/Pro-only tabs and any group left empty", () => {
@@ -80,7 +84,7 @@ describe("navigation", () => {
   });
 
   it("highlights the right entry, including sub-pages and detail pages", () => {
-    const entries = entriesForUser(owner("pro"));
+    const entries = entriesForUser(owner("pro"), ["secretary"]);
     const find = (id: string) => entries.find((e) => e.id === id)!;
     expect(entryIsActive(find("dispatch"), "/")).toBe(true);
     expect(entryIsActive(find("dispatch"), "/bookings")).toBe(false);
