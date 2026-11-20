@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { applyDumpWeightToBooking } from "@/app/(internal)/customers/dumpActions";
+import { applyDumpWeightToBooking } from "@/lib/overageBilling";
 import { ACME_ORG_ID, testId } from "../helpers/testOrg";
 
 // Regression test for the "notify customer if over weight" feature: a

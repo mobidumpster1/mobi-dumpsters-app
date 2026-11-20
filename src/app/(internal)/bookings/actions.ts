@@ -25,6 +25,7 @@ import { verifySpecificItemsAvailable } from "@/lib/availability";
 import { findAssignmentConflict } from "@/lib/assignmentConflicts";
 import { Prisma } from "@/generated/prisma";
 import { getOrgContact } from "@/lib/orgContact";
+import { billMileageOverage, billTonnageOverage } from "@/lib/overageBilling";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -746,6 +747,30 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
           source: "manual",
         },
       });
+    }
+  }
+
+  // Weight or miles typed on this pickup form are billed onto the invoice
+  // right now. Public checkout and sign-and-pay create the invoice at booking
+  // time, and createDraftInvoiceForBooking never recomputes an existing one,
+  // so without this the overage would be recorded but never charged. A paid or
+  // installment invoice is left alone and a note tells staff to bill it by
+  // hand. A billing hiccup must not stop the pickup from being recorded.
+  if (bookingItem.actualTonnage != null || bookingItem.actualMileage != null) {
+    try {
+      const billable = await db.bookingItem.findUniqueOrThrow({
+        where: { id: bookingItemId },
+        include: { equipmentItem: { include: { category: true } } },
+      });
+      const customer = bookingItem.booking.customer;
+      if (bookingItem.actualTonnage != null) {
+        await billTonnageOverage(user.effectiveOrganizationId, customer, bookingItem.bookingId, billable, bookingItem.actualTonnage);
+      }
+      if (bookingItem.actualMileage != null) {
+        await billMileageOverage(user.effectiveOrganizationId, customer.id, bookingItem.bookingId, billable, bookingItem.actualMileage);
+      }
+    } catch (error) {
+      console.error("Failed to bill pickup overage:", error);
     }
   }
 

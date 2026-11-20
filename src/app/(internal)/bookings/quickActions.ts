@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { requireUser } from "@/lib/session";
 import { extendBookingDates } from "@/lib/bookingExtension";
-import { applyDumpWeightToBooking } from "@/app/(internal)/customers/dumpActions";
+import { applyDumpWeightToBooking } from "@/lib/overageBilling";
 
 // One-tap actions for the screens people use all day (Dispatch and the
 // booking page), so a phone call ("can I keep it two more days?") or a scale
