@@ -1,7 +1,7 @@
-import { existsSync } from "fs";
-import path from "path";
 import { db } from "@/lib/db";
-import { branding } from "@/lib/branding";
+
+// A calm slate used until a business picks its own color.
+export const NEUTRAL_BRAND_COLOR = "#2f3e46";
 
 export type OrgBranding = {
   businessName: string;
@@ -24,10 +24,9 @@ function darken(hex: string, factor = 0.78): string {
   return `#${clamp(r)}${clamp(g)}${clamp(b)}`;
 }
 
-// Resolves an organization's visual identity, falling back to the static
-// config/branding.json values for anything the org hasn't customized yet —
-// so existing organizations (e.g. Mobi Dumpsters LLC) keep looking exactly
-// as they do today until an owner actively sets their own logo/color.
+// Resolves an organization's visual identity. A business that hasn't set a
+// logo or color gets no logo (its name is shown instead) and a neutral color,
+// never another business's.
 export async function getOrgBranding(organizationId: string): Promise<OrgBranding> {
   const org = await db.organization.findUnique({
     where: { id: organizationId },
@@ -35,12 +34,8 @@ export async function getOrgBranding(organizationId: string): Promise<OrgBrandin
   });
   if (!org) throw new Error("Organization not found");
 
-  let logoUrl = org.logoUrl;
-  if (!logoUrl && existsSync(path.join(process.cwd(), "public", branding.logoPath))) {
-    logoUrl = branding.logoPath;
-  }
-
-  const primaryColor = org.primaryColor || branding.primaryColor;
+  const logoUrl = org.logoUrl;
+  const primaryColor = org.primaryColor || NEUTRAL_BRAND_COLOR;
 
   return {
     businessName: org.name,

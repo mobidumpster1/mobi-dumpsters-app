@@ -55,7 +55,7 @@ afterAll(async () => {
 
 describe("email verification", () => {
   it("emails a link that verifies the account once, and not a second time", async () => {
-    await sendEmailVerification({ id: userId, email, name: "Verify Tester", organizationName: "Acme" });
+    await sendEmailVerification({ id: userId, organizationId: ACME_ORG_ID, email, name: "Verify Tester", organizationName: "Acme" });
     const mail = sent.find((m) => m.to === email && /verify/i.test(m.subject));
     expect(mail).toBeTruthy();
     const token = tokenFrom(mail!.body);
@@ -69,8 +69,8 @@ describe("email verification", () => {
 
   it("won't send a second verification email inside the cooldown", async () => {
     const before = sent.filter((m) => m.to === email).length;
-    await sendEmailVerification({ id: userId, email, name: "Verify Tester", organizationName: "Acme" });
-    await sendEmailVerification({ id: userId, email, name: "Verify Tester", organizationName: "Acme" });
+    await sendEmailVerification({ id: userId, organizationId: ACME_ORG_ID, email, name: "Verify Tester", organizationName: "Acme" });
+    await sendEmailVerification({ id: userId, organizationId: ACME_ORG_ID, email, name: "Verify Tester", organizationName: "Acme" });
     expect(sent.filter((m) => m.to === email).length).toBe(before + 1);
   });
 });

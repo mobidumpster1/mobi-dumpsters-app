@@ -327,7 +327,7 @@ export default async function SettingsPage({
 
   const contactProfile = await db.organization.findUniqueOrThrow({
     where: { id: currentUser.effectiveOrganizationId },
-    select: { contactPhone: true, notificationEmail: true, timeZone: true },
+    select: { contactPhone: true, notificationEmail: true, contactAddress: true, timeZone: true },
   });
   const timeZones = Array.from(
     new Set([
@@ -345,8 +345,9 @@ export default async function SettingsPage({
     <section className="rounded-lg border-2 border-zinc-900 bg-white p-5">
       <h2 className="text-xl font-black text-ink">Business Contact</h2>
       <p className="mt-1 text-sm text-zinc-500">
-        Your callback phone (shown to customers on your booking page), the inbox for new-request alerts, and your
-        time zone. Leave a field blank to use the platform default.
+        Your business phone, address, the inbox for new-request alerts, and your time zone. They appear on
+        invoices, packing slips and customer emails and texts. Leave the alert email blank to use the
+        owner&apos;s login email.
       </p>
       <form action={updateBusinessContact} className="mt-4 flex flex-col gap-4">
         <Field label="Callback phone" htmlFor="contactPhone">
@@ -356,6 +357,16 @@ export default async function SettingsPage({
             type="tel"
             defaultValue={contactProfile.contactPhone ?? ""}
             placeholder="(478) 555-0100"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Business address (shown on invoices)" htmlFor="contactAddress">
+          <input
+            id="contactAddress"
+            name="contactAddress"
+            type="text"
+            defaultValue={contactProfile.contactAddress ?? ""}
+            placeholder="123 Main St, Your City, ST 12345"
             className={inputClass}
           />
         </Field>

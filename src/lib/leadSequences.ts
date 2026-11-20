@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
-import { branding } from "@/lib/branding";
 import { logAction } from "@/lib/auditLog";
 import { getLeadOutreachSettings } from "@/lib/leadOutreachSettings";
+import { getOrgContact } from "@/lib/orgContact";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -15,7 +15,11 @@ function addDays(date: Date, days: number): Date {
 // business's physical address, regardless of whether the send was
 // triggered by the cron or by a person clicking "Send" on a due item —
 // CAN-SPAM compliance shouldn't depend on which button was pressed.
-function appendComplianceFooter(body: string, enrollmentId: string): string {
+function appendComplianceFooter(
+  body: string,
+  enrollmentId: string,
+  business: { businessName: string; address: string | null }
+): string {
   const origin = process.env.NEXT_PUBLIC_SITE_URL
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   const unsubscribeUrl = `${origin}/leads/unsubscribe/${enrollmentId}`;
@@ -23,8 +27,8 @@ function appendComplianceFooter(body: string, enrollmentId: string): string {
     body,
     "",
     "---",
-    branding.businessName,
-    branding.yardAddress,
+    business.businessName,
+    business.address ?? "",
     "",
     `Don't want emails like this? Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");
@@ -101,7 +105,8 @@ export async function sendSequenceStep(
   const subject = template.subject.replaceAll("{{businessName}}", lead.name);
   const body = appendComplianceFooter(
     template.body.replaceAll("{{businessName}}", lead.name),
-    enrollment.id
+    enrollment.id,
+    await getOrgContact(lead.organizationId)
   );
 
   // Only routes through the per-lead parseable reply address once inbound
@@ -114,7 +119,7 @@ export async function sendSequenceStep(
 
   let resendEmailId: string | undefined;
   try {
-    resendEmailId = await sendCustomerEmail(lead.email, subject, body, replyTo);
+    resendEmailId = await sendCustomerEmail(lead.email, subject, body, replyTo, lead.organizationId, { untracked: true });
   } catch (error) {
     console.error(`Failed to send sequence step for enrollment ${enrollmentId}:`, error);
     return { ok: false, reason: "The email failed to send — try again shortly." };

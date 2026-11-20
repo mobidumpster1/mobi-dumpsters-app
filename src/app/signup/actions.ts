@@ -52,6 +52,7 @@ export async function signup(formData: FormData) {
 
   await sendEmailVerification({
     id: user.id,
+    organizationId: user.organizationId,
     email: user.email,
     name: user.name,
     organizationName: businessName,

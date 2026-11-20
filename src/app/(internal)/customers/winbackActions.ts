@@ -36,7 +36,7 @@ export async function sendWinBackEmailBulk(customerIds: string[], templateId: st
     const subject = template.subject.replaceAll("{{customerName}}", customer.name);
     const body = template.body.replaceAll("{{customerName}}", customer.name);
 
-    await sendCustomerEmail(customer.email, subject, body);
+    await sendCustomerEmail(customer.email, subject, body, undefined, user.effectiveOrganizationId, { untracked: true });
     await db.winBackSend.create({ data: { customerId: customer.id, templateId: template.id } });
     await logAction("customer.winback_email_sent", "Customer", customer.id);
     sent += 1;

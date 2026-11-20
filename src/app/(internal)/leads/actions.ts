@@ -308,7 +308,7 @@ export async function sendLeadEmail(leadId: string, templateId: string) {
   const subject = template.subject.replaceAll("{{businessName}}", lead.name);
   const body = template.body.replaceAll("{{businessName}}", lead.name);
 
-  const resendEmailId = await sendCustomerEmail(lead.email, subject, body);
+  const resendEmailId = await sendCustomerEmail(lead.email, subject, body, undefined, user.effectiveOrganizationId, { untracked: true });
 
   const sentAt = new Date();
   await db.lead.update({ where: { id: leadId }, data: { lastEmailSentAt: sentAt } });

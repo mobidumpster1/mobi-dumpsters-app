@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { existsSync } from "fs";
-import path from "path";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/date";
 import { markPaid, markUnpaid, deleteInvoice } from "../actions";
@@ -25,7 +23,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { MediaUploadForm } from "@/components/MediaUploadForm";
 import { MediaGrid } from "@/components/MediaGrid";
 import { InstallmentScheduleBuilder } from "@/components/InstallmentScheduleBuilder";
-import { branding } from "@/lib/branding";
+import { getOrgContact } from "@/lib/orgContact";
 import { computeDisplayStatus, INVOICE_STATUS_STYLES } from "@/lib/invoiceStatus";
 import { requireUser } from "@/lib/session";
 
@@ -55,27 +53,24 @@ export default async function InvoiceDetailPage({
   const displayStatus = computeDisplayStatus(invoice.status, invoice.dueDate);
   const customer = invoice.booking?.customer ?? invoice.customer;
   const stripeConnection = await getStripeConnection(user.effectiveOrganizationId);
-  const logoExists = existsSync(
-    path.join(process.cwd(), "public", branding.logoPath)
-  );
+  const business = await getOrgContact(user.effectiveOrganizationId);
 
   return (
     <div className="max-w-2xl">
       <div className="mb-6 flex items-center justify-between rounded-lg border-2 border-zinc-900 bg-white p-5">
         <div className="flex items-center gap-3">
-          {logoExists && (
+          {business.logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={branding.logoPath}
-              alt={branding.businessName}
+              src={business.logoUrl}
+              alt={business.businessName}
               className="h-12 w-12 rounded-xl object-contain"
             />
           )}
           <div>
-            <p className="font-semibold text-ink">{branding.businessName}</p>
-            <p className="text-xs text-zinc-500">{branding.tagline}</p>
+            <p className="font-semibold text-ink">{business.businessName}</p>
             <p className="text-xs text-zinc-500">
-              {[branding.phone, branding.email, branding.address]
+              {[business.phone, business.email, business.address]
                 .filter(Boolean)
                 .join(" · ")}
             </p>

@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
-import { branding } from "@/lib/branding";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
+import { getOrgContact } from "@/lib/orgContact";
 
 // Finds jobs that are fully closed out (every item picked back up), haven't
 // already gotten a review request, have a customer email on file, and were
@@ -58,12 +58,12 @@ export async function sendPendingReviewRequests() {
           "review_request",
           {
             customerName: booking.customer.name,
-            businessName: branding.businessName,
+            businessName: (await getOrgContact(org.id)).businessName,
             reviewUrl: settings.googleReviewUrl!,
           },
           org.id
         );
-        await sendCustomerEmail(booking.customer.email!, subject, body);
+        await sendCustomerEmail(booking.customer.email!, subject, body, undefined, org.id, { untracked: true });
 
         await db.$transaction([
           db.booking.update({

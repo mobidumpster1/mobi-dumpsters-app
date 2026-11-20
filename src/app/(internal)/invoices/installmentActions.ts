@@ -6,9 +6,9 @@ import { str } from "@/lib/formData";
 import { markInstallmentPaidViaStripe } from "@/lib/invoicing";
 import { chargeCardOnFile, createCheckoutSession, refundPayment, toCents } from "@/lib/stripe";
 import { sendCustomerEmail, siteOrigin } from "@/lib/email";
-import { branding } from "@/lib/branding";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
+import { getOrgContact } from "@/lib/orgContact";
 
 type InstallmentInput = { label: string; amount: string; dueDate: string };
 
@@ -254,8 +254,11 @@ export async function sendInstallmentCheckoutLink(installmentId: string) {
       result.url,
       "",
       `Thanks,`,
-      `- ${branding.businessName}`,
-    ].join("\n")
+      `- ${(await getOrgContact(user.effectiveOrganizationId)).businessName}`,
+    ].join("\n"),
+    undefined,
+    user.effectiveOrganizationId,
+    { untracked: true }
   );
 
   revalidatePath(`/invoices/${installment.invoiceId}`);

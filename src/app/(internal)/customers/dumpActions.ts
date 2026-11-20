@@ -7,8 +7,8 @@ import { scanDumpReceiptImage, isReceiptScanConfigured } from "@/lib/receiptScan
 import { saveDumpReceiptFile } from "@/lib/uploads";
 import { requireUser } from "@/lib/session";
 import { sendCustomerSms } from "@/lib/twilio";
-import { branding } from "@/lib/branding";
 import { getTaxSettings } from "@/lib/taxSettings";
+import { getOrgContact } from "@/lib/orgContact";
 
 export async function addDumpLogEntry(customerId: string, formData: FormData) {
   const user = await requireUser();
@@ -166,7 +166,8 @@ export async function applyDumpWeightToBooking(
     return;
   }
 
-  const body = `Hi ${customer.name}, heads up — your rental came in at ${weightTons.toFixed(2)} tons, which is ${extraTons.toFixed(2)} tons over the ${category.includedTonnage.toFixed(2)} tons included. A $${overageFee.toFixed(2)} overage charge has been added to your invoice. Questions? Call or text us at ${branding.smsPhone}.`;
+  const contactPhone = (await getOrgContact(organizationId)).phone;
+  const body = `Hi ${customer.name}, heads up — your rental came in at ${weightTons.toFixed(2)} tons, which is ${extraTons.toFixed(2)} tons over the ${category.includedTonnage.toFixed(2)} tons included. A $${overageFee.toFixed(2)} overage charge has been added to your invoice. ${contactPhone ? ` Questions? Call or text us at ${contactPhone}.` : ""}`;
 
   // Best-effort: Twilio not connected yet, or no phone on file, just means
   // no text goes out — the weight is still correctly applied to the

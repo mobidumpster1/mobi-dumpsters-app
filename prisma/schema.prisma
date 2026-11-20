@@ -34,6 +34,8 @@ model Organization {
   // inbox. Null falls back to those legacy single-tenant values (see
   // src/lib/orgContact.ts). Used first by the AI phone agent.
   contactPhone      String?
+  // Shown under the business name on invoices and packing slips.
+  contactAddress    String?
   notificationEmail String?
   timeZone          String   @default("America/New_York")
   createdAt    DateTime @default(now())

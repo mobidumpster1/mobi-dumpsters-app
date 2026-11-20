@@ -8,9 +8,9 @@ import { pushInvoicePayment } from "@/lib/quickbooks";
 import { computeInvoiceLineItems, markInvoicePaidViaStripe } from "@/lib/invoicing";
 import { chargeCardOnFile, createCheckoutSession, refundPayment, toCents } from "@/lib/stripe";
 import { sendCustomerEmail, siteOrigin } from "@/lib/email";
-import { branding } from "@/lib/branding";
 import { requirePermission } from "@/lib/session";
 import { logAction } from "@/lib/auditLog";
+import { getOrgContact } from "@/lib/orgContact";
 
 export async function createInvoice(formData: FormData) {
   const user = await requirePermission("canManageInvoices");
@@ -285,8 +285,11 @@ export async function sendInvoiceCheckoutLink(invoiceId: string) {
       result.url,
       "",
       `Thanks,`,
-      `- ${branding.businessName}`,
-    ].join("\n")
+      `- ${(await getOrgContact(user.effectiveOrganizationId)).businessName}`,
+    ].join("\n"),
+    undefined,
+    user.effectiveOrganizationId,
+    { untracked: true }
   );
 
   revalidatePath(`/invoices/${invoiceId}`);

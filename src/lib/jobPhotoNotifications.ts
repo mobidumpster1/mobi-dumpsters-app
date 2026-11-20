@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { sendCustomerSms } from "@/lib/twilio";
-import { branding } from "@/lib/branding";
+import { getOrgContact } from "@/lib/orgContact";
 
 export async function getJobPhotoNotificationSettings(organizationId: string) {
   const existing = await db.jobPhotoNotificationSettings.findUnique({ where: { organizationId } });
@@ -29,6 +29,7 @@ export async function sendJobPhotoNotification(
     include: { customer: true },
   });
   const settings = await getJobPhotoNotificationSettings(booking.organizationId);
+  const contact = await getOrgContact(booking.organizationId);
   const verb = VERB[type];
   const subject = `Your rental has been ${verb}`;
   const bodyLines = [
@@ -38,7 +39,7 @@ export async function sendJobPhotoNotification(
     "",
     `Photo: ${photoUrl}`,
     "",
-    `Questions? Call or text us at ${branding.smsPhone}.`,
+    contact.phone ? `Questions? Call or text us at ${contact.phone}.` : "",
   ];
 
   const errors: string[] = [];
@@ -47,7 +48,7 @@ export async function sendJobPhotoNotification(
   if (settings.channel === "email" || settings.channel === "both") {
     if (booking.customer.email) {
       try {
-        await sendCustomerEmail(booking.customer.email, subject, bodyLines.join("\n"));
+        await sendCustomerEmail(booking.customer.email, subject, bodyLines.join("\n"), undefined, booking.organizationId, { untracked: true });
         sentAny = true;
       } catch (err) {
         errors.push(err instanceof Error ? err.message : "Email failed");

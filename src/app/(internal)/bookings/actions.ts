@@ -10,7 +10,6 @@ import { pushBookingToCalendar, deleteCalendarEvent } from "@/lib/googleCalendar
 import { createDraftInvoiceForBooking, syncInvoiceWithBooking } from "@/lib/invoicing";
 import { deleteUploadedFile } from "@/lib/uploads";
 import { sendCustomerEmail } from "@/lib/email";
-import { branding } from "@/lib/branding";
 import { getJobNotificationSettings } from "@/lib/jobNotificationSettings";
 import { getReviewRequestSettings } from "@/lib/reviewSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
@@ -25,6 +24,7 @@ import { parseFieldDefinitions, buildAttributesFromForm } from "@/lib/categoryFi
 import { verifySpecificItemsAvailable } from "@/lib/availability";
 import { findAssignmentConflict } from "@/lib/assignmentConflicts";
 import { Prisma } from "@/generated/prisma";
+import { getOrgContact } from "@/lib/orgContact";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -509,8 +509,8 @@ export async function notifyOnTheWay(bookingId: string) {
       {
         customerName: booking.customer.name,
         address: booking.deliveryAddress,
-        phone: branding.smsPhone,
-        businessName: branding.businessName,
+        phone: (await getOrgContact(user.effectiveOrganizationId)).phone,
+        businessName: (await getOrgContact(user.effectiveOrganizationId)).businessName,
       },
       user.effectiveOrganizationId
     );
@@ -666,8 +666,8 @@ export async function markDelivered(bookingItemId: string) {
             customerName: customer.name,
             equipmentLabel: bookingItem.equipmentItem.label,
             address: bookingItem.booking.deliveryAddress,
-            phone: branding.smsPhone,
-            businessName: branding.businessName,
+            phone: (await getOrgContact(user.effectiveOrganizationId)).phone,
+            businessName: (await getOrgContact(user.effectiveOrganizationId)).businessName,
             manageLink,
           },
           user.effectiveOrganizationId
@@ -773,7 +773,7 @@ export async function markReturned(bookingItemId: string, formData: FormData) {
               bookingItem.actualTonnage != null
                 ? `\nTotal weight: ${bookingItem.actualTonnage.toFixed(2)} tons.\n`
                 : "",
-            businessName: branding.businessName,
+            businessName: (await getOrgContact(user.effectiveOrganizationId)).businessName,
           },
           user.effectiveOrganizationId
         );
@@ -862,7 +862,7 @@ export async function sendReviewRequestNow(bookingId: string) {
     "review_request",
     {
       customerName: booking.customer.name,
-      businessName: branding.businessName,
+      businessName: (await getOrgContact(user.effectiveOrganizationId)).businessName,
       reviewUrl: settings.googleReviewUrl,
     },
     user.effectiveOrganizationId

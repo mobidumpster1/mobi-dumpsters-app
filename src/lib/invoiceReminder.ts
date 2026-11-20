@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
-import { branding } from "@/lib/branding";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { invoiceNotOnCancelledBooking } from "@/lib/invoiceStatus";
+import { getOrgContact } from "@/lib/orgContact";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -72,11 +72,11 @@ export async function sendPendingInvoiceReminders() {
             invoiceNumber: invoice.invoiceNumber,
             amount: invoice.amount.toFixed(2),
             daysOverdue: `${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`,
-            businessName: branding.businessName,
+            businessName: (await getOrgContact(org.id)).businessName,
           },
           org.id
         );
-        await sendCustomerEmail(customer!.email!, subject, body);
+        await sendCustomerEmail(customer!.email!, subject, body, undefined, org.id, { untracked: true });
 
         await db.$transaction([
           db.invoice.update({

@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getDeliveryReminderSettings } from "@/lib/deliveryReminderSettings";
-import { branding } from "@/lib/branding";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
+import { getOrgContact } from "@/lib/orgContact";
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -63,12 +63,12 @@ export async function sendPendingDeliveryReminders() {
             customerName: customer.name,
             equipmentLabel: item.equipmentItem.label,
             address: item.booking.deliveryAddress,
-            phone: branding.smsPhone,
-            businessName: branding.businessName,
+            phone: (await getOrgContact(org.id)).phone,
+            businessName: (await getOrgContact(org.id)).businessName,
           },
           org.id
         );
-        await sendCustomerEmail(customer.email!, subject, body);
+        await sendCustomerEmail(customer.email!, subject, body, undefined, org.id, { untracked: true });
 
         await db.bookingItem.update({
           where: { id: item.id },

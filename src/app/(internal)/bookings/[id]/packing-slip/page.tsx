@@ -1,12 +1,10 @@
-import { existsSync } from "fs";
-import path from "path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { AddressLink } from "@/components/AddressLink";
 import { PrintReportButton } from "@/components/PrintReportButton";
 import { formatDateAndTime } from "@/lib/date";
-import { branding } from "@/lib/branding";
+import { getOrgContact } from "@/lib/orgContact";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +33,7 @@ export default async function PackingSlipPage({
   });
   if (!booking) notFound();
 
-  const logoExists = existsSync(path.join(process.cwd(), "public", branding.logoPath));
+  const business = await getOrgContact(user.effectiveOrganizationId);
   const undeliveredItems = booking.items.filter((item) => !item.deliveredAt);
 
   return (
@@ -53,17 +51,17 @@ export default async function PackingSlipPage({
       <div className="mt-4 rounded-lg border-2 border-zinc-900 bg-white p-6">
         <div className="flex items-center justify-between border-b-2 border-zinc-900 pb-4">
           <div className="flex items-center gap-3">
-            {logoExists && (
+            {business.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={branding.logoPath}
-                alt={branding.businessName}
+                src={business.logoUrl}
+                alt={business.businessName}
                 className="h-12 w-12 rounded-xl object-contain"
               />
             )}
             <div>
-              <p className="font-semibold text-ink">{branding.businessName}</p>
-              <p className="text-xs text-zinc-500">{branding.phone}</p>
+              <p className="font-semibold text-ink">{business.businessName}</p>
+              <p className="text-xs text-zinc-500">{business.phone}</p>
             </div>
           </div>
           <div className="text-right">

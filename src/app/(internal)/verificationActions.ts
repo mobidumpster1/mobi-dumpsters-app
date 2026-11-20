@@ -17,6 +17,7 @@ export async function resendVerificationEmailAction() {
 
   await sendEmailVerification({
     id: user.id,
+    organizationId: organization.id,
     email: user.email,
     name: user.name,
     organizationName: organization.name,

@@ -26,6 +26,7 @@ import { validatePromoCode } from "@/lib/promoCodes";
 import { computeSeasonalAdjustment } from "@/lib/pricingRules";
 import { getBookingAvailabilitySettings } from "@/lib/bookingAvailabilitySettings";
 import { listBlackoutDates, isDateBlackedOut, meetsMinimumNotice } from "@/lib/blackoutDates";
+import { getOrgContact } from "@/lib/orgContact";
 
 // Thin wrapper so the checkout placement map can preview where an in-progress
 // address geocodes to, using the exact same lookup (and GA/US restriction)
@@ -600,12 +601,12 @@ async function processBookingRequest(formData: FormData): Promise<string> {
         agreementLine: agreementUrl
           ? `\nYou can view the service agreement you signed here: ${agreementUrl}\n`
           : "",
-        phone: branding.smsPhone,
+        phone: (await getOrgContact(organizationId)).phone,
         businessName: orgBranding.businessName,
       },
       organizationId
     );
-    await sendCustomerEmail(email, subject, body);
+    await sendCustomerEmail(email, subject, body, undefined, organizationId, { untracked: true });
   } catch (error) {
     console.error("Failed to send booking confirmation email:", error);
   }

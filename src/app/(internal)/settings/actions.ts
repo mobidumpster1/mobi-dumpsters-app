@@ -185,6 +185,7 @@ export async function updateBusinessContact(formData: FormData) {
   if (user.role !== "owner") throw new Error("Only the owner can change the business contact details.");
   const contactPhone = str(formData, "contactPhone") || null;
   const notificationEmail = str(formData, "notificationEmail") || null;
+  const contactAddress = str(formData, "contactAddress") || null;
   const timeZone = str(formData, "timeZone") || "America/New_York";
   if (notificationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationEmail)) {
     throw new Error("That alert email doesn't look valid.");
@@ -193,7 +194,7 @@ export async function updateBusinessContact(formData: FormData) {
 
   await db.organization.update({
     where: { id: user.effectiveOrganizationId },
-    data: { contactPhone, notificationEmail, timeZone },
+    data: { contactPhone, notificationEmail, contactAddress, timeZone },
   });
   revalidatePath("/settings");
 }

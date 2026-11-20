@@ -16,6 +16,7 @@ export const EMAIL_COOLDOWN_MS = 60 * 1000;
 // send failure is logged rather than thrown.
 export async function sendEmailVerification(user: {
   id: string;
+  organizationId: string;
   email: string;
   name: string;
   organizationName: string;
@@ -39,7 +40,9 @@ export async function sendEmailVerification(user: {
   const body = `Hi ${user.name},\n\nClick the link below to verify your email address for ${user.organizationName}:\n\n${link}\n\nThis link expires in 48 hours. If you didn't create this account, you can ignore this email.`;
 
   try {
-    await sendCustomerEmail(user.email, `Verify your email — ${user.organizationName}`, body);
+    await sendCustomerEmail(user.email, `Verify your email — ${user.organizationName}`, body, undefined, user.organizationId, {
+      untracked: true,
+    });
   } catch (error) {
     console.error("Failed to send verification email:", error);
   }
@@ -99,7 +102,9 @@ export async function sendPasswordResetIfAccountExists(email: string) {
   const body = `Hi ${user.name},\n\nWe received a request to reset your password for ${user.organization.name}. Click the link below to choose a new password:\n\n${link}\n\nThis link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't change.`;
 
   try {
-    await sendCustomerEmail(user.email, `Reset your password — ${user.organization.name}`, body);
+    await sendCustomerEmail(user.email, `Reset your password — ${user.organization.name}`, body, undefined, user.organizationId, {
+      untracked: true,
+    });
   } catch (error) {
     console.error("Failed to send password reset email:", error);
   }

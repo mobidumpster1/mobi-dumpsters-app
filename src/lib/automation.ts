@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { sendCustomerSms } from "@/lib/twilio";
-import { branding } from "@/lib/branding";
 import { getAutomationSettings } from "@/lib/automationSettings";
+import { getOrgContact } from "@/lib/orgContact";
 
 export type TriggerEntity = "lead" | "booking" | "invoice" | "quote" | "customer";
 export type ActionType = "send_email" | "send_sms" | "create_customer_note";
@@ -228,13 +228,16 @@ async function executeRuleForCandidate(
   candidate: Candidate
 ): Promise<{ status: "sent" | "failed"; error?: string }> {
   try {
-    const variables = { businessName: branding.businessName, customerName: candidate.contactName };
+    const variables = {
+      businessName: (await getOrgContact(rule.organizationId)).businessName,
+      customerName: candidate.contactName,
+    };
     const body = interpolate(rule.actionBody, variables);
 
     if (rule.actionType === "send_email") {
       if (!candidate.contactEmail) throw new Error("No email on file");
       const subject = interpolate(rule.actionSubject ?? rule.name, variables);
-      await sendCustomerEmail(candidate.contactEmail, subject, body);
+      await sendCustomerEmail(candidate.contactEmail, subject, body, undefined, rule.organizationId, { untracked: true });
     } else if (rule.actionType === "send_sms") {
       if (!candidate.customerId) throw new Error("No linked customer to text");
       if (!candidate.contactPhone) throw new Error("No phone on file");

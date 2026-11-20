@@ -1,19 +1,19 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { branding } from "@/lib/branding";
-import { sendNotificationEmail } from "@/lib/email";
 
-// One business's contact profile: the phone customers call back on, the
-// inbox owner alerts go to, and the time zone its "today" is reckoned in.
-// Set per organization in Settings -> Business Contact. Unset fields fall
-// back to the legacy single-tenant values (config/branding.json and the
-// NOTIFICATION_EMAIL env, via sendNotificationEmail's default recipient),
-// so the original business keeps working unchanged until it fills these in.
-// A newly onboarded business should always set its own.
+// One business's identity and contact profile: its name, the phone customers
+// call back on, the inbox owner alerts go to, its address and logo, and the
+// time zone its "today" is reckoned in. Set per organization in Settings
+// (Branding and Contact). Nothing here falls back to another business's
+// details: a business that hasn't filled something in simply has it blank, and
+// owner alerts go to the owner's own login email until an alert inbox is set.
 export type OrgContact = {
   businessName: string;
-  phone: string;
-  notificationEmail: string | null; // null = sendNotificationEmail's default inbox
+  phone: string; // "" when the business hasn't set one
+  email: string | null; // the alert inbox, or the owner's login email
+  notificationEmail: string | null; // same as email (kept for existing callers)
+  address: string | null;
+  logoUrl: string | null;
   timeZone: string;
 };
 
@@ -29,12 +29,33 @@ export function isValidTimeZone(tz: string): boolean {
 export async function getOrgContact(organizationId: string): Promise<OrgContact> {
   const org = await db.organization.findUniqueOrThrow({
     where: { id: organizationId },
-    select: { name: true, contactPhone: true, notificationEmail: true, timeZone: true },
+    select: {
+      name: true,
+      contactPhone: true,
+      notificationEmail: true,
+      contactAddress: true,
+      logoUrl: true,
+      timeZone: true,
+    },
   });
+  let email = org.notificationEmail || null;
+  if (!email) {
+    // Owner alerts and replies go to the business's own owner, never to
+    // another business's inbox.
+    const owner = await db.user.findFirst({
+      where: { organizationId, role: "owner", active: true },
+      orderBy: { createdAt: "asc" },
+      select: { email: true },
+    });
+    email = owner?.email ?? null;
+  }
   return {
-    businessName: org.name || branding.businessName,
-    phone: org.contactPhone || branding.smsPhone || branding.phone,
-    notificationEmail: org.notificationEmail || null,
+    businessName: org.name,
+    phone: org.contactPhone ?? "",
+    email,
+    notificationEmail: email,
+    address: org.contactAddress ?? null,
+    logoUrl: org.logoUrl ?? null,
     timeZone: isValidTimeZone(org.timeZone) ? org.timeZone : "America/New_York",
   };
 }
@@ -44,6 +65,9 @@ export async function getOrgContact(organizationId: string): Promise<OrgContact>
 // business's page never lands in another business's inbox. Never throws.
 export async function notifyOwner(organizationId: string, subject: string, body: string) {
   try {
+    // Loaded here, not at the top, because email.ts itself reads the org's
+    // identity from this file.
+    const { sendNotificationEmail } = await import("@/lib/email");
     const contact = await getOrgContact(organizationId);
     await sendNotificationEmail(subject, body, contact.notificationEmail);
   } catch (err) {
