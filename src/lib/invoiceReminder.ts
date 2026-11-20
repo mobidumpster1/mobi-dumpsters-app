@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { sendCustomerEmail } from "@/lib/email";
 import { getInvoiceReminderSettings } from "@/lib/invoiceReminderSettings";
 import { renderEmailTemplate } from "@/lib/emailTemplates";
-import { invoiceNotOnCancelledBooking } from "@/lib/invoiceStatus";
+import { invoiceBalanceDue, invoiceNotOnCancelledBooking } from "@/lib/invoiceStatus";
 import { getOrgContact } from "@/lib/orgContact";
 
 const MS_PER_DAY = 86_400_000;
@@ -54,6 +54,7 @@ export async function sendPendingInvoiceReminders() {
       include: {
         booking: { include: { customer: true } },
         customer: true,
+        installments: true,
       },
     });
 
@@ -70,7 +71,7 @@ export async function sendPendingInvoiceReminders() {
           {
             customerName: customer!.name,
             invoiceNumber: invoice.invoiceNumber,
-            amount: invoice.amount.toFixed(2),
+            amount: invoiceBalanceDue(invoice).toFixed(2),
             daysOverdue: `${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`,
             businessName: (await getOrgContact(org.id)).businessName,
           },

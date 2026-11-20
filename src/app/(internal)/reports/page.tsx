@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { invoiceBalanceDue, invoiceDueAnchor } from "@/lib/invoiceStatus";
 import { DonutChart } from "@/components/DonutChart";
 import { BarChart } from "@/components/BarChart";
 import { LineChart } from "@/components/LineChart";
@@ -144,7 +145,7 @@ export default async function ReportsPage({
     await Promise.all([
       db.invoice.findMany({
         where: { organizationId: user.effectiveOrganizationId },
-        include: { booking: { include: { customer: true } }, customer: true, lineItems: true },
+        include: { booking: { include: { customer: true } }, customer: true, lineItems: true, installments: true },
       }),
       db.expense.findMany({
         where: { organizationId: user.effectiveOrganizationId },
@@ -193,7 +194,14 @@ export default async function ReportsPage({
   // An unpaid invoice on a cancelled/declined booking was never earned or
   // owed (cancelling doesn't void it), so it's left out of every revenue and
   // receivable figure; a paid one stays, since real money changed hands.
-  const liveInvoices = invoicesRaw.filter((i) => !(i.booking?.status === "cancelled" && i.status !== "paid"));
+  // A web booking request that hasn't been confirmed yet has an invoice from
+  // the moment it's submitted, but it's a request, not earned or owed money, so
+  // it's left out too until the owner confirms it. A request that was already
+  // paid online stays, since real money changed hands.
+  const NOT_YET_REAL_STATUSES = ["cancelled", "declined", "pending"];
+  const liveInvoices = invoicesRaw.filter(
+    (i) => !(NOT_YET_REAL_STATUSES.includes(i.booking?.status ?? "") && i.status !== "paid")
+  );
   const invoices = range ? liveInvoices.filter((i) => inRange(i.issueDate, range)) : liveInvoices;
   const expenses = range ? expensesRaw.filter((e) => inRange(e.date, range)) : expensesRaw;
   const timeEntries = range ? timeEntriesRaw.filter((t) => inRange(t.clockIn, range)) : timeEntriesRaw;
@@ -243,9 +251,11 @@ export default async function ReportsPage({
       : 0;
   const showCoverageMismatchWarning = !range && coverageMismatchDays > 90;
 
+  // What customers still owe: for an invoice on a payment plan that's the
+  // unpaid installments, not the whole invoice.
   const outstandingReceivables = invoices
     .filter((i) => i.status !== "paid")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + invoiceBalanceDue(i), 0);
   const outstandingPayables = expenses
     .filter((e) => e.status !== "paid")
     .reduce((sum, e) => sum + e.amount, 0);
@@ -1096,13 +1106,13 @@ export default async function ReportsPage({
   const arRows = invoices
     .filter((inv) => inv.status !== "paid")
     .map((inv) => {
-      const anchor = inv.dueDate ?? inv.issueDate;
+      const anchor = invoiceDueAnchor(inv);
       const daysOverdue = Math.floor((agingToday.getTime() - anchor.getTime()) / 86_400_000);
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
         customerName: inv.booking?.customer?.name ?? inv.customer?.name ?? "—",
-        amount: inv.amount,
+        amount: invoiceBalanceDue(inv),
         bucket: agingBucket(daysOverdue),
       };
     });
