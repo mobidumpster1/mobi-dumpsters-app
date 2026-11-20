@@ -5,6 +5,10 @@ import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 
 const EMAIL_VERIFICATION_TTL_MS = 48 * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+// A second email for the same person within this window is silently skipped,
+// so the public "forgot password" form (and the resend button) can't be used
+// to flood someone's inbox.
+export const EMAIL_COOLDOWN_MS = 60 * 1000;
 
 // Creates a fresh verification token (deleting any unused one for this
 // user first, so only the most recently sent link works) and emails it.
@@ -16,6 +20,11 @@ export async function sendEmailVerification(user: {
   name: string;
   organizationName: string;
 }) {
+  const recent = await db.emailVerificationToken.findFirst({
+    where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - EMAIL_COOLDOWN_MS) } },
+    select: { id: true },
+  });
+  if (recent) return;
   await db.emailVerificationToken.deleteMany({ where: { userId: user.id, usedAt: null } });
   const token = generateToken();
   await db.emailVerificationToken.create({
@@ -70,6 +79,12 @@ export async function sendPasswordResetIfAccountExists(email: string) {
   });
   if (!user || !user.active) return;
 
+  const recent = await db.passwordResetToken.findFirst({
+    where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - EMAIL_COOLDOWN_MS) } },
+    select: { id: true },
+  });
+  if (recent) return;
+
   await db.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
   const token = generateToken();
   await db.passwordResetToken.create({
@@ -117,7 +132,13 @@ export async function applyPasswordReset(
 
   await db.$transaction([
     db.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
-    db.user.update({ where: { id: record.userId }, data: { passwordHash: newPasswordHash } }),
+    // Choosing a new password also clears a login lockout: someone locked out
+    // after five wrong guesses who resets their password is plainly the owner
+    // of the inbox, and shouldn't have to wait out the clock.
+    db.user.update({
+      where: { id: record.userId },
+      data: { passwordHash: newPasswordHash, failedLoginAttempts: 0, lockedUntil: null },
+    }),
   ]);
   return { ok: true };
 }
