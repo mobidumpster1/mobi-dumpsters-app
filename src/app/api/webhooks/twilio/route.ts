@@ -4,6 +4,7 @@ import { getAnyTwilioConnection, verifyTwilioSignature } from "@/lib/twilio";
 import { lastTenDigits } from "@/lib/phone";
 import { siteOrigin } from "@/lib/email";
 import { notifyOwner } from "@/lib/orgContact";
+import { applySmsKeyword } from "@/lib/smsOptOut";
 
 const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
@@ -41,6 +42,10 @@ export async function POST(request: Request) {
     const twilioSid = params.MessageSid;
     const last10 = lastTenDigits(from);
 
+    // STOP / START: keep the opt-out list current before anything else, so no
+    // text goes to someone who asked not to get them.
+    const keyword = await applySmsKeyword(connection.organizationId, from, body);
+
     const customers = last10
       ? await db.customer.findMany({
           where: { organizationId: connection.organizationId, phone: { not: null } },
@@ -66,7 +71,13 @@ export async function POST(request: Request) {
     // heads-up rather than silently disappearing.
     await notifyOwner(
       connection.organizationId,
-      matched ? `${matched.name} texted you` : `New text from ${from}`,
+      keyword === "stop"
+        ? `${matched?.name ?? from} opted out of texts`
+        : keyword === "start"
+          ? `${matched?.name ?? from} opted back in to texts`
+          : matched
+            ? `${matched.name} texted you`
+            : `New text from ${from}`,
       [
         matched
           ? `New text from ${matched.name} (${from}):`
@@ -74,10 +85,18 @@ export async function POST(request: Request) {
         "",
         body,
         "",
+        keyword === "stop"
+          ? "They asked to stop. The app will not text this number again unless they text START."
+          : keyword === "start"
+            ? "They can be texted again."
+            : null,
+        keyword ? "" : null,
         matched
           ? `Reply from the app: ${siteOrigin()}/customers/${matched.id}`
           : "This number doesn't match any customer on file.",
-      ].join("\n")
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n")
     );
 
     return new NextResponse(EMPTY_TWIML, { status: 200, headers: { "Content-Type": "text/xml" } });

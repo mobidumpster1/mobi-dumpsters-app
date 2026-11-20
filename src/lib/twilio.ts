@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { toE164 } from "@/lib/phone";
+import { isOptedOut } from "@/lib/smsOptOut";
 
 type TwilioConnectionRow = {
   id: string;
@@ -74,16 +75,20 @@ export async function sendCustomerSms(
   customer: CustomerInput,
   body: string
 ): Promise<{ twilioSid: string }> {
-  const connection = await getTwilioConnection(organizationId);
-  if (!connection) {
-    throw new Error("Connect Twilio in Settings before sending a text.");
-  }
   if (!customer.phone) {
     throw new Error("This customer doesn't have a phone number on file.");
   }
   const to = toE164(customer.phone);
   if (!to) {
     throw new Error("This customer's phone number doesn't look like a valid US number.");
+  }
+  // They texted STOP: no text of any kind until they text START.
+  if (await isOptedOut(organizationId, customer.phone)) {
+    throw new Error("This customer opted out of texts (they replied STOP), so no text was sent. Call or email them instead.");
+  }
+  const connection = await getTwilioConnection(organizationId);
+  if (!connection) {
+    throw new Error("Connect Twilio in Settings before sending a text.");
   }
 
   const { twilioSid } = await postTwilioMessage(connection, to, body);
@@ -109,6 +114,7 @@ export async function sendCustomerSms(
 // that should block the whole send.
 export async function sendLeadSms(organizationId: string, phone: string | null, body: string) {
   if (!phone) return;
+  if (await isOptedOut(organizationId, phone)) return;
   const connection = await getTwilioConnection(organizationId);
   if (!connection) return;
   const to = toE164(phone);

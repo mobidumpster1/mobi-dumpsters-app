@@ -97,6 +97,7 @@ model Organization {
   websiteSnippets                 WebsiteSnippet[]
   stripeConnection                StripeConnection?
   twilioConnection                TwilioConnection?
+  smsOptOuts                      SmsOptOut[]
   smsMessages                     CustomerSmsMessage[]
   quotes                          Quote[]
   maintenanceLogEntries           MaintenanceLogEntry[]
@@ -1363,6 +1364,20 @@ model TwilioConnection {
   phoneNumber    String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+// A phone number that texted STOP (or similar) to this business, so no
+// automated or staff text goes to it again until it texts START. Keyed by the
+// last 10 digits because phones are stored however they were typed. Covers
+// customers, leads and unknown numbers alike.
+model SmsOptOut {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  phoneLast10    String
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, phoneLast10])
 }
 
 // One real text message, either direction — the actual conversation

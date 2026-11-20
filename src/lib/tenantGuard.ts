@@ -34,6 +34,7 @@ export const ORG_SCOPED_MODELS = new Set([
   "WinBackSettings",
   "BlackoutDate",
   "WebsiteBuilderPageVersion",
+  "SmsOptOut",
 ]);
 
 // Only the operations whose `where` is both optional AND capable of
