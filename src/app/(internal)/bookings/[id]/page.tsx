@@ -42,7 +42,7 @@ import { DriverQuickSelect } from "@/components/DriverQuickSelect";
 import { DepositReleaseButton } from "@/components/DepositReleaseButton";
 import { Tabs } from "@/components/Tabs";
 import { ExtendForm, LogWeightForm } from "@/components/QuickBookingForms";
-import { extendBooking, logBookingWeight } from "../quickActions";
+import { addEquipmentToBooking, extendBooking, logBookingWeight } from "../quickActions";
 import { requireUser, hasPlan } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +70,7 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const { notified } = await searchParams;
   const user = await requireUser();
-  const [booking, vehicles, drivers, permitAreas, jobCostingSettings, openTimeEntry, org] = await Promise.all([
+  const [booking, vehicles, drivers, permitAreas, jobCostingSettings, openTimeEntry, org, units] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: user.effectiveOrganizationId },
       include: {
@@ -108,6 +108,12 @@ export default async function BookingDetailPage({
     db.organization.findUniqueOrThrow({
       where: { id: user.effectiveOrganizationId },
       select: { bookingFieldDefinitions: true },
+    }),
+    // Units to choose from when a booking has no equipment yet.
+    db.equipmentItem.findMany({
+      where: { organizationId: user.effectiveOrganizationId, status: { notIn: ["retired", "needs_repair"] } },
+      select: { id: true, label: true, category: { select: { name: true } } },
+      orderBy: [{ category: { name: "asc" } }, { label: "asc" }],
     }),
   ]);
 
@@ -651,12 +657,52 @@ export default async function BookingDetailPage({
   // A cancelled or declined booking that was already paid (an online customer
   // can pay before it's confirmed) still holds the customer's money. Nothing
   // refunds it automatically, so say so where it can't be missed.
+  const needsEquipment = booking.items.length === 0 && !isCancelled;
+  const addEquipmentWithId = addEquipmentToBooking.bind(null, booking.id);
   const paidInvoices = isCancelled
     ? booking.invoices.filter((inv) => inv.status === "paid" || inv.status === "partial")
     : [];
 
   return (
     <div>
+      {needsEquipment && (
+        <section className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <h2 className="text-base font-bold text-amber-900">This booking has no equipment or dates yet</h2>
+          <p className="mt-1 text-sm text-amber-900">
+            It won&apos;t show on the calendar, the driver&apos;s list or the dashboard until you pick a unit and dates
+            (a booking made by accepting a quote starts this way).
+          </p>
+          <form action={addEquipmentWithId} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Field label="Unit" htmlFor="addEquipUnit">
+              <select id="addEquipUnit" name="equipmentItemId" required className={inputClass}>
+                <option value="">Choose a unit…</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.category.name} — {u.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Delivery date" htmlFor="addEquipStart">
+              <input id="addEquipStart" name="startDate" type="date" required className={inputClass} />
+            </Field>
+            <Field label="Pickup date" htmlFor="addEquipEnd">
+              <input id="addEquipEnd" name="endDate" type="date" required className={inputClass} />
+            </Field>
+            <Field label="Price ($)" htmlFor="addEquipPrice">
+              <input id="addEquipPrice" name="price" type="number" step="0.01" min="0" defaultValue="0" className={inputClass} />
+            </Field>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
+              >
+                Add to booking
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
       {paidInvoices.length > 0 && (
         <div role="alert" className="mb-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
           <p className="font-bold">This booking is cancelled, but the customer has already paid.</p>

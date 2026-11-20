@@ -6,6 +6,7 @@ import { str } from "@/lib/formData";
 import { requireUser } from "@/lib/session";
 import { extendBookingDates } from "@/lib/bookingExtension";
 import { applyDumpWeightToBooking } from "@/lib/overageBilling";
+import { addFirstEquipmentToBooking } from "@/lib/bookingEquipment";
 
 // One-tap actions for the screens people use all day (Dispatch and the
 // booking page), so a phone call ("can I keep it two more days?") or a scale
@@ -18,6 +19,17 @@ function refresh(bookingId: string, customerId?: string) {
   revalidatePath(`/bookings/${bookingId}`);
   revalidatePath("/invoices");
   if (customerId) revalidatePath(`/customers/${customerId}`);
+}
+
+export async function addEquipmentToBooking(bookingId: string, formData: FormData) {
+  const user = await requireUser();
+  const booking = await addFirstEquipmentToBooking(user.effectiveOrganizationId, bookingId, {
+    equipmentItemId: str(formData, "equipmentItemId") ?? "",
+    startDate: str(formData, "startDate") ?? "",
+    endDate: str(formData, "endDate") ?? "",
+    price: Number(str(formData, "price") ?? "0"),
+  });
+  refresh(bookingId, booking.customerId);
 }
 
 export async function extendBooking(bookingId: string, formData: FormData) {
