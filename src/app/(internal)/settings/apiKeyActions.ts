@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { generateApiKey, hashApiKey } from "@/lib/apiAuth";
-import { requireUser } from "@/lib/session";
+import { requireOwner } from "@/lib/session";
 
 // Returns the plaintext key exactly once — the caller (a client component,
 // see ApiKeysSection) is responsible for displaying it prominently and
 // never re-fetching it, since only the hash is stored from here on.
 export async function createApiKey(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const name = str(formData, "name");
   if (!name) throw new Error("Name is required");
 
@@ -29,7 +29,7 @@ export async function createApiKey(formData: FormData) {
 }
 
 export async function revokeApiKey(apiKeyId: string) {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.apiKey.updateMany({
     where: { id: apiKeyId, organizationId: user.effectiveOrganizationId, revokedAt: null },
     data: { revokedAt: new Date() },

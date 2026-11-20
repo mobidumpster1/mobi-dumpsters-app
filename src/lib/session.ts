@@ -116,6 +116,15 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return { ...userFields, effectiveOrganizationId, plan, impersonating };
 }
 
+// For server actions that only the business owner may run (settings, API keys,
+// the website builder). The pages hide these from staff, but a server action
+// can be called directly, so every one of them checks the role itself.
+export async function requireOwner(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "owner") throw new Error("Only the owner can change this.");
+  return user;
+}
+
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

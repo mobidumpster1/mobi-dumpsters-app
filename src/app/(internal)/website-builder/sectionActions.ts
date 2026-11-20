@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser, requirePlanFor, hasPlan } from "@/lib/session";
+import { requireOwner, requirePlanFor, hasPlan } from "@/lib/session";
 import { getWebsiteBuilderPage } from "@/lib/websiteBuilderPage";
 import { saveWebsiteBuilderVersion, getWebsiteBuilderVersion } from "@/lib/websiteBuilderVersions";
 import { parsePageData, serializePageData, stripUngatedHtmlBlocks } from "@/lib/websiteSections";
@@ -20,7 +20,7 @@ const FALLBACK_BRAND_COLOR = "#3f6b2f";
 // autosave; either way it also snapshots a recoverable version (see
 // websiteBuilderVersions.ts).
 export async function saveSections(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const page = await getWebsiteBuilderPage(user.effectiveOrganizationId);
 
@@ -40,7 +40,7 @@ export async function saveSections(formData: FormData) {
 }
 
 export async function togglePublished(published: boolean) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const page = await getWebsiteBuilderPage(user.effectiveOrganizationId);
 
@@ -59,7 +59,7 @@ export async function togglePublished(published: boolean) {
 // recoverable — restoring writes a fresh "Autosave" snapshot of what was
 // live right before the restore).
 export async function restoreVersion(versionId: string): Promise<{ sectionsJson: string }> {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const page = await getWebsiteBuilderPage(user.effectiveOrganizationId);
   const version = await getWebsiteBuilderVersion(user.effectiveOrganizationId, versionId);

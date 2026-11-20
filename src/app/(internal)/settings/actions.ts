@@ -25,7 +25,7 @@ import {
   resetEmailTemplate,
   type EmailTemplateKey,
 } from "@/lib/emailTemplates";
-import { requireUser, requirePlanFor } from "@/lib/session";
+import { requireOwner, requirePlanFor } from "@/lib/session";
 import { isValidTimeZone } from "@/lib/orgContact";
 
 function parsePick(formData: FormData, key: string) {
@@ -36,7 +36,7 @@ function parsePick(formData: FormData, key: string) {
 }
 
 export async function saveAccountMappings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const connection = await db.quickBooksConnection.findUnique({
     where: { organizationId: user.effectiveOrganizationId },
@@ -63,13 +63,13 @@ export async function saveAccountMappings(formData: FormData) {
 }
 
 export async function disconnectQuickBooks() {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.quickBooksConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }
 
 export async function importCustomersFromQuickBooks() {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const connection = await getValidConnection(user.effectiveOrganizationId);
   if (!connection) throw new Error("Not connected to QuickBooks");
@@ -123,7 +123,7 @@ export async function importCustomersFromQuickBooks() {
 // up purchases entered directly in QuickBooks since the last import —
 // nothing the app itself already pushed gets duplicated back in.
 export async function importExpensesFromQuickBooks() {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const connection = await getValidConnection(user.effectiveOrganizationId);
   if (!connection) throw new Error("Not connected to QuickBooks");
@@ -164,7 +164,7 @@ export async function importExpensesFromQuickBooks() {
 }
 
 export async function updateBranding(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const logoUrl = str(formData, "logoUrl") || null;
   const primaryColor = str(formData, "primaryColor") || null;
 
@@ -181,7 +181,7 @@ export async function updateBranding(formData: FormData) {
 // inbox and time zone (see src/lib/orgContact.ts). Blank fields fall back
 // to the platform defaults.
 export async function updateBusinessContact(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   if (user.role !== "owner") throw new Error("Only the owner can change the business contact details.");
   const contactPhone = str(formData, "contactPhone") || null;
   const notificationEmail = str(formData, "notificationEmail") || null;
@@ -211,7 +211,7 @@ function normalizeDomain(raw: string): string {
 }
 
 export async function updatePublicDomain(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const raw = str(formData, "publicDomain");
   const publicDomain = raw ? normalizeDomain(raw) : null;
 
@@ -244,7 +244,7 @@ export async function updatePublicDomain(formData: FormData) {
 }
 
 export async function updateAgreementSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getAgreementSettings(user.effectiveOrganizationId);
   const title = str(formData, "title") || "Service & Rental Agreement";
   const content = str(formData, "content") || "";
@@ -258,7 +258,7 @@ export async function updateAgreementSettings(formData: FormData) {
 }
 
 export async function updateReviewRequestSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getReviewRequestSettings(user.effectiveOrganizationId);
   const googleReviewUrl = str(formData, "googleReviewUrl") || null;
   const delayDaysStr = str(formData, "delayDays");
@@ -274,14 +274,14 @@ export async function updateReviewRequestSettings(formData: FormData) {
 }
 
 export async function sendReviewRequestsNow() {
-  await requireUser();
+  await requireOwner();
   const result = await sendPendingReviewRequests();
   revalidatePath("/settings");
   redirect(`/settings?reviews_sent=${result.sent}&reviews_checked=${result.checked ?? 0}`);
 }
 
 export async function updateInvoiceReminderSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getInvoiceReminderSettings(user.effectiveOrganizationId);
   const delayDaysStr = str(formData, "delayDays");
   const repeatDaysStr = str(formData, "repeatDays");
@@ -298,7 +298,7 @@ export async function updateInvoiceReminderSettings(formData: FormData) {
 }
 
 export async function updateWinBackSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getWinBackSettings(user.effectiveOrganizationId);
   const lapsedDaysStr = str(formData, "lapsedDays");
   const lapsedDays = lapsedDaysStr ? Math.max(1, Number(lapsedDaysStr) || 0) : 90;
@@ -313,7 +313,7 @@ export async function updateWinBackSettings(formData: FormData) {
 }
 
 export async function addPermitArea(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const name = str(formData, "name");
   if (!name) throw new Error("Area name is required");
 
@@ -327,7 +327,7 @@ export async function addPermitArea(formData: FormData) {
 }
 
 export async function removePermitArea(areaId: string) {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.permitArea.deleteMany({
     where: { id: areaId, organizationId: user.effectiveOrganizationId },
   });
@@ -335,14 +335,14 @@ export async function removePermitArea(areaId: string) {
 }
 
 export async function sendInvoiceRemindersNow() {
-  await requireUser();
+  await requireOwner();
   const result = await sendPendingInvoiceReminders();
   revalidatePath("/settings");
   redirect(`/settings?invoices_sent=${result.sent}&invoices_checked=${result.checked ?? 0}`);
 }
 
 export async function updateJobNotificationSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getJobNotificationSettings(user.effectiveOrganizationId);
   const enabled = formData.get("enabled") === "on";
 
@@ -355,7 +355,7 @@ export async function updateJobNotificationSettings(formData: FormData) {
 }
 
 export async function updateJobCostingSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getJobCostingSettings(user.effectiveOrganizationId);
   const percentStr = str(formData, "marginAlertPercent");
   const marginAlertPercent = percentStr ? Math.max(0, Math.min(100, Number(percentStr) || 0)) : 20;
@@ -369,7 +369,7 @@ export async function updateJobCostingSettings(formData: FormData) {
 }
 
 export async function updateDumpScheduleSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getDumpScheduleSettings(user.effectiveOrganizationId);
 
   const openHour = Math.max(0, Math.min(23, Number(str(formData, "openHour")) || 0));
@@ -397,7 +397,7 @@ export async function updateDumpScheduleSettings(formData: FormData) {
 }
 
 export async function updateBookingAvailabilitySettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getBookingAvailabilitySettings(user.effectiveOrganizationId);
 
   const minimumNoticeHours = Math.max(0, Number(str(formData, "minimumNoticeHours")) || 0);
@@ -418,7 +418,7 @@ export async function updateBookingAvailabilitySettings(formData: FormData) {
 }
 
 export async function addBlackoutDate(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const startDateStr = str(formData, "startDate");
   const endDateStr = str(formData, "endDate") || startDateStr;
   if (!startDateStr) throw new Error("Start date is required.");
@@ -442,7 +442,7 @@ export async function addBlackoutDate(formData: FormData) {
 }
 
 export async function deleteBlackoutDate(blackoutDateId: string) {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.blackoutDate.deleteMany({
     where: { id: blackoutDateId, organizationId: user.effectiveOrganizationId },
   });
@@ -451,7 +451,7 @@ export async function deleteBlackoutDate(blackoutDateId: string) {
 }
 
 export async function updateTaxSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getTaxSettings(user.effectiveOrganizationId);
 
   const ratePercent = Math.max(0, Math.min(100, Number(str(formData, "ratePercent")) || 0));
@@ -470,7 +470,7 @@ export async function updateTaxSettings(formData: FormData) {
 }
 
 export async function updateCustomerFieldDefinitions(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const json = formData.get("customerFieldDefinitionsJson");
   await db.organization.update({
     where: { id: user.effectiveOrganizationId },
@@ -480,7 +480,7 @@ export async function updateCustomerFieldDefinitions(formData: FormData) {
 }
 
 export async function updateBookingFieldDefinitions(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const json = formData.get("bookingFieldDefinitionsJson");
   await db.organization.update({
     where: { id: user.effectiveOrganizationId },
@@ -490,7 +490,7 @@ export async function updateBookingFieldDefinitions(formData: FormData) {
 }
 
 export async function updateAutomationSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getAutomationSettings(user.effectiveOrganizationId);
   const capStr = str(formData, "dailyActionCap");
   const dailyActionCap = capStr ? Math.max(1, Number(capStr) || 200) : 200;
@@ -504,7 +504,7 @@ export async function updateAutomationSettings(formData: FormData) {
 }
 
 export async function updateDeliveryReminderSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getDeliveryReminderSettings(user.effectiveOrganizationId);
   const hoursBeforeStr = str(formData, "hoursBefore");
   const hoursBefore = hoursBeforeStr ? Math.max(1, Number(hoursBeforeStr) || 0) : 24;
@@ -519,7 +519,7 @@ export async function updateDeliveryReminderSettings(formData: FormData) {
 }
 
 export async function updateJobPhotoNotificationSettings(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const settings = await getJobPhotoNotificationSettings(user.effectiveOrganizationId);
   const channel = str(formData, "channel") ?? "email";
   const autoSend = formData.get("autoSend") === "on";
@@ -533,14 +533,14 @@ export async function updateJobPhotoNotificationSettings(formData: FormData) {
 }
 
 export async function sendDeliveryRemindersNow() {
-  await requireUser();
+  await requireOwner();
   const result = await sendPendingDeliveryReminders();
   revalidatePath("/settings");
   redirect(`/settings?deliveries_sent=${result.sent}&deliveries_checked=${result.checked ?? 0}`);
 }
 
 export async function saveEmailTemplate(key: EmailTemplateKey, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const subject = str(formData, "subject") || "";
   const body = str(formData, "body") || "";
   await updateEmailTemplate(key, subject, body, user.effectiveOrganizationId);
@@ -548,13 +548,13 @@ export async function saveEmailTemplate(key: EmailTemplateKey, formData: FormDat
 }
 
 export async function resetEmailTemplateToDefault(key: EmailTemplateKey) {
-  const user = await requireUser();
+  const user = await requireOwner();
   await resetEmailTemplate(key, user.effectiveOrganizationId);
   revalidatePath("/settings");
 }
 
 export async function saveWebsiteSnippet(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   const id = str(formData, "id");
   const name = str(formData, "name");
@@ -576,7 +576,7 @@ export async function saveWebsiteSnippet(formData: FormData) {
 }
 
 export async function deleteWebsiteSnippet(id: string) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "team");
   await db.websiteSnippet.deleteMany({
     where: { id, organizationId: user.effectiveOrganizationId },
@@ -585,7 +585,7 @@ export async function deleteWebsiteSnippet(id: string) {
 }
 
 export async function saveStripeConnection(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   const secretKey = str(formData, "secretKey");
   const publishableKey = str(formData, "publishableKey");
   const webhookSecret = str(formData, "webhookSecret");
@@ -601,13 +601,13 @@ export async function saveStripeConnection(formData: FormData) {
 }
 
 export async function disconnectStripe() {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.stripeConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }
 
 export async function saveTwilioConnection(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireOwner();
   requirePlanFor(user, "pro");
   const accountSid = str(formData, "accountSid");
   const authToken = str(formData, "authToken");
@@ -625,7 +625,7 @@ export async function saveTwilioConnection(formData: FormData) {
 }
 
 export async function disconnectTwilio() {
-  const user = await requireUser();
+  const user = await requireOwner();
   await db.twilioConnection.deleteMany({ where: { organizationId: user.effectiveOrganizationId } });
   revalidatePath("/settings");
 }
