@@ -26,6 +26,7 @@ import { findAssignmentConflict } from "@/lib/assignmentConflicts";
 import { Prisma } from "@/generated/prisma";
 import { getOrgContact } from "@/lib/orgContact";
 import { billMileageOverage, billTonnageOverage } from "@/lib/overageBilling";
+import { keepTimeOfDay, stillOutAtCustomer } from "@/lib/bookingDates";
 
 type BookingItemInput = {
   equipmentItemId: string;
@@ -302,6 +303,11 @@ export async function declineBooking(bookingId: string) {
     where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true },
   });
+  if (stillOutAtCustomer(booking.items)) {
+    throw new Error(
+      "This job is still out at the customer's. Pick it up (or mark it returned) before declining it."
+    );
+  }
 
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
   await releaseEquipment(user.effectiveOrganizationId, booking.items);
@@ -343,6 +349,11 @@ export async function cancelBooking(bookingId: string) {
     where: { id: bookingId, organizationId: user.effectiveOrganizationId },
     include: { items: true },
   });
+  if (stillOutAtCustomer(booking.items)) {
+    throw new Error(
+      "This job is still out at the customer's. Pick it up (or mark it returned) before cancelling, so the unit isn't shown as available while it's on their site."
+    );
+  }
 
   await db.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
   await releaseEquipment(user.effectiveOrganizationId, booking.items);
@@ -394,8 +405,8 @@ export async function updateBooking(bookingId: string, formData: FormData) {
         return [
           {
             equipmentItemId: item.equipmentItemId,
-            startDate: startStr ? new Date(startStr) : item.startDate,
-            endDate: endStr ? new Date(endStr) : item.expectedReturnDate,
+            startDate: keepTimeOfDay(startStr, item.startDate),
+            endDate: keepTimeOfDay(endStr, item.expectedReturnDate),
           },
         ];
       });
@@ -435,10 +446,8 @@ export async function updateBooking(bookingId: string, formData: FormData) {
     await db.bookingItem.update({
       where: { id: item.id },
       data: {
-        ...(startDate ? { startDate: new Date(startDate) } : {}),
-        ...(expectedReturnDate
-          ? { expectedReturnDate: new Date(expectedReturnDate) }
-          : {}),
+        startDate: keepTimeOfDay(startDate, item.startDate),
+        expectedReturnDate: keepTimeOfDay(expectedReturnDate, item.expectedReturnDate),
         price: priceStr ? Number(priceStr) || 0 : item.price,
       },
     });

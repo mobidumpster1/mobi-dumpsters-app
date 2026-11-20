@@ -68,6 +68,9 @@ export async function payForBooking(bookingId: string) {
     where: { id: bookingId },
     include: { customer: true },
   });
+  if (booking.status === "cancelled") {
+    throw new Error("This booking was cancelled, so it can't be paid online. Please contact us.");
+  }
   if (!booking.customer.email) {
     throw new Error("Sign the agreement first — that's where we get your email.");
   }

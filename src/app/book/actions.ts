@@ -648,6 +648,9 @@ export async function payBookingInvoiceNow(invoiceId: string) {
     });
     const problem = payInFullProblem(invoice);
     if (problem) throw new BookingError(problem);
+    if (invoice.booking?.status === "cancelled") {
+      throw new BookingError("This booking was cancelled, so it can't be paid online. Please contact us.");
+    }
 
     const customer = invoice.booking?.customer ?? invoice.customer;
     if (!customer?.email) {

@@ -648,8 +648,32 @@ export default async function BookingDetailPage({
     { id: "media", label: "Photos & Videos", content: mediaTab },
   ];
 
+  // A cancelled or declined booking that was already paid (an online customer
+  // can pay before it's confirmed) still holds the customer's money. Nothing
+  // refunds it automatically, so say so where it can't be missed.
+  const paidInvoices = isCancelled
+    ? booking.invoices.filter((inv) => inv.status === "paid" || inv.status === "partial")
+    : [];
+
   return (
     <div>
+      {paidInvoices.length > 0 && (
+        <div role="alert" className="mb-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-bold">This booking is cancelled, but the customer has already paid.</p>
+          <p className="mt-1">
+            Nothing was refunded automatically. Open{" "}
+            {paidInvoices.map((inv, i) => (
+              <span key={inv.id}>
+                {i > 0 && ", "}
+                <Link href={`/invoices/${inv.id}`} className="font-semibold underline">
+                  {inv.invoiceNumber}
+                </Link>
+              </span>
+            ))}{" "}
+            to refund it, and let the customer know.
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-ink">
