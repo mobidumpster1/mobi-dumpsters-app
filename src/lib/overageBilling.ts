@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { getTaxSettings } from "@/lib/taxSettings";
 import { getOrgContact } from "@/lib/orgContact";
+import { primaryInvoiceWhere } from "@/lib/invoicing";
 import { sendCustomerSms } from "@/lib/twilio";
 
 // Overage billing (extra tons, extra miles). Plain library code, deliberately
@@ -96,7 +97,8 @@ async function addOverageToInvoice(
   line: OverageLine
 ): Promise<"billed" | "manual"> {
   const invoice = await db.invoice.findFirst({
-    where: { bookingId, organizationId },
+    where: primaryInvoiceWhere(organizationId, bookingId),
+    orderBy: { createdAt: "asc" },
     include: { lineItems: true, installments: true },
   });
 

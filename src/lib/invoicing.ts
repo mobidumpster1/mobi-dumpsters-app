@@ -124,6 +124,27 @@ export function computeInvoiceLineItems(
   return lines;
 }
 
+// A booking's main invoice. A booking can also have supplemental invoices
+// (source "supplemental", e.g. a damage charge found after the rental invoice
+// was paid), which are separate bills and must never be mistaken for it.
+export function primaryInvoiceWhere(organizationId: string, bookingId: string) {
+  return {
+    bookingId,
+    organizationId,
+    OR: [{ source: null }, { source: { not: "supplemental" } }],
+  };
+}
+
+// An invoice whose total shouldn't be edited any more: money has been taken or
+// promised against it. Changes after that go on a separate supplemental invoice.
+export function invoiceIsSettled(invoice: {
+  status: string;
+  installments: unknown[];
+  stripePaymentIntentId: string | null;
+}): boolean {
+  return invoice.status !== "unpaid" || invoice.installments.length > 0 || Boolean(invoice.stripePaymentIntentId);
+}
+
 // Derives the next number from the highest existing INV-#### number rather
 // than a row count, since a count drifts out of sync with the sequence
 // whenever an invoice is deleted (or historical HIST-#### rows exist
@@ -152,7 +173,8 @@ export async function createDraftInvoiceForBooking(bookingId: string) {
   });
 
   const existing = await db.invoice.findFirst({
-    where: { bookingId, organizationId: booking.organizationId },
+    where: primaryInvoiceWhere(booking.organizationId, bookingId),
+    orderBy: { createdAt: "asc" },
   });
   if (existing) return existing;
 
@@ -200,7 +222,8 @@ export async function syncInvoiceWithBooking(bookingId: string): Promise<boolean
     },
   });
   const invoice = await db.invoice.findFirst({
-    where: { bookingId, organizationId: booking.organizationId },
+    where: primaryInvoiceWhere(booking.organizationId, bookingId),
+    orderBy: { createdAt: "asc" },
     include: { lineItems: true, installments: true },
   });
   if (!invoice) return false;
