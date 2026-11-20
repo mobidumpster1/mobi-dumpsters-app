@@ -45,6 +45,7 @@ import { getStripeConnection } from "@/lib/stripe";
 import { getTwilioConnection } from "@/lib/twilio";
 import { updateStaffPermissions, setStaffActive } from "./staffActions";
 import { AddStaffForm } from "./AddStaffForm";
+import { listBookableCategories } from "@/lib/availability";
 import { TwilioConnectionForm } from "./TwilioConnectionForm";
 import { UpgradeButton, ManageBillingButton } from "./BillingButtons";
 import { setPlatformAdmin } from "../platform-admin/actions";
@@ -72,7 +73,6 @@ import { WebsiteSnippetManager } from "@/components/WebsiteSnippetManager";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { SettingsMenu, type SettingsGroup } from "@/components/SettingsMenu";
 import { buildWebsiteWidgets } from "@/lib/websiteWidgets";
-import { listBookableCategories } from "@/lib/availability";
 import { db } from "@/lib/db";
 import { parseFieldDefinitions } from "@/lib/categoryFields";
 import { CategoryFieldBuilder } from "@/components/CategoryFieldBuilder";
@@ -175,6 +175,7 @@ export default async function SettingsPage({
     deliveries_checked?: string;
     billing_success?: string;
     billing_cancelled?: string;
+    section?: string;
   }>;
 }) {
   const currentUser = await requireUser();
@@ -197,6 +198,7 @@ export default async function SettingsPage({
     deliveries_checked,
     billing_success,
     billing_cancelled,
+    section: requestedSection,
   } = await searchParams;
   const configured = isQuickBooksConfigured();
   const googleBusinessConfigured = isGoogleBusinessConfigured();
@@ -2137,7 +2139,8 @@ export default async function SettingsPage({
     .map((group) => ({ ...group, items: group.items.filter((item) => Boolean(item.content)) }))
     .filter((group) => group.items.length > 0);
 
-  const initialItem = computeInitialTab({
+  const requestedItem = groups.flatMap((g) => g.items).find((item) => item.id === requestedSection)?.id;
+  const initialItem = requestedItem ?? computeInitialTab({
     qb_connected,
     qb_error,
     gbp_connected,
@@ -2161,21 +2164,52 @@ export default async function SettingsPage({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-black text-ink">Booking Page</h2>
-            <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800">
-              Live
-            </span>
+            {!orgDomain?.publicDomain ? (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                Needs its own address
+              </span>
+            ) : bookableCategories.length === 0 ? (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                Nothing to book yet
+              </span>
+            ) : (
+              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-800">Live</span>
+            )}
           </div>
-          <p className="mt-1 text-sm text-zinc-500">What customers see when they book online.</p>
-          <p className="mt-1 text-xs text-zinc-400">{widgetBaseUrl.replace(/^https?:\/\//, "")}/book</p>
+          {!orgDomain?.publicDomain ? (
+            <p className="mt-1 max-w-xl text-sm text-zinc-500">
+              Your booking page needs its own web address before customers can use it. Until it&apos;s connected, the
+              shared link would show another business&apos;s page, so don&apos;t share it. Ask the platform owner to
+              connect your domain.
+            </p>
+          ) : bookableCategories.length === 0 ? (
+            <p className="mt-1 max-w-xl text-sm text-zinc-500">
+              Add a rental type that has units and a price. Until then there&apos;s nothing on the page to book.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-zinc-500">What customers see when they book online.</p>
+              <p className="mt-1 text-xs text-zinc-400">{widgetBaseUrl.replace(/^https?:\/\//, "")}/book</p>
+            </>
+          )}
         </div>
-        <a
-          href={`${widgetBaseUrl}/book`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
-        >
-          View Booking Page ↗
-        </a>
+        {!orgDomain?.publicDomain ? null : bookableCategories.length === 0 ? (
+          <Link
+            href="/equipment/categories"
+            className="flex-shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
+          >
+            Add a rental type
+          </Link>
+        ) : (
+          <a
+            href={`${widgetBaseUrl}/book`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-accent-ink transition-all hover:brightness-105 active:scale-[0.99]"
+          >
+            View Booking Page ↗
+          </a>
+        )}
       </div>
 
       <div className="mt-6">

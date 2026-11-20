@@ -17,6 +17,8 @@ import {
 import { MAINTENANCE_DUE_ALERT_DAYS, MAINTENANCE_TYPE_LABELS, maintenanceUrgency } from "@/lib/maintenance";
 import { requireUser, hasPlan } from "@/lib/session";
 import { getOrgContact } from "@/lib/orgContact";
+import { getSetupChecklist } from "@/lib/onboarding";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { PlanGateNotice } from "@/components/PlanGateNotice";
 import { inputClass } from "@/components/Field";
 import { ExtendForm, LogWeightForm } from "@/components/QuickBookingForms";
@@ -366,9 +368,12 @@ export default async function DispatchPage() {
   const greeting = localHour < 12 ? "Good morning" : localHour < 17 ? "Good afternoon" : "Good evening";
   const firstName = user.name.split(" ")[0];
   const needsAttentionCount = serviceRequests.length + expiringDocuments.length;
+  // New owners see a setup checklist until the booking page can take bookings.
+  const setup = user.role === "owner" ? await getSetupChecklist(user.effectiveOrganizationId) : null;
 
   return (
     <div className="flex flex-col gap-8">
+      {setup && !setup.complete && <SetupChecklist checklist={setup} />}
       <div>
         <h1 className="text-3xl tracking-tight text-ink sm:text-4xl">
           {greeting}, {firstName}
