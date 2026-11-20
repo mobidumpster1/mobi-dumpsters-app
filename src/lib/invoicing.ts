@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma";
 import { pushInvoicePayment } from "@/lib/quickbooks";
 import { getTaxSettings } from "@/lib/taxSettings";
+import { toCents } from "@/lib/stripe";
+import { notifyOwner } from "@/lib/orgContact";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -143,6 +145,18 @@ export function invoiceIsSettled(invoice: {
   stripePaymentIntentId: string | null;
 }): boolean {
   return invoice.status !== "unpaid" || invoice.installments.length > 0 || Boolean(invoice.stripePaymentIntentId);
+}
+
+// Why a "pay the whole invoice" link or charge must not be created for this
+// invoice, or null when it's fine. Enforced on the server because the pages
+// only hide the button: a paid invoice would be paid twice, and an invoice on a
+// payment plan would be charged its full total instead of an installment.
+export function payInFullProblem(invoice: { status: string; installments: unknown[] }): string | null {
+  if (invoice.status === "paid") return "This invoice is already paid.";
+  if (invoice.installments.length > 0) {
+    return "This invoice is on a payment plan. Send the payment link for an installment instead.";
+  }
+  return null;
 }
 
 // Derives the next number from the highest existing INV-#### number rather
@@ -307,10 +321,17 @@ async function buildInvoiceLines(
 // e.g. the server crashes between the charge succeeding and this
 // running). Idempotent: a no-op if the invoice is already marked paid, so
 // it's safe for both paths to call this for the same charge.
+// amountReceivedCents (from Stripe's webhook) lets this check that what was
+// actually collected matches the invoice. A payment that lands on an invoice
+// that is already paid, or for a different amount than the invoice total, is
+// NOT recorded as the invoice being paid in full: it is flagged on the invoice
+// and the owner is emailed, so a customer isn't shown as settled when money
+// is missing, or charged twice without anyone noticing.
 export async function markInvoicePaidViaStripe(
   invoiceId: string,
   organizationId: string,
-  paymentIntentId: string
+  paymentIntentId: string,
+  amountReceivedCents?: number
 ) {
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, organizationId },
@@ -321,7 +342,31 @@ export async function markInvoicePaidViaStripe(
       customer: true,
     },
   });
-  if (!invoice || invoice.status === "paid") return;
+  if (!invoice) return;
+
+  if (invoice.status === "paid") {
+    // The same payment arriving again (a webhook redelivery) is nothing to flag.
+    if (invoice.stripePaymentIntentId === paymentIntentId) return;
+    if (amountReceivedCents !== undefined) {
+      await flagStripePaymentProblem(
+        invoice,
+        organizationId,
+        paymentIntentId,
+        `A payment of $${(amountReceivedCents / 100).toFixed(2)} (Stripe ${paymentIntentId}) arrived for invoice ${invoice.invoiceNumber}, which was already paid. The customer may have paid twice. Check Stripe and refund the extra payment if needed.`
+      );
+    }
+    return;
+  }
+
+  if (amountReceivedCents !== undefined && amountReceivedCents !== toCents(invoice.amount)) {
+    await flagStripePaymentProblem(
+      invoice,
+      organizationId,
+      paymentIntentId,
+      `A payment of $${(amountReceivedCents / 100).toFixed(2)} (Stripe ${paymentIntentId}) arrived for invoice ${invoice.invoiceNumber}, but the invoice total is $${invoice.amount.toFixed(2)}. It was not marked paid. Check the amounts, then mark it paid by hand or adjust the invoice.`
+    );
+    return;
+  }
 
   await db.invoice.update({
     where: { id: invoice.id },
@@ -365,6 +410,23 @@ export async function markInvoicePaidViaStripe(
     // A QuickBooks hiccup shouldn't undo the invoice already being paid.
     console.error("Failed to push Stripe payment to QuickBooks:", error);
   }
+}
+
+async function flagStripePaymentProblem(
+  invoice: { id: string; invoiceNumber: string; notes: string | null },
+  organizationId: string,
+  paymentIntentId: string,
+  message: string
+) {
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+  const line = `[${stamp} UTC] ${message}`;
+  // The same payment is only noted once, even if Stripe redelivers the event.
+  if (invoice.notes?.includes(paymentIntentId)) return;
+  await db.invoice.update({
+    where: { id: invoice.id },
+    data: { notes: [invoice.notes, line].filter(Boolean).join("\n") },
+  });
+  await notifyOwner(organizationId, `Payment needs review: ${invoice.invoiceNumber}`, message);
 }
 
 // Same shape as markInvoicePaidViaStripe, but for one scheduled

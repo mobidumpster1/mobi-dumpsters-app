@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { str } from "@/lib/formData";
 import { pushInvoicePayment } from "@/lib/quickbooks";
-import { computeInvoiceLineItems, markInvoicePaidViaStripe } from "@/lib/invoicing";
+import { computeInvoiceLineItems, markInvoicePaidViaStripe, payInFullProblem } from "@/lib/invoicing";
 import { chargeCardOnFile, createCheckoutSession, refundPayment, toCents } from "@/lib/stripe";
 import { sendCustomerEmail, siteOrigin } from "@/lib/email";
 import { requirePermission } from "@/lib/session";
@@ -250,8 +250,11 @@ export async function sendInvoiceCheckoutLink(invoiceId: string) {
     include: {
       booking: { include: { customer: true } },
       customer: true,
+      installments: true,
     },
   });
+  const problem = payInFullProblem(invoice);
+  if (problem) throw new Error(problem);
 
   const customer = invoice.booking?.customer ?? invoice.customer;
   if (!customer?.email) {

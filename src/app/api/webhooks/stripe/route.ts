@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     if (installmentId) {
       await markInstallmentPaidViaStripe(installmentId, connection.organizationId, paymentIntent.id);
     } else if (invoiceId) {
-      await markInvoicePaidViaStripe(invoiceId, connection.organizationId, paymentIntent.id);
+      await markInvoicePaidViaStripe(invoiceId, connection.organizationId, paymentIntent.id, paymentIntent.amount_received);
     }
   } else if (event.type === "setup_intent.succeeded") {
     const setupIntent = event.data.object as Stripe.SetupIntent;

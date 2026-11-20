@@ -18,7 +18,7 @@ import { renderEmailTemplate } from "@/lib/emailTemplates";
 import { mapUtmSourceToLeadSource } from "@/lib/leadSource";
 import { resolveReferralCode } from "@/lib/referralCode";
 import { getPublicOrganizationId } from "@/lib/session";
-import { createDraftInvoiceForBooking } from "@/lib/invoicing";
+import { createDraftInvoiceForBooking, payInFullProblem } from "@/lib/invoicing";
 import { createCheckoutSession, savePaymentMethodFromSetupIntent, toCents } from "@/lib/stripe";
 import { quoteMaterialDelivery } from "@/lib/materialDelivery";
 import { milesBetween, drivingMilesBetween } from "@/lib/distance";
@@ -643,8 +643,11 @@ export async function payBookingInvoiceNow(invoiceId: string) {
       include: {
         booking: { include: { customer: true } },
         customer: true,
+        installments: true,
       },
     });
+    const problem = payInFullProblem(invoice);
+    if (problem) throw new BookingError(problem);
 
     const customer = invoice.booking?.customer ?? invoice.customer;
     if (!customer?.email) {
